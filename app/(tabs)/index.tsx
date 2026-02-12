@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 
@@ -25,7 +25,18 @@ export default function HomeScreen(){
           <Text style={styles.statLabel}>Calories</Text>
           <Text style={styles.statValue}>0</Text>
         </View>
-        
+      </View>
+
+      <View style={styles.actions}>
+        <Pressable style={({ pressed}) => [
+          styles.primaryButton,
+          pressed && styles.pressed,
+        ]}
+          onPress={() => {console.log("Start Workout Pressed")}}
+        >
+          <Text style={styles.primaryButtonText}>Start Workout</Text>
+        </Pressable>
+
       </View>
     </SafeAreaView>
   )
