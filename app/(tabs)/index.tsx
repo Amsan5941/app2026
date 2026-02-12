@@ -1,98 +1,126 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it: Testing to see if Xpo works!!!!</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+export default function HomeScreen(){
+  return(
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>APP2026</Text>
+        <Text style={styles.subtitle}>Welcome to the future of mobile apps</Text> 
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Workouts</Text>
+          <Text style={styles.statValue}>0</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Streak</Text>
+          <Text style={styles.statValue}>0</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Calories</Text>
+          <Text style={styles.statValue}>0</Text>
+        </View>
+        
+      </View>
+    </SafeAreaView>
+  )
 }
-
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  safeArea: {
+    flex: 1, // Fill the entire screen height
+    backgroundColor: "#0B0B0F", // Dark background
+  },
+  container: {
+    flex: 1, // Allow container to grow to fill available space
+    paddingHorizontal: 16, // Left/right padding
+    paddingTop: 12, // Top padding inside safe area
+    gap: 16, // Vertical spacing between sections (RN supports gap in newer versions)
+  },
+  header: {
+    gap: 6, // Spacing between title and subtitle
+  },
+  title: {
+    fontSize: 34, // Big headline
+    fontWeight: "800", // Bold weight
+    color: "#FFFFFF", // White text
+    letterSpacing: 0.2,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#B3B3C2", // Slightly muted text
+  },
+  statsRow: {
+    flexDirection: "row", // Lay children out horizontally
+    gap: 12, // Space between the stat cards
+  },
+  statCard: {
+    flex: 1, // Each card takes equal width
+    backgroundColor: "#151520",
+    borderRadius: 16,
+    padding: 12,
+    gap: 6,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#B3B3C2",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  actions: {
+    gap: 12, // Space between buttons
+  },
+  primaryButton: {
+    backgroundColor: "#6C5CE7", // Purple
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center", // Center text horizontally
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    backgroundColor: "#1C1C2A",
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#2B2B3D",
+  },
+  secondaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  pressed: {
+    opacity: 0.85, // Slight fade effect when pressed
+    transform: [{ scale: 0.99 }], // Tiny press animation
+  },
+  card: {
+    backgroundColor: "#151520",
+    borderRadius: 16,
+    padding: 14,
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  cardBody: {
+    fontSize: 14,
+    color: "#B3B3C2",
+    lineHeight: 20,
   },
 });
