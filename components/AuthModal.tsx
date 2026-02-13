@@ -1,13 +1,13 @@
 import { useAuth } from "@/hooks/useAuth";
 import React, { useState } from "react";
 import {
-    Alert,
-    Button,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Button,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 export default function AuthModal({
@@ -21,6 +21,8 @@ export default function AuthModal({
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -29,7 +31,12 @@ export default function AuthModal({
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { data, error } = await signUp(email, password);
+        if (!firstname.trim() || !lastname.trim()) {
+          setErrorText("Please enter your first and last name");
+          setLoading(false);
+          return;
+        }
+        const { data, error } = await signUp(email, password, firstname, lastname);
         if (error) setErrorText(error.message || JSON.stringify(error));
         else {
           Alert.alert(
@@ -62,6 +69,24 @@ export default function AuthModal({
           </Text>
           {user && <Text style={styles.info}>Signed in as {user.email}</Text>}
           {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
+          {mode === "signup" && (
+            <>
+              <TextInput
+                placeholder="First Name"
+                value={firstname}
+                onChangeText={setFirstname}
+                style={styles.input}
+                autoCapitalize="words"
+              />
+              <TextInput
+                placeholder="Last Name"
+                value={lastname}
+                onChangeText={setLastname}
+                style={styles.input}
+                autoCapitalize="words"
+              />
+            </>
+          )}
           <TextInput
             placeholder="Email"
             value={email}
@@ -93,7 +118,12 @@ export default function AuthModal({
               title={
                 mode === "login" ? "Switch to Sign up" : "Switch to Sign in"
               }
-              onPress={() => setMode(mode === "login" ? "signup" : "login")}
+              onPress={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setErrorText(null);
+                setFirstname("");
+                setLastname("");
+              }}
             />
             <Button title="Close" onPress={onClose} />
           </View>

@@ -6,7 +6,7 @@ type User = any;
 type AuthContextValue = {
   user: User | null;
   session: any | null;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, firstname: string, lastname: string) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
 };
@@ -52,8 +52,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  async function signUp(email: string, password: string) {
-    return await supabase.auth.signUp({ email, password });
+  async function signUp(email: string, password: string, firstname: string, lastname: string) {
+    try {
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      });
+
+      if (authError) return { data: authData, error: authError };
+
+      const authUserId = authData.user?.id;
+
+      if (!authUserId) {
+        return { data: authData, error: { message: "No user ID returned from signup" } };
+      }
+
+      // Create profile in users table
+      const { error: profileError } = await supabase.from("users").insert([
+        {
+          auth_id: authUserId,
+          firstname,
+          lastname,
+        },
+      ]);
+
+      if (profileError) {
+        console.error("Error creating user profile:", profileError);
+        return { data: authData, error: profileError };
+      }
+
+      return { data: authData, error: null };
+    } catch (error) {
+      console.error("Signup error:", error);
+      return { data: null, error };
+    }
   }
 
   async function signIn(email: string, password: string) {
