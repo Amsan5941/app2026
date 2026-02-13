@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
+import { useWorkoutTimer } from "@/hooks/use-workout-timer";
+import { formatTime } from "@/utils/formatTime";
+import { supabase } from "@/constants/supabase";
 
 function ProgressRing({ progress = 0.4 }) {
   const radius = 60;
@@ -40,6 +44,46 @@ function ProgressRing({ progress = 0.4 }) {
 }
 
 export default function HomeScreen() {
+  const timer = useWorkoutTimer();
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleStartWorkout = () => {
+    timer.start();
+    setIsWorkoutActive(true);
+  };
+
+  const handleStopWorkout = async () => {
+    timer.stop();
+    setIsWorkoutActive(false);
+    setIsSaving(true);
+
+    try {
+      // Save workout to Supabase
+      const { error } = await supabase.from("workouts").insert([
+        {
+          duration_seconds: timer.elapsedSeconds,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (error) {
+        console.error("Error saving workout:", error);
+        alert("Failed to save workout. Please try again.");
+      } else {
+        // Reset timer after successful save
+        setTimeout(() => {
+          timer.reset();
+        }, 1500);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      alert("An unexpected error occurred.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
@@ -51,6 +95,13 @@ export default function HomeScreen() {
 
         {/* Progress Ring */}
         <ProgressRing progress={0.4} />
+
+        {/* Timer Display */}
+        {isWorkoutActive && (
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerText}>{formatTime(timer.elapsedSeconds)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Stats */}
@@ -83,14 +134,15 @@ export default function HomeScreen() {
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [
-            styles.primaryButton,
+            isWorkoutActive ? styles.stopButton : styles.primaryButton,
             pressed && styles.pressed,
           ]}
-          onPress={() => {
-            console.log("Start Workout Pressed");
-          }}
+          onPress={isWorkoutActive ? handleStopWorkout : handleStartWorkout}
+          disabled={isSaving}
         >
-          <Text style={styles.primaryButtonText}>Start Workout</Text>
+          <Text style={styles.primaryButtonText}>
+            {isSaving ? "Saving..." : isWorkoutActive ? "Stop Workout" : "Start Workout"}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -139,6 +191,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "700",
+  },
+
+  timerContainer: {
+    marginVertical: 12,
+    alignItems: "center",
+  },
+
+  timerText: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    fontFamily: "Menlo",
   },
 
   statsRow: {
@@ -193,6 +257,13 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     backgroundColor: "#6C5CE7",
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+
+  stopButton: {
+    backgroundColor: "#E74C3C",
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
