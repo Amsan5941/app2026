@@ -66,7 +66,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Calories</Text>
+          <Text style={styles.statLabel}>Calories Burned Today</Text>
           <Text style={styles.statValue}>0</Text>
         </View>
       </View>
