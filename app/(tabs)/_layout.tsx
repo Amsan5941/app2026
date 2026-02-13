@@ -13,6 +13,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        // hide the per-tab header so the app-level Stack header is used
         headerShown: false,
         tabBarButton: HapticTab,
       }}
