@@ -1,13 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
-export default function HomeScreen(){
-  return(
+export default function HomeScreen() {
+  return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>APP2026</Text>
-        <Text style={styles.subtitle}>Welcome to the future of mobile apps</Text> 
+        <Text style={styles.subtitle}>
+          Welcome to the future of mobile apps
+        </Text>
       </View>
 
       <View style={styles.statsRow}>
@@ -28,18 +29,20 @@ export default function HomeScreen(){
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={({ pressed}) => [
-          styles.primaryButton,
-          pressed && styles.pressed,
-        ]}
-          onPress={() => {console.log("Start Workout Pressed")}}
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={() => {
+            console.log("Start Workout Pressed");
+          }}
         >
           <Text style={styles.primaryButtonText}>Start Workout</Text>
         </Pressable>
-
       </View>
     </SafeAreaView>
-  )
+  );
 }
 const styles = StyleSheet.create({
   safeArea: {
