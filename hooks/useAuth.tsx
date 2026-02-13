@@ -3,10 +3,24 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 type User = any;
 
+type BioData = {
+  age: number;
+  weight: number;
+  height: number;
+  sex: string;
+  goal: string;
+};
+
 type AuthContextValue = {
   user: User | null;
   session: any | null;
-  signUp: (email: string, password: string, firstname: string, lastname: string) => Promise<any>;
+  signUp: (
+    email: string,
+    password: string,
+    firstname: string,
+    lastname: string,
+    bioData: BioData
+  ) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
 };
@@ -52,34 +66,121 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  async function signUp(email: string, password: string, firstname: string, lastname: string) {
+  async function signUp(
+    email: string,
+    password: string,
+    firstname: string,
+    lastname: string,
+    bioData: BioData
+  ) {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({ 
-        email, 
-        password 
+      // Step 1: Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: undefined,
+        },
       });
 
-      if (authError) return { data: authData, error: authError };
+      console.log("Auth signup response:", { authData, authError });
+
+      if (authError) {
+        console.error("Auth error:", authError);
+        return { data: authData, error: authError };
+      }
 
       const authUserId = authData.user?.id;
 
       if (!authUserId) {
-        return { data: authData, error: { message: "No user ID returned from signup" } };
+        console.error("No user ID in auth data:", authData);
+        return {
+          data: authData,
+          error: { message: "No user ID returned from signup. User may need email confirmation." },
+        };
       }
 
-      // Create profile in users table
-      const { error: profileError } = await supabase.from("users").insert([
-        {
-          auth_id: authUserId,
+      console.log("Created auth user with ID:", authUserId);
+
+      // Step 2: Wait a bit for trigger to create users entry, then update it
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update the users table entry (created by trigger) with actual names
+      const { data: updateResult, error: updateError } = await supabase
+        .from("users")
+        .update({
           firstname,
           lastname,
+        })
+        .eq("auth_id", authUserId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating user profile:", updateError);
+        // If update fails, try inserting (fallback)
+        const { data: userData, error: insertError } = await supabase
+          .from("users")
+          .insert([
+            {
+              auth_id: authUserId,
+              firstname,
+              lastname,
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("Error inserting user profile:", insertError);
+          return { data: authData, error: insertError };
+        }
+
+        // Use the newly inserted user
+        const userId = userData.id;
+
+        // Step 3: Create bio_profile
+        const { error: bioError } = await supabase.from("bio_profile").insert([
+          {
+            user_id: userId,
+            age: bioData.age,
+            weight: bioData.weight,
+            weight_unit: "lbs",
+            height: bioData.height,
+            height_unit: "inches",
+            sex: bioData.sex,
+            goal: bioData.goal,
+          },
+        ]);
+
+        if (bioError) {
+          console.error("Error creating bio profile:", bioError);
+          return { data: authData, error: bioError };
+        }
+
+        return { data: authData, error: null };
+      }
+
+      // Update succeeded, use that user data
+      const userId = updateResult.id;
+
+      // Step 3: Create bio_profile
+      const { error: bioError } = await supabase.from("bio_profile").insert([
+        {
+          user_id: userId,
+          age: bioData.age,
+          weight: bioData.weight,
+          weight_unit: "lbs",
+          height: bioData.height,
+          height_unit: "inches",
+          sex: bioData.sex,
+          goal: bioData.goal,
         },
       ]);
 
-      if (profileError) {
-        console.error("Error creating user profile:", profileError);
-        return { data: authData, error: profileError };
+      if (bioError) {
+        console.error("Error creating bio profile:", bioError);
+        return { data: authData, error: bioError };
       }
 
       return { data: authData, error: null };

@@ -16,7 +16,29 @@ CREATE TABLE users (
 
 ---
 
-### 2. **workouts** (Main workout session)
+### 2. **bio_profile** (User fitness profile)
+```sql
+CREATE TABLE bio_profile (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  age INTEGER,
+  weight DECIMAL(10, 2),
+  weight_unit TEXT NOT NULL DEFAULT 'lbs',
+  height INTEGER,
+  height_unit TEXT NOT NULL DEFAULT 'inches',
+  sex TEXT,
+  goal TEXT, -- 'cutting', 'bulking', 'maintaining'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_bio_profile_user_id ON bio_profile(user_id);
+CREATE UNIQUE INDEX idx_bio_profile_unique_user ON bio_profile(user_id);
+```
+
+---
+
+### 3. **workouts** (Main workout session)
 ```sql
 CREATE TABLE workouts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,7 +55,7 @@ CREATE INDEX idx_workouts_created_at ON workouts(created_at);
 
 ---
 
-### 3. **workout_exercises** (Individual exercises within a workout)
+### 4. **workout_exercises** (Individual exercises within a workout)
 ```sql
 CREATE TABLE workout_exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -54,7 +76,7 @@ CREATE INDEX idx_workout_exercises_exercise_name ON workout_exercises(exercise_n
 
 ---
 
-### 4. **personal_records** (Track PRs for each lift)
+### 5. **personal_records** (Track PRs for each lift)
 ```sql
 CREATE TABLE personal_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -76,7 +98,7 @@ CREATE UNIQUE INDEX idx_pr_unique ON personal_records(user_id, exercise_name);
 
 ---
 
-### 5. **body_weight** (Daily body weight tracking)
+### 6. **body_weight** (Daily body weight tracking)
 ```sql
 CREATE TABLE body_weight (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,7 +117,7 @@ CREATE UNIQUE INDEX idx_body_weight_daily ON body_weight(user_id, recorded_date)
 
 ---
 
-### 6. **steps** (Daily step tracking)
+### 7. **steps** (Daily step tracking)
 ```sql
 CREATE TABLE steps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -114,7 +136,7 @@ CREATE UNIQUE INDEX idx_steps_daily ON steps(user_id, recorded_date);
 
 ---
 
-### 7. **food_logs** (Main food log entry)
+### 8. **food_logs** (Main food log entry)
 ```sql
 CREATE TABLE food_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,7 +159,7 @@ CREATE INDEX idx_food_logs_logged_date ON food_logs(logged_date);
 
 ---
 
-### 8. **food_items** (Individual foods within a meal)
+### 9. **food_items** (Individual foods within a meal)
 ```sql
 CREATE TABLE food_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
