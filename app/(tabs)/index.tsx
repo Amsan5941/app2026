@@ -1,16 +1,59 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
+
+function ProgressRing({ progress = 0.4 }) {
+  const radius = 60;
+  const strokeWidth = 10;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <View style={styles.ringContainer}>
+      <Svg width={150} height={150}>
+        {/* Background ring */}
+        <Circle
+          stroke="#2B2B3D"
+          fill="none"
+          cx="75"
+          cy="75"
+          r={radius}
+          strokeWidth={strokeWidth}
+        />
+
+        {/* Progress ring */}
+        <Circle
+          stroke="#6C5CE7"
+          fill="none"
+          cx="75"
+          cy="75"
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - progress)}
+          strokeLinecap="round"
+        />
+      </Svg>
+
+      <Text style={styles.ringText}>{Math.round(progress * 100)}%</Text>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Header */}
       <View style={styles.container}>
         <Text style={styles.title}>APP2026</Text>
-        <Text style={styles.subtitle}>
-          Welcome to the future of mobile apps
-        </Text>
+
+        {/* Greeting */}
+        <Text style={styles.greeting}>Welcome back Amsan & Mith 👋</Text>
+
+        {/* Progress Ring */}
+        <ProgressRing progress={0.4} />
       </View>
 
+      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Workouts</Text>
@@ -28,6 +71,15 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Goal Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Today's Goal</Text>
+        <Text style={styles.cardBody}>
+          Complete 1 workout and burn 300 calories
+        </Text>
+      </View>
+
+      {/* Button */}
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [
@@ -44,97 +96,116 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1, // Fill the entire screen height
-    backgroundColor: "#0B0B0F", // Dark background
+    flex: 1,
+    backgroundColor: "#0B0B0F",
+    paddingHorizontal: 16,
   },
+
   container: {
-    flex: 1, // Allow container to grow to fill available space
-    paddingHorizontal: 16, // Left/right padding
-    paddingTop: 12, // Top padding inside safe area
-    gap: 16, // Vertical spacing between sections (RN supports gap in newer versions)
+    alignItems: "center",
+    gap: 12,
+    marginTop: 10,
   },
-  header: {
-    gap: 6, // Spacing between title and subtitle
-  },
+
   title: {
-    fontSize: 34, // Big headline
-    fontWeight: "800", // Bold weight
-    color: "#FFFFFF", // White text
-    letterSpacing: 0.2,
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
+
   subtitle: {
     fontSize: 16,
-    color: "#B3B3C2", // Slightly muted text
+    color: "#B3B3C2",
   },
+
+  greeting: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginTop: 10,
+  },
+
+  ringContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 10,
+  },
+
+  ringText: {
+    position: "absolute",
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+
   statsRow: {
-    flexDirection: "row", // Lay children out horizontally
-    gap: 12, // Space between the stat cards
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
   },
+
   statCard: {
-    flex: 1, // Each card takes equal width
+    flex: 1,
     backgroundColor: "#151520",
     borderRadius: 16,
-    padding: 12,
-    gap: 6,
+    padding: 14,
+    alignItems: "center",
   },
+
   statLabel: {
     fontSize: 12,
     color: "#B3B3C2",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
   },
+
   statValue: {
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginTop: 4,
+  },
+
+  card: {
+    backgroundColor: "#151520",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+  },
+
+  cardTitle: {
+    fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
   },
+
+  cardBody: {
+    fontSize: 14,
+    color: "#B3B3C2",
+    marginTop: 6,
+  },
+
   actions: {
-    gap: 12, // Space between buttons
+    marginTop: 20,
   },
+
   primaryButton: {
-    backgroundColor: "#6C5CE7", // Purple
+    backgroundColor: "#6C5CE7",
     borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center", // Center text horizontally
+    paddingVertical: 16,
+    alignItems: "center",
   },
+
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },
-  secondaryButton: {
-    backgroundColor: "#1C1C2A",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#2B2B3D",
-  },
-  secondaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+
   pressed: {
-    opacity: 0.85, // Slight fade effect when pressed
-    transform: [{ scale: 0.99 }], // Tiny press animation
-  },
-  card: {
-    backgroundColor: "#151520",
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  cardBody: {
-    fontSize: 14,
-    color: "#B3B3C2",
-    lineHeight: 20,
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   },
 });
