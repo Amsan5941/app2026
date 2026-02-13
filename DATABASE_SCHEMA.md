@@ -23,10 +23,10 @@ CREATE TABLE bio_profile (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   age INTEGER,
   weight DECIMAL(10, 2),
-  weight_unit TEXT NOT NULL DEFAULT 'lbs',
-  height INTEGER,
-  height_unit TEXT NOT NULL DEFAULT 'inches',
-  sex TEXT,
+  weight_unit TEXT NOT NULL DEFAULT 'lbs', -- 'lbs' or 'kg'
+  height INTEGER, -- stored in inches (UI collects as feet + inches)
+  height_unit TEXT NOT NULL DEFAULT 'inches', -- 'inches' or 'cm'
+  sex TEXT, -- 'male', 'female', 'other'
   goal TEXT, -- 'cutting', 'bulking', 'maintaining'
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

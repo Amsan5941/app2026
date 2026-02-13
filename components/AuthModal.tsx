@@ -34,7 +34,8 @@ export default function AuthModal({
   // Bio info
   const [age, setAge] = useState("");
   const [weight, setWeight] = useState("");
-  const [height, setHeight] = useState("");
+  const [heightFeet, setHeightFeet] = useState("");
+  const [heightInches, setHeightInches] = useState("");
   const [sex, setSex] = useState("");
   const [goal, setGoal] = useState("");
   
@@ -63,16 +64,19 @@ export default function AuthModal({
           setLoading(false);
         } else {
           // Bio step - validate and create account
-          if (!age || !weight || !height || !sex || !goal) {
+          if (!age || !weight || !heightFeet || !sex || !goal) {
             setErrorText("Please fill in all bio information");
             setLoading(false);
             return;
           }
           
+          // Convert feet and inches to total inches
+          const totalInches = parseInt(heightFeet) * 12 + (heightInches ? parseInt(heightInches) : 0);
+          
           const bioData = {
             age: parseInt(age),
             weight: parseFloat(weight),
-            height: parseInt(height),
+            height: totalInches,
             sex,
             goal,
           };
@@ -118,7 +122,8 @@ export default function AuthModal({
     setLastname("");
     setAge("");
     setWeight("");
-    setHeight("");
+    setHeightFeet("");
+    setHeightInches("");
     setSex("");
     setGoal("");
     setSignupStep("account");
@@ -196,13 +201,26 @@ export default function AuthModal({
                   style={styles.input}
                   keyboardType="decimal-pad"
                 />
-                <TextInput
-                  placeholder="Height (inches)"
-                  value={height}
-                  onChangeText={setHeight}
-                  style={styles.input}
-                  keyboardType="numeric"
-                />
+                
+                <Text style={styles.label}>Height</Text>
+                <View style={styles.heightRow}>
+                  <TextInput
+                    placeholder="Feet"
+                    value={heightFeet}
+                    onChangeText={setHeightFeet}
+                    style={[styles.input, styles.heightInput]}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.heightSeparator}>ft</Text>
+                  <TextInput
+                    placeholder="Inches"
+                    value={heightInches}
+                    onChangeText={setHeightInches}
+                    style={[styles.input, styles.heightInput]}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.heightSeparator}>in</Text>
+                </View>
 
                 <Text style={styles.label}>Sex</Text>
                 <View style={styles.optionRow}>
@@ -328,6 +346,21 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 8,
     borderRadius: 4,
+  },
+  heightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  heightInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  heightSeparator: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
   },
   optionRow: {
     flexDirection: "row",
