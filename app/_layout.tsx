@@ -27,6 +27,8 @@ function NavigationContent() {
   useEffect(() => {
     if (session) {
       checkWeightLogging();
+    } else {
+      setShowWeightPrompt(false);
     }
   }, [session]);
 
@@ -66,7 +68,7 @@ function NavigationContent() {
         />
       </Stack>
       <DailyWeightPrompt
-        visible={showWeightPrompt}
+        visible={showWeightPrompt && !!session}
         onComplete={() => setShowWeightPrompt(false)}
       />
     </>

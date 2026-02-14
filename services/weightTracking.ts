@@ -19,8 +19,10 @@ export async function hasLoggedWeightToday(): Promise<boolean> {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
-
-    if (authError || !user) return false;
+    
+    if (authError || !user) {
+      return false;
+    }
 
     // Get user_id from users table
     const { data: userData, error: userError } = await supabase
@@ -28,8 +30,10 @@ export async function hasLoggedWeightToday(): Promise<boolean> {
       .select("id")
       .eq("auth_id", user.id)
       .single();
-
-    if (userError || !userData) return false;
+    
+    if (userError || !userData) {
+      return false;
+    }
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
@@ -37,10 +41,14 @@ export async function hasLoggedWeightToday(): Promise<boolean> {
       .from("body_weight")
       .select("id")
       .eq("user_id", userData.id)
-      .eq("recorded_date", today)
-      .single();
+      .eq("recorded_date", today);
 
-    return !!data && !error;
+    // If no data returned, user hasn't logged weight today
+    if (!data || data.length === 0) {
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error("Error checking weight log:", error);
     return false;
@@ -73,7 +81,7 @@ export async function logWeight(
 
     if (userError) throw userError;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
     // Insert or update today's weight
     const { error: insertError } = await supabase
