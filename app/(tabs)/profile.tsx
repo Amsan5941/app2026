@@ -1,22 +1,23 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    changeUserPassword,
-    getCurrentUserProfile,
-    updateUserProfile,
+  changeUserPassword,
+  getCurrentUserProfile,
+  updateBioProfile,
+  updateUserProfile,
 } from "@/services/auth";
 import { Alert } from "react-native";
 
@@ -33,6 +34,11 @@ export default function ProfileScreen() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [promptShown, setPromptShown] = useState(false);
+  const [bioEditing, setBioEditing] = useState(false);
+  const [editHeight, setEditHeight] = useState<number | string>("");
+  const [editSex, setEditSex] = useState<string>("");
+  const [editGoal, setEditGoal] = useState<string>("");
+  const [savingBio, setSavingBio] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -162,17 +168,150 @@ export default function ProfileScreen() {
             <View style={styles.card}>
               <Text style={styles.label}>Bio</Text>
               {bioProfile ? (
-                <View style={styles.bioRow}>
-                  <Text style={styles.bioItem}>Age: {bioProfile.age}</Text>
-                  <Text style={styles.bioItem}>
-                    Weight: {bioProfile.weight} {bioProfile.weight_unit}
-                  </Text>
-                  <Text style={styles.bioItem}>
-                    Height: {bioProfile.height} {bioProfile.height_unit}
-                  </Text>
-                  <Text style={styles.bioItem}>Sex: {bioProfile.sex}</Text>
-                  <Text style={styles.bioItem}>Goal: {bioProfile.goal}</Text>
-                </View>
+                <>
+                  {bioEditing ? (
+                    <>
+                      <Text style={styles.inputLabel}>Height (inches)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={String(editHeight)}
+                        onChangeText={(t) =>
+                          setEditHeight(t.replace(/[^0-9]/g, ""))
+                        }
+                        keyboardType="numeric"
+                        placeholder="e.g. 70"
+                        placeholderTextColor={Palette.textMuted}
+                      />
+
+                      <Text
+                        style={[styles.inputLabel, { marginTop: Spacing.sm }]}
+                      >
+                        Sex
+                      </Text>
+                      <View style={styles.optionRowSmall}>
+                        {["Male", "Female"].map((g) => (
+                          <Pressable
+                            key={g}
+                            onPress={() => setEditSex(g)}
+                            style={[
+                              styles.optionSmall,
+                              editSex === g && {
+                                borderColor: Palette.accent,
+                                backgroundColor: Palette.accentMuted,
+                              },
+                            ]}
+                          >
+                            <Text style={{ color: Palette.textPrimary }}>
+                              {g}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <Text
+                        style={[styles.inputLabel, { marginTop: Spacing.sm }]}
+                      >
+                        Goal
+                      </Text>
+                      <View style={styles.optionRowSmall}>
+                        {["Cutting", "Bulking", "Maintaining"].map((g) => (
+                          <Pressable
+                            key={g}
+                            onPress={() => setEditGoal(g)}
+                            style={[
+                              styles.optionSmall,
+                              editGoal === g && {
+                                borderColor: Palette.accent,
+                                backgroundColor: Palette.accentMuted,
+                              },
+                            ]}
+                          >
+                            <Text style={{ color: Palette.textPrimary }}>
+                              {g}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <View style={styles.rowRight}>
+                        <Pressable
+                          style={[
+                            styles.btn,
+                            { backgroundColor: Palette.accent },
+                          ]}
+                          onPress={async () => {
+                            setSavingBio(true);
+                            const updates: any = {};
+                            if (editHeight)
+                              updates.height = parseInt(String(editHeight));
+                            if (editSex) updates.sex = editSex;
+                            if (editGoal) updates.goal = editGoal;
+                            const res = await updateBioProfile(updates);
+                            setSavingBio(false);
+                            if (res.success) {
+                              const r = await getCurrentUserProfile();
+                              if (r.success) {
+                                setBioProfile(r.bioProfile ?? null);
+                              }
+                              setBioEditing(false);
+                            }
+                          }}
+                        >
+                          <Text style={styles.btnText}>
+                            {savingBio ? "Saving..." : "Save"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.btn,
+                            { backgroundColor: Palette.bgElevated },
+                          ]}
+                          onPress={() => {
+                            setBioEditing(false);
+                            setEditHeight(bioProfile.height ?? "");
+                            setEditSex(bioProfile.sex ?? "");
+                            setEditGoal(bioProfile.goal ?? "");
+                          }}
+                        >
+                          <Text style={styles.btnTextSecondary}>Cancel</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.bioRow}>
+                        <Text style={styles.bioItem}>
+                          Age: {bioProfile.age}
+                        </Text>
+                        <Text style={styles.bioItem}>
+                          Weight: {bioProfile.weight} {bioProfile.weight_unit}
+                        </Text>
+                        <Text style={styles.bioItem}>
+                          Height: {bioProfile.height} {bioProfile.height_unit}
+                        </Text>
+                        <Text style={styles.bioItem}>
+                          Sex: {bioProfile.sex}
+                        </Text>
+                        <Text style={styles.bioItem}>
+                          Goal: {bioProfile.goal}
+                        </Text>
+                      </View>
+                      <View style={styles.rowRight}>
+                        <Pressable
+                          style={styles.ghostBtn}
+                          onPress={() => {
+                            setBioEditing(true);
+                            setEditHeight(bioProfile.height ?? "");
+                            setEditSex(bioProfile.sex ?? "");
+                            setEditGoal(bioProfile.goal ?? "");
+                          }}
+                        >
+                          <Text style={styles.ghostText}>Edit</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </>
               ) : (
                 <Text style={styles.value}>No bio profile found.</Text>
               )}
@@ -295,5 +434,23 @@ const styles = StyleSheet.create({
     color: Palette.textPrimary,
     fontSize: 14,
     marginBottom: 4,
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: Palette.textSecondary,
+    marginBottom: 6,
+  },
+  optionRowSmall: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  optionSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.bgCard,
   },
 });

@@ -77,3 +77,41 @@ export async function changeUserPassword(newPassword: string) {
     return { success: false, error };
   }
 }
+
+export async function updateBioProfile(updates: {
+  age?: number;
+  weight?: number;
+  height?: number;
+  sex?: string;
+  goal?: string;
+}) {
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+    if (!user) return { success: false, error: new Error("No user logged in") };
+
+    // find users entry to get user id
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_id", user.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    const { error } = await supabase
+      .from("bio_profile")
+      .update(updates)
+      .eq("user_id", profile.id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Update bio profile error:", error);
+    return { success: false, error };
+  }
+}
