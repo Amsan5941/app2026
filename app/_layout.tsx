@@ -1,17 +1,18 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import "react-native-reanimated";
 
+import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import LoginButton from "@/components/login-button";
+import { Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 
 export const unstable_settings = {
@@ -40,12 +41,22 @@ function NavigationContent() {
 
   return (
     <>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: Palette.bg },
+          headerTintColor: Palette.textPrimary,
+          headerShadowVisible: false,
+        }}
+      >
         <Stack.Screen
           name="(tabs)"
           options={{
             headerShown: true,
-            title: "FitnessApp",
+            title: "GrindApp",
+            headerTitleStyle: {
+              fontWeight: "800",
+              fontSize: 20,
+            },
             headerRight: () => <LoginButton />,
           }}
         />

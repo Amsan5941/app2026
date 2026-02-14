@@ -1,14 +1,16 @@
+import { Palette, Radii, Spacing } from "@/constants/theme";
+import { logWeight } from "@/services/weightTracking";
 import React, { useState } from "react";
 import {
-  Alert,
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { logWeight } from "@/services/weightTracking";
 
 interface DailyWeightPromptProps {
   visible: boolean;
@@ -34,7 +36,6 @@ export default function DailyWeightPrompt({
       const result = await logWeight(parseFloat(weight), unit);
 
       if (result.success) {
-        Alert.alert("Success", "Weight logged successfully!");
         setWeight("");
         onComplete();
       } else {
@@ -49,10 +50,10 @@ export default function DailyWeightPrompt({
 
   function handleSkip() {
     Alert.alert(
-      "Skip Weight Logging?",
-      "Tracking your weight daily helps monitor your progress. Are you sure you want to skip?",
+      "Skip Today?",
+      "Consistent tracking = better results. Skip anyway?",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Go Back", style: "cancel" },
         {
           text: "Skip",
           style: "destructive",
@@ -74,11 +75,14 @@ export default function DailyWeightPrompt({
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
+          {/* Decorative top bar */}
+          <View style={styles.topBar} />
+
           <View style={styles.header}>
             <Text style={styles.emoji}>⚖️</Text>
-            <Text style={styles.title}>Daily Weight Check-In</Text>
+            <Text style={styles.title}>Daily Check-In</Text>
             <Text style={styles.subtitle}>
-              Track your progress by logging your weight
+              How much do you weigh today?
             </Text>
           </View>
 
@@ -120,7 +124,8 @@ export default function DailyWeightPrompt({
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder={`Enter weight in ${unit}`}
+              placeholder="0.0"
+              placeholderTextColor={Palette.textMuted}
               value={weight}
               onChangeText={setWeight}
               keyboardType="decimal-pad"
@@ -130,22 +135,29 @@ export default function DailyWeightPrompt({
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={styles.skipButton}
+            <Pressable
+              style={({ pressed }) => [
+                styles.skipButton,
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={handleSkip}
               disabled={loading}
             >
               <Text style={styles.skipButtonText}>Skip</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.submitButton, loading && styles.buttonDisabled]}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitButton,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                loading && styles.buttonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={loading}
             >
               <Text style={styles.submitButtonText}>
                 {loading ? "Saving..." : "Log Weight"}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -156,120 +168,128 @@ export default function DailyWeightPrompt({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Palette.overlay,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
+    padding: Spacing.lg,
   },
   card: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: Palette.bgElevated,
+    borderRadius: Radii.xl,
+    padding: Spacing["3xl"],
+    borderWidth: 1,
+    borderColor: Palette.border,
+    overflow: "hidden",
+  },
+  topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: Palette.accent,
   },
   header: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: Spacing["2xl"],
   },
   emoji: {
     fontSize: 48,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   title: {
     fontSize: 22,
-    fontWeight: "700",
-    color: "#1A1A1A",
-    marginBottom: 8,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+    marginBottom: Spacing.xs,
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 14,
-    color: "#666",
+    color: Palette.textSecondary,
     textAlign: "center",
   },
   unitSelector: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   unitButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#E0E0E0",
-    backgroundColor: "#F8F8F8",
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.bgInput,
     alignItems: "center",
   },
   unitButtonSelected: {
-    borderColor: "#6C5CE7",
-    backgroundColor: "#6C5CE7",
+    borderColor: Palette.accent,
+    backgroundColor: Palette.accentMuted,
   },
   unitText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#666",
+    fontWeight: "700",
+    color: Palette.textMuted,
   },
   unitTextSelected: {
-    color: "#FFFFFF",
+    color: Palette.accent,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    backgroundColor: "#F8F8F8",
+    borderWidth: 1,
+    borderColor: Palette.border,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+    backgroundColor: Palette.bgInput,
   },
   input: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 32,
+    fontWeight: "800",
     paddingVertical: 16,
-    color: "#1A1A1A",
+    color: Palette.textPrimary,
+    fontVariant: ["tabular-nums"],
   },
   inputUnit: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#999",
-    marginLeft: 8,
+    color: Palette.textMuted,
+    marginLeft: Spacing.sm,
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: Spacing.md,
   },
   skipButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: Palette.border,
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Palette.bgCard,
   },
   skipButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#666",
+    color: Palette.textSecondary,
   },
   submitButton: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: Radii.md,
     alignItems: "center",
-    backgroundColor: "#6C5CE7",
+    backgroundColor: Palette.accent,
   },
   submitButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+    color: Palette.white,
   },
   buttonDisabled: {
     opacity: 0.6,

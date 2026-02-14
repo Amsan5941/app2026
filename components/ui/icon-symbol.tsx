@@ -22,6 +22,10 @@ const MAPPING = {
   "clock.fill": "history",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
+  "fork.knife": "restaurant",
+  "chart.line.uptrend.xyaxis": "show-chart",
+  "flame.fill": "local-fire-department",
+  "dumbbell.fill": "fitness-center",
 } as IconMapping;
 
 /**
