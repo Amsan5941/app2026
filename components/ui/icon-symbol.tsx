@@ -26,6 +26,8 @@ const MAPPING = {
   "chart.line.uptrend.xyaxis": "show-chart",
   "flame.fill": "local-fire-department",
   "dumbbell.fill": "fitness-center",
+  "person.fill": "person",
+  "person.crop.circle": "account-circle",
 } as IconMapping;
 
 /**

@@ -23,17 +23,24 @@ export async function getCurrentUserProfile() {
 
     if (profileError) throw profileError;
 
-    return { success: true, user, profile };
+    // Fetch bio_profile (fitness data) if present
+    let bioProfile = null;
+    const { data: bioData, error: bioError } = await supabase
+      .from("bio_profile")
+      .select("*")
+      .eq("user_id", profile.id)
+      .single();
+
+    if (!bioError) bioProfile = bioData;
+
+    return { success: true, user, profile, bioProfile };
   } catch (error) {
     console.error("Get current user error:", error);
     return { success: false, error };
   }
 }
 
-export async function updateUserProfile(
-  firstname: string,
-  lastname: string
-) {
+export async function updateUserProfile(firstname: string, lastname: string) {
   try {
     const {
       data: { user },
@@ -54,6 +61,19 @@ export async function updateUserProfile(
     return { success: true };
   } catch (error) {
     console.error("Update profile error:", error);
+    return { success: false, error };
+  }
+}
+
+export async function changeUserPassword(newPassword: string) {
+  try {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error("Change password error:", error);
     return { success: false, error };
   }
 }

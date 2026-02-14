@@ -52,7 +52,20 @@ export default function TabLayout() {
         options={{
           title: "Progress",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.line.uptrend.xyaxis" color={color} />
+            <IconSymbol
+              size={26}
+              name="chart.line.uptrend.xyaxis"
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="person.crop.circle" color={color} />
           ),
         }}
       />
