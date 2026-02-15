@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 
-type SignupStep = "account" | "bio";
+type SignupStep = "account" | "bio" | "questions";
 
 export default function AuthModal({
   visible,
@@ -27,13 +27,13 @@ export default function AuthModal({
   const { signIn, signUp, user } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [signupStep, setSignupStep] = useState<SignupStep>("account");
-  
+
   // Account info
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
-  
+
   // Bio info
   const [age, setAge] = useState("");
   const [weight, setWeight] = useState("");
@@ -41,9 +41,29 @@ export default function AuthModal({
   const [heightInches, setHeightInches] = useState("");
   const [sex, setSex] = useState("");
   const [goal, setGoal] = useState("");
-  
+
+  // Questionnaire (step 3)
+  const [activityLevel, setActivityLevel] = useState<
+    "sedentary" | "light" | "moderate" | "active" | "very_active" | ""
+  >("");
+  const [workoutStyle, setWorkoutStyle] = useState<
+    "strength" | "cardio" | "mix" | ""
+  >("");
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState("");
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+
+  // Validation helpers
+  function isValidEmail(value: string) {
+    return value.includes("@");
+  }
+
+  function isValidPassword(value: string) {
+    // at least 8 chars and at least one non-alphanumeric (special) char
+    return value.length >= 8 && /[^A-Za-z0-9]/.test(value);
+  }
 
   async function handleSubmit() {
     setErrorText(null);
@@ -61,44 +81,105 @@ export default function AuthModal({
             setLoading(false);
             return;
           }
+
+          if (!isValidEmail(email)) {
+            setErrorText("Please enter a valid email address (must include @)");
+            setLoading(false);
+            return;
+          }
+
+          if (!isValidPassword(password)) {
+            setErrorText(
+              "Password must be at least 8 characters and include at least one special character",
+            );
+            setLoading(false);
+            return;
+          }
+
           setSignupStep("bio");
           setLoading(false);
-        } else {
+          return;
+        }
+
+        if (signupStep === "bio") {
           if (!age || !weight || !heightFeet || !sex || !goal) {
             setErrorText("Please fill in all bio information");
             setLoading(false);
             return;
           }
-          
-          const totalInches = parseInt(heightFeet) * 12 + (heightInches ? parseInt(heightInches) : 0);
-          
+
+          setSignupStep("questions");
+          setLoading(false);
+          return;
+        }
+
+        // Final step: questions
+        if (signupStep === "questions") {
+          if (!activityLevel || !workoutStyle || !workoutsPerWeek) {
+            setErrorText("Please complete the questionnaire to continue");
+            setLoading(false);
+            return;
+          }
+
+          // Build bioData and include questionnaire fields (backend may ignore extras)
+          const totalInches =
+            parseInt(heightFeet) * 12 +
+            (heightInches ? parseInt(heightInches) : 0);
+
           const bioData = {
             age: parseInt(age),
             weight: parseFloat(weight),
             height: totalInches,
             sex,
             goal,
-          };
-          
+            activity_level: activityLevel,
+            workout_style: workoutStyle,
+            workouts_per_week: parseInt(workoutsPerWeek) || null,
+            daily_calorie_goal: dailyCalorieGoal
+              ? parseInt(dailyCalorieGoal)
+              : null,
+          } as any;
+
           const { data, error } = await signUp(
             email,
             password,
             firstname,
             lastname,
-            bioData
+            bioData,
           );
-          
+
           if (error) setErrorText(error.message || JSON.stringify(error));
           else {
             Alert.alert(
               "Welcome aboard! 💪",
-              "Your account has been created. Let's start crushing your goals!"
+              "Your account has been created. Let's start crushing your goals!",
             );
             resetForm();
             onClose();
           }
         }
       } else {
+        // Validate credentials client-side before sign-in
+        if (!email.trim() || !password.trim()) {
+          setErrorText("Please enter email and password");
+          setLoading(false);
+          return;
+        }
+
+        if (!isValidEmail(email)) {
+          setErrorText("Please enter a valid email address (must include @)");
+          setLoading(false);
+          return;
+        }
+
+        if (!isValidPassword(password)) {
+          setErrorText(
+            "Password must be at least 8 characters and include at least one special character",
+          );
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await signIn(email, password);
         if (error) setErrorText(error.message || JSON.stringify(error));
         else {
@@ -128,7 +209,14 @@ export default function AuthModal({
     setErrorText(null);
   }
 
-  const stepNumber = mode === "signup" ? (signupStep === "account" ? 1 : 2) : 0;
+  const stepNumber =
+    mode === "signup"
+      ? signupStep === "account"
+        ? 1
+        : signupStep === "bio"
+          ? 2
+          : 3
+      : 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -145,7 +233,10 @@ export default function AuthModal({
               {/* Close button */}
               <Pressable
                 style={styles.closeBtn}
-                onPress={() => { resetForm(); onClose(); }}
+                onPress={() => {
+                  resetForm();
+                  onClose();
+                }}
                 hitSlop={12}
               >
                 <Text style={styles.closeBtnText}>✕</Text>
@@ -154,34 +245,71 @@ export default function AuthModal({
               {/* Header */}
               <View style={styles.header}>
                 <Text style={styles.headerEmoji}>
-                  {mode === "login" ? "👋" : signupStep === "account" ? "🚀" : "📊"}
+                  {mode === "login"
+                    ? "👋"
+                    : signupStep === "account"
+                      ? "🚀"
+                      : signupStep === "bio"
+                        ? "📊"
+                        : "📝"}
                 </Text>
                 <Text style={styles.title}>
                   {mode === "login"
                     ? "Welcome Back"
                     : signupStep === "account"
                       ? "Join the Grind"
-                      : "Your Fitness Profile"}
+                      : signupStep === "bio"
+                        ? "Your Fitness Profile"
+                        : "Quick Questionnaire"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {mode === "login"
                     ? "Sign in to continue your journey"
                     : signupStep === "account"
                       ? "Create your account to get started"
-                      : "Help us personalize your experience"}
+                      : signupStep === "bio"
+                        ? "Help us personalize your experience"
+                        : "Tell us a bit more so we can tailor your plan"}
                 </Text>
                 {mode === "signup" && (
                   <View style={styles.stepIndicator}>
-                    <View style={[styles.stepDot, stepNumber >= 1 && styles.stepDotActive]} />
-                    <View style={[styles.stepLine, stepNumber >= 2 && styles.stepLineActive]} />
-                    <View style={[styles.stepDot, stepNumber >= 2 && styles.stepDotActive]} />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 1 && styles.stepDotActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepLine,
+                        stepNumber >= 2 && styles.stepLineActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 2 && styles.stepDotActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepLine,
+                        stepNumber >= 3 && styles.stepLineActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 3 && styles.stepDotActive,
+                      ]}
+                    />
                   </View>
                 )}
               </View>
 
               {errorText ? (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>⚠️  {errorText}</Text>
+                  <Text style={styles.errorText}>⚠️ {errorText}</Text>
                 </View>
               ) : null}
 
@@ -233,6 +361,13 @@ export default function AuthModal({
                     style={styles.input}
                     secureTextEntry
                   />
+                  {/* Password requirement hint shown when user has typed something invalid */}
+                  {password.length > 0 && !isValidPassword(password) ? (
+                    <Text style={styles.passwordReq}>
+                      Password must be at least 8 characters and include at
+                      least one special character.
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -263,7 +398,7 @@ export default function AuthModal({
                       />
                     </View>
                   </View>
-                  
+
                   <Text style={styles.inputLabel}>Height</Text>
                   <View style={styles.heightRow}>
                     <TextInput
@@ -344,6 +479,76 @@ export default function AuthModal({
                 </View>
               ) : null}
 
+              {/* Questionnaire Step */}
+              {mode === "signup" && signupStep === "questions" ? (
+                <View style={styles.formSection}>
+                  <Text style={styles.inputLabel}>Activity Level</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "sedentary", label: "Sedentary" },
+                      { value: "light", label: "Light" },
+                      { value: "moderate", label: "Moderate" },
+                      { value: "active", label: "Active" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          activityLevel === opt.value &&
+                            styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setActivityLevel(opt.value as any)}
+                      >
+                        <Text style={styles.optionText}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Workout Style</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "strength", label: "Strength" },
+                      { value: "cardio", label: "Cardio" },
+                      { value: "mix", label: "Mix" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          workoutStyle === opt.value &&
+                            styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setWorkoutStyle(opt.value as any)}
+                      >
+                        <Text style={styles.optionText}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Workouts per Week</Text>
+                  <TextInput
+                    placeholder="3"
+                    placeholderTextColor={Palette.textMuted}
+                    value={workoutsPerWeek}
+                    onChangeText={setWorkoutsPerWeek}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={styles.inputLabel}>
+                    Daily Calorie Goal (optional)
+                  </Text>
+                  <TextInput
+                    placeholder="e.g. 2200"
+                    placeholderTextColor={Palette.textMuted}
+                    value={dailyCalorieGoal}
+                    onChangeText={setDailyCalorieGoal}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+                </View>
+              ) : null}
+
               {/* Primary action button */}
               <Pressable
                 style={({ pressed }) => [
@@ -361,23 +566,31 @@ export default function AuthModal({
                       ? "Sign In"
                       : signupStep === "account"
                         ? "Continue →"
-                        : "Create Account 🎉"}
+                        : signupStep === "bio"
+                          ? "Continue →"
+                          : "Create Account 🎉"}
                 </Text>
               </Pressable>
 
               {/* Secondary actions */}
               <View style={styles.footerActions}>
-                {mode === "signup" && signupStep === "bio" && (
+                {mode === "signup" && signupStep !== "account" && (
                   <Pressable
                     style={styles.backBtn}
-                    onPress={() => { setSignupStep("account"); setErrorText(null); }}
+                    onPress={() => {
+                      setErrorText(null);
+                      setSignupStep(signupStep === "bio" ? "account" : "bio");
+                    }}
                   >
                     <Text style={styles.backBtnText}>← Back</Text>
                   </Pressable>
                 )}
                 <Pressable
                   style={styles.switchBtn}
-                  onPress={() => { setMode(mode === "login" ? "signup" : "login"); resetForm(); }}
+                  onPress={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    resetForm();
+                  }}
                 >
                   <Text style={styles.switchBtnText}>
                     {mode === "login"
@@ -485,6 +698,11 @@ const styles = StyleSheet.create({
     color: Palette.error,
     fontSize: 13,
     fontWeight: "500",
+  },
+  passwordReq: {
+    color: Palette.textSecondary,
+    fontSize: 12,
+    marginTop: Spacing.xs,
   },
   formSection: {
     marginBottom: Spacing.lg,
