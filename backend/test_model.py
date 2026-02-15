@@ -8,8 +8,10 @@ Usage:
 """
 
 import os
+
 import torch
-from app.services.custom_model_service import load_model, FoodClassifier
+from app.services.custom_model_service import FoodClassifier, load_model
+
 
 def test_model():
     """Test the custom food classifier model."""
@@ -68,7 +70,7 @@ def test_model():
 
 if __name__ == "__main__":
     import sys
-    
+
     # Add parent directory to path
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
