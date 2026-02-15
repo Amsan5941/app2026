@@ -1,0 +1,35 @@
+# ============================================================
+# AI Diet Tracker - Python Dependencies
+# Install: pip install -r requirements.txt
+# ============================================================
+
+# --- Web Framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.19      # File uploads
+
+# --- OpenAI (Option A: Primary AI) ---
+openai==1.59.5
+
+# --- Supabase ---
+supabase==2.11.0
+
+# --- ML / Custom Model (Option B) ---
+torch==2.5.1
+torchvision==0.20.1
+Pillow==10.4.0
+scikit-learn==1.5.2
+numpy==1.26.4
+
+# --- USDA Nutrition API ---
+httpx==0.28.1
+
+# --- Utilities ---
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Dataset & Training ---
+datasets==2.21.0              # Hugging Face datasets (Food-101, etc.)
+matplotlib==3.9.2             # Training visualization
+tqdm==4.67.1                  # Progress bars
