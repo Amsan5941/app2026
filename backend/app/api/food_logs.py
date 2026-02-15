@@ -12,12 +12,31 @@ Endpoints:
 from datetime import date
 from typing import Optional
 
+from app.models.food_model import FoodLogResponse, ManualFoodEntry
+from app.services import supabase_service
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models.food_model import ManualFoodEntry, FoodLogResponse
-from app.services import supabase_service
-
 router = APIRouter()
+
+
+async def _resolve_user_id(identifier: str) -> str:
+    """
+    Resolve a user identifier to an internal user_id.
+    Accepts either an internal user_id (UUID) or an auth_id.
+    Tries internal ID first, then auth_id lookup.
+    """
+    # Check if it's a direct user_id (exists in users table)
+    client = supabase_service.get_client()
+    result = client.table("users").select("id").eq("id", identifier).execute()
+    if result.data:
+        return result.data[0]["id"]
+
+    # Try as auth_id
+    resolved = await supabase_service.get_user_id_from_auth(identifier)
+    if resolved:
+        return resolved
+
+    raise HTTPException(status_code=404, detail="User not found")
 
 
 @router.post("/food-logs", response_model=dict)
@@ -47,10 +66,13 @@ async def get_user_food_logs(
     target_date: Optional[date] = Query(None, description="Filter by date (YYYY-MM-DD)"),
     limit: int = Query(50, ge=1, le=200),
 ):
-    """Get food logs for a user, optionally filtered by date."""
+    """Get food logs for a user. Accepts internal user_id or auth_id."""
     try:
-        logs = await supabase_service.get_food_logs(user_id, target_date, limit)
+        resolved_id = await _resolve_user_id(user_id)
+        logs = await supabase_service.get_food_logs(resolved_id, target_date, limit)
         return {"success": True, "data": logs, "count": len(logs)}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,11 +93,14 @@ async def get_daily_nutrition_summary(
 ):
     """
     Get daily nutrition totals for a user.
-    Shows total calories, protein, carbs, fat broken down by meal type.
+    Accepts internal user_id or auth_id.
     """
     try:
-        summary = await supabase_service.get_daily_summary(user_id, target_date)
+        resolved_id = await _resolve_user_id(user_id)
+        summary = await supabase_service.get_daily_summary(resolved_id, target_date)
         return {"success": True, "data": summary}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

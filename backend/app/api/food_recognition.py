@@ -9,14 +9,14 @@ Endpoints:
 
 import uuid
 from datetime import date
-
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import Optional
 
-from app.models.food_model import AIRecognitionResult, MealType, RecognitionSource
+from app.config import settings
+from app.models.food_model import (AIRecognitionResult, MealType,
+                                   RecognitionSource)
 from app.services import openai_service, supabase_service
 from app.services.custom_model_service import hybrid_analyze
-from app.config import settings
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 router = APIRouter()
 
@@ -25,14 +25,19 @@ router = APIRouter()
 async def recognize_food_image(
     image: UploadFile = File(..., description="Food photo (JPEG/PNG)"),
     user_id: Optional[str] = Form(None, description="User ID to save the log"),
+    auth_id: Optional[str] = Form(None, description="Auth user ID (alternative to user_id)"),
     meal_type: Optional[MealType] = Form(None, description="Meal type"),
     save_log: bool = Form(False, description="Save as food log entry"),
 ):
     """
     Upload a food photo → GPT-4o Vision analyzes it → returns nutrition data.
 
-    Optionally saves as a food log entry if user_id and meal_type are provided.
+    Optionally saves as a food log entry if user_id/auth_id and meal_type are provided.
     """
+    # Resolve user_id from auth_id if not provided directly
+    if not user_id and auth_id:
+        user_id = await supabase_service.get_user_id_from_auth(auth_id)
+
     # Validate file type
     if image.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are supported")
@@ -75,6 +80,7 @@ async def recognize_food_image(
 async def recognize_food_text(
     description: str = Form(..., description="Text description of the meal"),
     user_id: Optional[str] = Form(None),
+    auth_id: Optional[str] = Form(None, description="Auth user ID (alternative to user_id)"),
     meal_type: Optional[MealType] = Form(None),
     save_log: bool = Form(False),
 ):
@@ -82,6 +88,10 @@ async def recognize_food_text(
     Describe your meal in text → AI estimates nutrition.
     Example: "2 scrambled eggs, 2 slices of toast with butter, glass of orange juice"
     """
+    # Resolve user_id from auth_id if not provided directly
+    if not user_id and auth_id:
+        user_id = await supabase_service.get_user_id_from_auth(auth_id)
+
     if not description.strip():
         raise HTTPException(status_code=400, detail="Description cannot be empty")
 
@@ -111,6 +121,7 @@ async def recognize_food_text(
 async def recognize_food_hybrid(
     image: UploadFile = File(..., description="Food photo"),
     user_id: Optional[str] = Form(None),
+    auth_id: Optional[str] = Form(None, description="Auth user ID (alternative to user_id)"),
     meal_type: Optional[MealType] = Form(None),
     save_log: bool = Form(False),
 ):
@@ -121,6 +132,10 @@ async def recognize_food_hybrid(
     OpenAI Vision always provides the final nutrition breakdown.
     This endpoint collects data for training the custom model.
     """
+    # Resolve user_id from auth_id if not provided directly
+    if not user_id and auth_id:
+        user_id = await supabase_service.get_user_id_from_auth(auth_id)
+
     if image.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are supported")
 
