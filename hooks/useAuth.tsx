@@ -9,6 +9,10 @@ type BioData = {
   height: number;
   sex: string;
   goal: string;
+  activity_level?: string;
+  workout_style?: string;
+  workouts_per_week?: number | null;
+  calorie_goal?: number | null;
 };
 
 type AuthContextValue = {
@@ -19,7 +23,7 @@ type AuthContextValue = {
     password: string,
     firstname: string,
     lastname: string,
-    bioData: BioData
+    bioData: BioData,
   ) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
@@ -71,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     firstname: string,
     lastname: string,
-    bioData: BioData
+    bioData: BioData,
   ) {
     try {
       // Step 1: Create auth user
@@ -96,14 +100,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error("No user ID in auth data:", authData);
         return {
           data: authData,
-          error: { message: "No user ID returned from signup. User may need email confirmation." },
+          error: {
+            message:
+              "No user ID returned from signup. User may need email confirmation.",
+          },
         };
       }
 
       console.log("Created auth user with ID:", authUserId);
 
       // Step 2: Wait a bit for trigger to create users entry, then update it
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Update the users table entry (created by trigger) with actual names
       const { data: updateResult, error: updateError } = await supabase
@@ -150,6 +157,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             height_unit: "inches",
             sex: bioData.sex,
             goal: bioData.goal,
+            activity_level: (bioData as any).activity_level ?? null,
+            workout_style: (bioData as any).workout_style ?? null,
+            workouts_per_week: (bioData as any).workouts_per_week ?? null,
+            calorie_goal: (bioData as any).calorie_goal ?? null,
           },
         ]);
 
@@ -175,6 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           height_unit: "inches",
           sex: bioData.sex,
           goal: bioData.goal,
+          activity_level: (bioData as any).activity_level ?? null,
+          workout_style: (bioData as any).workout_style ?? null,
+          workouts_per_week: (bioData as any).workouts_per_week ?? null,
+          calorie_goal: (bioData as any).calorie_goal ?? null,
         },
       ]);
 

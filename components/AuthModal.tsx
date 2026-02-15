@@ -1,6 +1,6 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -51,6 +51,8 @@ export default function AuthModal({
   >("");
   const [workoutsPerWeek, setWorkoutsPerWeek] = useState("");
   const [dailyCalorieGoal, setDailyCalorieGoal] = useState("");
+  const [autoFilledCalorie, setAutoFilledCalorie] = useState(false);
+  const [showActivityInfo, setShowActivityInfo] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -135,9 +137,7 @@ export default function AuthModal({
             activity_level: activityLevel,
             workout_style: workoutStyle,
             workouts_per_week: parseInt(workoutsPerWeek) || null,
-            daily_calorie_goal: dailyCalorieGoal
-              ? parseInt(dailyCalorieGoal)
-              : null,
+            calorie_goal: dailyCalorieGoal ? parseInt(dailyCalorieGoal) : null,
           } as any;
 
           const { data, error } = await signUp(
@@ -207,7 +207,82 @@ export default function AuthModal({
     setGoal("");
     setSignupStep("account");
     setErrorText(null);
+    setDailyCalorieGoal("");
+    setAutoFilledCalorie(false);
   }
+
+  // Estimate daily calories based on Mifflin-St Jeor BMR + activity multiplier
+  function calculateEstimatedCalories(): number | null {
+    // require core bio + goal + activity level to be present before estimating
+    if (!age || !weight || !heightFeet || !sex || !goal || !activityLevel)
+      return null;
+
+    const a = parseInt(age as any);
+    const w = parseFloat(weight as any);
+    const hf = parseInt(heightFeet as any);
+    const hi = heightInches ? parseInt(heightInches as any) : 0;
+
+    if (Number.isNaN(a) || Number.isNaN(w) || Number.isNaN(hf)) return null;
+
+    const totalInches = hf * 12 + (hi || 0);
+    const heightCm = totalInches * 2.54;
+    const weightKg = w * 0.45359237;
+
+    let bmr: number;
+    if (sex === "male") {
+      bmr = 10 * weightKg + 6.25 * heightCm - 5 * a + 5;
+    } else if (sex === "female") {
+      bmr = 10 * weightKg + 6.25 * heightCm - 5 * a - 161;
+    } else {
+      const bmrMale = 10 * weightKg + 6.25 * heightCm - 5 * a + 5;
+      const bmrFemale = 10 * weightKg + 6.25 * heightCm - 5 * a - 161;
+      bmr = (bmrMale + bmrFemale) / 2;
+    }
+
+    const activityMultiplier =
+      activityLevel === "sedentary"
+        ? 1.2
+        : activityLevel === "light"
+          ? 1.375
+          : activityLevel === "moderate"
+            ? 1.55
+            : activityLevel === "active"
+              ? 1.725
+              : 1.2;
+
+    let maintenance = Math.round(bmr * activityMultiplier);
+
+    if (goal === "cutting") maintenance = maintenance - 500;
+    else if (goal === "bulking") maintenance = maintenance + 500;
+    // maintaining -> no change
+
+    // enforce a sensible lower bound
+    maintenance = Math.max(1200, maintenance);
+
+    return Math.round(maintenance);
+  }
+
+  // Auto-fill daily calorie goal when on the questionnaire step and user hasn't entered a custom value
+  useEffect(() => {
+    if (mode === "signup" && signupStep === "questions") {
+      const est = calculateEstimatedCalories();
+      // only auto-fill once all required fields are present
+      if (est && (dailyCalorieGoal === "" || autoFilledCalorie)) {
+        setDailyCalorieGoal(String(est));
+        setAutoFilledCalorie(true);
+      }
+    }
+    // only trigger when these inputs change
+  }, [
+    signupStep,
+    activityLevel,
+    goal,
+    age,
+    weight,
+    heightFeet,
+    heightInches,
+    sex,
+  ]);
 
   const stepNumber =
     mode === "signup"
@@ -482,7 +557,22 @@ export default function AuthModal({
               {/* Questionnaire Step */}
               {mode === "signup" && signupStep === "questions" ? (
                 <View style={styles.formSection}>
-                  <Text style={styles.inputLabel}>Activity Level</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Text style={styles.inputLabel}>Activity Level</Text>
+                    <Pressable
+                      onPress={() => setShowActivityInfo(true)}
+                      style={styles.infoBtn}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.infoBtnText}>ℹ️</Text>
+                    </Pressable>
+                  </View>
                   <View style={styles.optionRow}>
                     {[
                       { value: "sedentary", label: "Sedentary" },
@@ -503,6 +593,42 @@ export default function AuthModal({
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  {/* Activity info modal */}
+                  <Modal
+                    visible={showActivityInfo}
+                    transparent
+                    animationType="fade"
+                  >
+                    <View style={styles.infoOverlay}>
+                      <View style={styles.infoCard}>
+                        <Text style={styles.infoTitle}>Activity Levels</Text>
+                        <View style={{ gap: 8 }}>
+                          <Text style={styles.infoText}>
+                            • Sedentary — Little to no exercise; mostly sitting
+                            (desk job).
+                          </Text>
+                          <Text style={styles.infoText}>
+                            • Light — Light exercise 1–3 days/week or light
+                            daily movement.
+                          </Text>
+                          <Text style={styles.infoText}>
+                            • Moderate — Moderate exercise 3–5 days/week.
+                          </Text>
+                          <Text style={styles.infoText}>
+                            • Active — Hard exercise most days (6–7 days/week)
+                            or very physical job.
+                          </Text>
+                        </View>
+                        <Pressable
+                          style={styles.infoClose}
+                          onPress={() => setShowActivityInfo(false)}
+                        >
+                          <Text style={styles.infoCloseText}>Close</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </Modal>
 
                   <Text style={styles.inputLabel}>Workout Style</Text>
                   <View style={styles.optionRow}>
@@ -525,7 +651,7 @@ export default function AuthModal({
                     ))}
                   </View>
 
-                  <Text style={styles.inputLabel}>Workouts per Week</Text>
+                  <Text style={styles.inputLabel}>Goal Workouts per week</Text>
                   <TextInput
                     placeholder="3"
                     placeholderTextColor={Palette.textMuted}
@@ -535,14 +661,15 @@ export default function AuthModal({
                     keyboardType="numeric"
                   />
 
-                  <Text style={styles.inputLabel}>
-                    Daily Calorie Goal (optional)
-                  </Text>
+                  <Text style={styles.inputLabel}>Daily Calorie Goal</Text>
                   <TextInput
                     placeholder="e.g. 2200"
                     placeholderTextColor={Palette.textMuted}
                     value={dailyCalorieGoal}
-                    onChangeText={setDailyCalorieGoal}
+                    onChangeText={(v) => {
+                      setDailyCalorieGoal(v);
+                      setAutoFilledCalorie(false);
+                    }}
                     style={styles.input}
                     keyboardType="numeric"
                   />
@@ -770,6 +897,57 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: Palette.accent,
+    fontWeight: "700",
+  },
+  infoBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Palette.bgCard,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    marginLeft: Spacing.sm,
+  },
+  infoBtnText: {
+    fontSize: 16,
+  },
+  infoOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  infoCard: {
+    width: "86%",
+    maxWidth: 440,
+    backgroundColor: Palette.bgElevated,
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  infoText: {
+    color: Palette.textSecondary,
+    fontSize: 14,
+  },
+  infoClose: {
+    marginTop: Spacing.md,
+    alignSelf: "flex-end",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: Radii.md,
+    backgroundColor: Palette.accent,
+  },
+  infoCloseText: {
+    color: Palette.white,
     fontWeight: "700",
   },
   primaryBtn: {

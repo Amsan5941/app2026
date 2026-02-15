@@ -2,6 +2,7 @@ import { Palette, Radii, Spacing } from "@/constants/theme";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -39,6 +40,17 @@ export default function ProfileScreen() {
   const [editSex, setEditSex] = useState<string>("");
   const [editGoal, setEditGoal] = useState<string>("");
   const [savingBio, setSavingBio] = useState(false);
+  const [showFitnessModal, setShowFitnessModal] = useState(false);
+  const [fGoal, setFGoal] = useState<string>("");
+  const [fActivityLevel, setFActivityLevel] = useState<
+    "sedentary" | "light" | "moderate" | "active" | "very_active" | ""
+  >("");
+  const [fWorkoutStyle, setFWorkoutStyle] = useState<
+    "strength" | "cardio" | "mix" | ""
+  >("");
+  const [fWorkoutsPerWeek, setFWorkoutsPerWeek] = useState<string>("");
+  const [fDailyCalorie, setFDailyCalorie] = useState<string>("");
+  const [fAutoFilled, setFAutoFilled] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -49,6 +61,15 @@ export default function ProfileScreen() {
       if (res.success) {
         setProfile(res.profile ?? null);
         setBioProfile(res.bioProfile ?? null);
+        // initialize fitness modal defaults
+        const bp = res.bioProfile ?? null;
+        setFGoal(bp?.goal ?? "");
+        setFActivityLevel(bp?.activity_level ?? "");
+        setFWorkoutStyle(bp?.workout_style ?? "");
+        setFWorkoutsPerWeek(
+          bp?.workouts_per_week ? String(bp.workouts_per_week) : "",
+        );
+        setFDailyCalorie(bp?.calorie_goal ? String(bp.calorie_goal) : "");
         setFirstname(res.profile?.firstname ?? "");
         setLastname(res.profile?.lastname ?? "");
       } else {
@@ -65,6 +86,61 @@ export default function ProfileScreen() {
       mounted = false;
     };
   }, [user]);
+
+  // Estimate calories for fitness modal (Mifflin-St Jeor)
+  function estimateCaloriesForModal(): number | null {
+    const bp = bioProfile;
+    if (!bp) return null;
+    const age = bp.age;
+    const weight = bp.weight; // lbs
+    const heightInInches = bp.height;
+    const sex = bp.sex;
+    const goal = fGoal;
+    const activity = fActivityLevel;
+
+    if (!age || !weight || !heightInInches || !sex || !goal || !activity)
+      return null;
+
+    const heightCm = (heightInInches as number) * 2.54;
+    const weightKg = (weight as number) * 0.45359237;
+    let bmr: number;
+    if (sex.toLowerCase() === "male") {
+      bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+    } else if (sex.toLowerCase() === "female") {
+      bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+    } else {
+      const male = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+      const female = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+      bmr = (male + female) / 2;
+    }
+
+    const multiplier =
+      activity === "sedentary"
+        ? 1.2
+        : activity === "light"
+          ? 1.375
+          : activity === "moderate"
+            ? 1.55
+            : activity === "active"
+              ? 1.725
+              : 1.2;
+
+    let maintenance = Math.round(bmr * multiplier);
+    if (goal === "Cutting" || goal === "cutting") maintenance -= 500;
+    else if (goal === "Bulking" || goal === "bulking") maintenance += 500;
+    maintenance = Math.max(1200, maintenance);
+    return maintenance;
+  }
+
+  // auto-fill calorie in modal when eligible
+  useEffect(() => {
+    if (!showFitnessModal) return;
+    const est = estimateCaloriesForModal();
+    if (est && (fDailyCalorie === "" || fAutoFilled)) {
+      setFDailyCalorie(String(est));
+      setFAutoFilled(true);
+    }
+  }, [showFitnessModal, fActivityLevel, fGoal, bioProfile]);
 
   useEffect(() => {
     // If not signed in and we haven't shown the prompt yet, show a popup
@@ -317,6 +393,59 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            {/* Fitness Information Card */}
+            <View style={styles.card}>
+              <Text style={styles.label}>Fitness Information</Text>
+              {bioProfile ? (
+                <>
+                  <View style={styles.bioRow}>
+                    <Text style={styles.bioItem}>
+                      Activity Level: {bioProfile.activity_level ?? "—"}
+                    </Text>
+                    <Text style={styles.bioItem}>
+                      Workout Style: {bioProfile.workout_style ?? "—"}
+                    </Text>
+                    <Text style={styles.bioItem}>
+                      Workouts/week: {bioProfile.workouts_per_week ?? "—"}
+                    </Text>
+                    <Text style={styles.bioItem}>
+                      Calorie Goal: {bioProfile.calorie_goal ?? "—"}
+                    </Text>
+                    <Text style={styles.bioItem}>
+                      Goal: {bioProfile.goal ?? "—"}
+                    </Text>
+                  </View>
+                  <View style={styles.rowRight}>
+                    <Pressable
+                      style={styles.ghostBtn}
+                      onPress={() => {
+                        // initialize modal fields from current bioProfile
+                        setFGoal(bioProfile.goal ?? "");
+                        setFActivityLevel(bioProfile.activity_level ?? "");
+                        setFWorkoutStyle(bioProfile.workout_style ?? "");
+                        setFWorkoutsPerWeek(
+                          bioProfile.workouts_per_week
+                            ? String(bioProfile.workouts_per_week)
+                            : "",
+                        );
+                        setFDailyCalorie(
+                          bioProfile.calorie_goal
+                            ? String(bioProfile.calorie_goal)
+                            : "",
+                        );
+                        setFAutoFilled(false);
+                        setShowFitnessModal(true);
+                      }}
+                    >
+                      <Text style={styles.ghostText}>Edit</Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.value}>No fitness information.</Text>
+              )}
+            </View>
+
             <View style={styles.card}>
               <Text style={styles.label}>Change Password</Text>
               <TextInput
@@ -348,6 +477,163 @@ export default function ProfileScreen() {
         )}
 
         <View style={{ height: 36 }} />
+        {/* Fitness Edit Modal */}
+        <Modal visible={showFitnessModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Edit Fitness Information</Text>
+
+              <Text style={styles.inputLabel}>Goal</Text>
+              <View style={styles.optionRowSmall}>
+                {[
+                  { value: "cutting", label: "Cut" },
+                  { value: "bulking", label: "Bulk" },
+                  { value: "maintaining", label: "Maintain" },
+                ].map((o) => (
+                  <Pressable
+                    key={o.value}
+                    onPress={() => setFGoal(o.value)}
+                    style={[
+                      styles.optionSmall,
+                      fGoal === o.value && {
+                        borderColor: Palette.accent,
+                        backgroundColor: Palette.accentMuted,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: Palette.textPrimary }}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
+                Activity Level
+              </Text>
+              <View style={styles.optionRowSmall}>
+                {[
+                  { value: "sedentary", label: "Sedentary" },
+                  { value: "light", label: "Light" },
+                  { value: "moderate", label: "Moderate" },
+                  { value: "active", label: "Active" },
+                ].map((o) => (
+                  <Pressable
+                    key={o.value}
+                    onPress={() => setFActivityLevel(o.value as any)}
+                    style={[
+                      styles.optionSmall,
+                      fActivityLevel === o.value && {
+                        borderColor: Palette.accent,
+                        backgroundColor: Palette.accentMuted,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: Palette.textPrimary }}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
+                Workout Style
+              </Text>
+              <View style={styles.optionRowSmall}>
+                {[
+                  { value: "strength", label: "Strength" },
+                  { value: "cardio", label: "Cardio" },
+                  { value: "mix", label: "Mix" },
+                ].map((o) => (
+                  <Pressable
+                    key={o.value}
+                    onPress={() => setFWorkoutStyle(o.value as any)}
+                    style={[
+                      styles.optionSmall,
+                      fWorkoutStyle === o.value && {
+                        borderColor: Palette.accent,
+                        backgroundColor: Palette.accentMuted,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: Palette.textPrimary }}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
+                Goal Workouts per week
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={fWorkoutsPerWeek}
+                onChangeText={(t) =>
+                  setFWorkoutsPerWeek(t.replace(/[^0-9]/g, ""))
+                }
+                keyboardType="numeric"
+                placeholder="e.g. 3"
+                placeholderTextColor={Palette.textMuted}
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: Spacing.md }]}>
+                Daily Calorie Goal
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={fDailyCalorie}
+                onChangeText={(v) => {
+                  setFDailyCalorie(v);
+                  setFAutoFilled(false);
+                }}
+                keyboardType="numeric"
+                placeholder="e.g. 2200"
+                placeholderTextColor={Palette.textMuted}
+              />
+
+              <View style={styles.rowRight}>
+                <Pressable
+                  style={[styles.btn, { backgroundColor: Palette.accent }]}
+                  onPress={async () => {
+                    // save updates
+                    setSavingBio(true);
+                    const updates: any = {
+                      goal: fGoal || null,
+                      activity_level: fActivityLevel || null,
+                      workout_style: fWorkoutStyle || null,
+                      workouts_per_week: fWorkoutsPerWeek
+                        ? parseInt(fWorkoutsPerWeek)
+                        : null,
+                      calorie_goal: fDailyCalorie
+                        ? parseInt(fDailyCalorie)
+                        : null,
+                    };
+                    const res = await updateBioProfile(updates);
+                    setSavingBio(false);
+                    if (res.success) {
+                      const r = await getCurrentUserProfile();
+                      if (r.success) {
+                        setBioProfile(r.bioProfile ?? null);
+                      }
+                      setShowFitnessModal(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.btnText}>
+                    {savingBio ? "Saving..." : "Save"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.btn, { backgroundColor: Palette.bgElevated }]}
+                  onPress={() => setShowFitnessModal(false)}
+                >
+                  <Text style={styles.btnTextSecondary}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -452,5 +738,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.border,
     backgroundColor: Palette.bgCard,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 640,
+    backgroundColor: Palette.bgElevated,
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+    marginBottom: Spacing.sm,
   },
 });

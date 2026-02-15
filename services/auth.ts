@@ -84,6 +84,10 @@ export async function updateBioProfile(updates: {
   height?: number;
   sex?: string;
   goal?: string;
+  activity_level?: string | null;
+  workout_style?: string | null;
+  workouts_per_week?: number | null;
+  calorie_goal?: number | null;
 }) {
   try {
     const {
