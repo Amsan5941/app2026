@@ -2,6 +2,7 @@ import { supabase } from "@/constants/supabase";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
+import { useSteps } from "@/hooks/useSteps";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
@@ -186,6 +187,7 @@ const qaStyles = StyleSheet.create({
 export default function HomeScreen() {
   const timer = useWorkoutTimer();
   const { user } = useAuth();
+  const steps = useSteps();
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -323,7 +325,7 @@ export default function HomeScreen() {
           <QuickAction
             icon="👣"
             label="Steps"
-            value="0"
+            value={steps.todayStepsFormatted}
             sub="today"
             accentColor={Palette.success}
           />

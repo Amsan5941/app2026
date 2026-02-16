@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMotionUsageDescription": "This app uses your device's motion sensors to track your daily steps."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +30,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "This app uses your device's motion sensors to track your daily steps."
+        }
+      ],
       [
         "expo-splash-screen",
         {
