@@ -11,7 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMotionUsageDescription": "This app uses your device's motion sensors to track your daily steps."
+        "NSMotionUsageDescription": "This app uses your device's motion sensors to track your daily steps.",
+        "NSCameraUsageDescription": "This app needs camera access to let you take photos of your meals for nutrition tracking.",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to let you select meal photos for nutrition tracking."
       }
     },
     "android": {
@@ -22,7 +24,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "output": "static",
@@ -34,6 +41,13 @@
         "expo-sensors",
         {
           "motionPermission": "This app uses your device's motion sensors to track your daily steps."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "This app needs access to your photos to let you select meal photos for nutrition tracking.",
+          "cameraPermission": "This app needs camera access to let you take photos of your meals for nutrition tracking."
         }
       ],
       [

@@ -11,14 +11,35 @@ import { supabase } from "@/constants/supabase";
 import { Platform } from "react-native";
 
 // ── Configuration ──────────────────────────────────────────
-// Change this to your deployed backend URL in production
-const API_BASE_URL = __DEV__
-  ? "http://localhost:8000/api/v1"
-  : "https://your-backend.railway.app/api/v1";
+// Get the appropriate API URL based on platform
+function getApiBaseUrl(): string {
+  if (!__DEV__) {
+    // Production - use your deployed backend URL
+    return "https://your-backend.railway.app/api/v1";
+  }
+
+  // Development URLs per platform
+  if (Platform.OS === "android") {
+    // Android emulator uses 10.0.2.2 to access host machine's localhost
+    return "http://10.0.2.2:8000/api/v1";
+  } else if (Platform.OS === "ios") {
+    // iOS simulator can use localhost
+    return "http://localhost:8000/api/v1";
+  } else {
+    // Web uses localhost
+    return "http://localhost:8000/api/v1";
+  }
+  
+  // For physical devices, you'll need to use your computer's local IP:
+  // Example: return "http://192.168.1.100:8000/api/v1";
+  // Find your IP with: `ipconfig getifaddr en0` (Mac) or `ipconfig` (Windows)
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Debug log to verify correct URL is loaded
-if (__DEV__ && Platform.OS === "web") {
-  console.log("[FoodRecognition] API Base URL:", API_BASE_URL);
+if (__DEV__) {
+  console.log(`[FoodRecognition] Platform: ${Platform.OS}, API Base URL: ${API_BASE_URL}`);
 }
 
 // ── Types ──────────────────────────────────────────────────
