@@ -1,17 +1,20 @@
+import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import { supabase } from "@/constants/supabase";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
+import { hasLoggedWeightToday } from "@/services/weightTracking";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Pressable,
+  AppState, AppStateStatus, Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";
@@ -190,6 +193,8 @@ export default function HomeScreen() {
   const steps = useSteps();
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showWeightPrompt, setShowWeightPrompt] = useState(false);
+  const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide button initially
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
   const [firstname, setFirstname] = useState("");
 
@@ -205,6 +210,38 @@ export default function HomeScreen() {
       if (data?.firstname) setFirstname(data.firstname);
     })();
   }, [user]);
+
+  // Check if weight has been logged today
+  useEffect(() => {
+    if (!user) return;
+    checkWeightStatus();
+  }, [user]);
+
+  // Re-check weight status when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        checkWeightStatus();
+      }
+    }, [user])
+  );
+
+  // Re-check weight status when app comes to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active" && user) {
+        checkWeightStatus();
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, [user]);
+
+  async function checkWeightStatus() {
+    const hasLogged = await hasLoggedWeightToday();
+    setHasLoggedWeight(hasLogged);
+  }
 
   const handleStartWorkout = () => {
     timer.start();
@@ -251,9 +288,22 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.date}>{getTodayFormatted()}</Text>
           </View>
-          <View style={styles.streakBadge}>
-            <Text style={styles.streakIcon}>🔥</Text>
-            <Text style={styles.streakCount}>0</Text>
+          <View style={styles.headerBadges}>
+            {!hasLoggedWeight && (
+              <Pressable
+                onPress={() => setShowWeightPrompt(true)}
+                style={({ pressed }) => [
+                  styles.weightBadge,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.weightIcon}>⚖️</Text>
+              </Pressable>
+            )}
+            <View style={styles.streakBadge}>
+              <Text style={styles.streakIcon}>🔥</Text>
+              <Text style={styles.streakCount}>0</Text>
+            </View>
           </View>
         </View>
 
@@ -356,6 +406,15 @@ export default function HomeScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* ── Weight Prompt Modal ────────────── */}
+      <DailyWeightPrompt
+        visible={showWeightPrompt}
+        onComplete={() => {
+          setShowWeightPrompt(false);
+          checkWeightStatus(); // Refresh weight status after logging
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -381,6 +440,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.xl,
   },
+  headerBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   greeting: {
     fontSize: 24,
     fontWeight: "700",
@@ -391,6 +455,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Palette.textSecondary,
     marginTop: 4,
+  },
+  weightBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Palette.accentMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Palette.accent + "30",
+  },
+  weightIcon: {
+    fontSize: 20,
   },
   streakBadge: {
     flexDirection: "row",

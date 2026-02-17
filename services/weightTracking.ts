@@ -4,6 +4,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const SKIP_STORAGE_KEY = "@weight_skip_date";
 
 /**
+ * Get today's date in YYYY-MM-DD format using local timezone
+ */
+function getTodayLocal(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Clear the skip date (for testing/debugging)
  */
 export async function clearSkipDate(): Promise<void> {
@@ -30,7 +41,7 @@ export type WeightEntry = {
  */
 export async function skipWeightForToday(): Promise<void> {
   try {
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = getTodayLocal();
     console.log("Skipping weight for:", today);
     await AsyncStorage.setItem(SKIP_STORAGE_KEY, today);
     console.log("Skip date stored successfully");
@@ -46,7 +57,7 @@ export async function skipWeightForToday(): Promise<void> {
 export async function hasSkippedToday(): Promise<boolean> {
   try {
     const skippedDate = await AsyncStorage.getItem(SKIP_STORAGE_KEY);
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = getTodayLocal();
     console.log("Checking skip - stored date:", skippedDate, "today:", today);
     return skippedDate === today;
   } catch (error) {
@@ -80,7 +91,7 @@ export async function hasLoggedWeightToday(): Promise<boolean> {
       return false;
     }
 
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = getTodayLocal();
 
     const { data, error } = await supabase
       .from("body_weight")
@@ -138,7 +149,7 @@ export async function logWeight(
 
     if (userError) throw userError;
 
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = getTodayLocal();
 
     // Insert or update today's weight
     const { error: insertError } = await supabase
@@ -157,6 +168,9 @@ export async function logWeight(
       );
 
     if (insertError) throw insertError;
+
+    // Clear skip date if it exists (user logged weight manually after skipping)
+    await clearSkipDate();
 
     return { success: true };
   } catch (error) {

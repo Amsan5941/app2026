@@ -6,6 +6,7 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import "react-native-reanimated";
 
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
@@ -30,6 +31,18 @@ function NavigationContent() {
     } else {
       setShowWeightPrompt(false);
     }
+  }, [session]);
+
+  // Re-check weight status when app comes to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active" && session) {
+        checkWeightLogging();
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
   }, [session]);
 
   async function checkWeightLogging() {
