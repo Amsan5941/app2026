@@ -1,15 +1,15 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
-import { logWeight } from "@/services/weightTracking";
+import { logWeight, skipWeightForToday } from "@/services/weightTracking";
 import React, { useState } from "react";
 import {
-    Alert,
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface DailyWeightPromptProps {
@@ -24,6 +24,7 @@ export default function DailyWeightPrompt({
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState<"lbs" | "kg">("lbs");
   const [loading, setLoading] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   async function handleSubmit() {
     if (!weight || parseFloat(weight) <= 0) {
@@ -48,22 +49,20 @@ export default function DailyWeightPrompt({
     }
   }
 
-  function handleSkip() {
-    Alert.alert(
-      "Skip Today?",
-      "Consistent tracking = better results. Skip anyway?",
-      [
-        { text: "Go Back", style: "cancel" },
-        {
-          text: "Skip",
-          style: "destructive",
-          onPress: () => {
-            setWeight("");
-            onComplete();
-          },
-        },
-      ]
-    );
+  async function handleSkip() {
+    setSkipping(true);
+    try {
+      await skipWeightForToday();
+      // Small delay to ensure AsyncStorage write completes
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      setWeight("");
+      onComplete();
+    } catch (error) {
+      console.error("Error skipping weight:", error);
+      Alert.alert("Error", "Failed to skip. Please try again.");
+    } finally {
+      setSkipping(false);
+    }
   }
 
   return (
@@ -139,20 +138,23 @@ export default function DailyWeightPrompt({
               style={({ pressed }) => [
                 styles.skipButton,
                 pressed && { opacity: 0.7 },
+                (loading || skipping) && styles.buttonDisabled,
               ]}
               onPress={handleSkip}
-              disabled={loading}
+              disabled={loading || skipping}
             >
-              <Text style={styles.skipButtonText}>Skip</Text>
+              <Text style={styles.skipButtonText}>
+                {skipping ? "Skipping..." : "Skip"}
+              </Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.submitButton,
                 pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                loading && styles.buttonDisabled,
+                (loading || skipping) && styles.buttonDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || skipping}
             >
               <Text style={styles.submitButtonText}>
                 {loading ? "Saving..." : "Log Weight"}

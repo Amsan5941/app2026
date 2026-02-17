@@ -13,7 +13,7 @@ import LoginButton from "@/components/login-button";
 import { Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { hasLoggedWeightToday } from "@/services/weightTracking";
+import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -34,8 +34,8 @@ function NavigationContent() {
 
   async function checkWeightLogging() {
     try {
-      const hasLogged = await hasLoggedWeightToday();
-      setShowWeightPrompt(!hasLogged);
+      const hasCompleted = await hasCompletedWeightCheckToday();
+      setShowWeightPrompt(!hasCompleted);
     } catch (error) {
       console.error("Error checking weight logging status:", error);
     }

@@ -1,4 +1,19 @@
 import { supabase } from "@/constants/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SKIP_STORAGE_KEY = "@weight_skip_date";
+
+/**
+ * Clear the skip date (for testing/debugging)
+ */
+export async function clearSkipDate(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SKIP_STORAGE_KEY);
+    console.log("Skip date cleared");
+  } catch (error) {
+    console.error("Error clearing skip date:", error);
+  }
+}
 
 export type WeightEntry = {
   id: string;
@@ -9,6 +24,36 @@ export type WeightEntry = {
   notes: string | null;
   created_at: string;
 };
+
+/**
+ * Store that user has skipped weight logging for today
+ */
+export async function skipWeightForToday(): Promise<void> {
+  try {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    console.log("Skipping weight for:", today);
+    await AsyncStorage.setItem(SKIP_STORAGE_KEY, today);
+    console.log("Skip date stored successfully");
+  } catch (error) {
+    console.error("Error storing skip date:", error);
+    throw error;
+  }
+}
+
+/**
+ * Check if user has skipped weight logging today
+ */
+export async function hasSkippedToday(): Promise<boolean> {
+  try {
+    const skippedDate = await AsyncStorage.getItem(SKIP_STORAGE_KEY);
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    console.log("Checking skip - stored date:", skippedDate, "today:", today);
+    return skippedDate === today;
+  } catch (error) {
+    console.error("Error checking skip date:", error);
+    return false;
+  }
+}
 
 /**
  * Check if user has logged weight today
@@ -53,6 +98,18 @@ export async function hasLoggedWeightToday(): Promise<boolean> {
     console.error("Error checking weight log:", error);
     return false;
   }
+}
+
+/**
+ * Check if user has completed weight check-in today (either logged or skipped)
+ */
+export async function hasCompletedWeightCheckToday(): Promise<boolean> {
+  const [hasLogged, hasSkipped] = await Promise.all([
+    hasLoggedWeightToday(),
+    hasSkippedToday(),
+  ]);
+  console.log("Weight check status - logged:", hasLogged, "skipped:", hasSkipped);
+  return hasLogged || hasSkipped;
 }
 
 /**
