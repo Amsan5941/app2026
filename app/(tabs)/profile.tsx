@@ -1,31 +1,32 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    changeUserPassword,
-    getCurrentUserProfile,
-    updateBioProfile,
-    updateUserProfile,
+  changeUserPassword,
+  getCurrentUserProfile,
+  updateBioProfile,
+  updateUserProfile,
 } from "@/services/auth";
 import { Alert } from "react-native";
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, signIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any | null>(null);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -35,12 +36,12 @@ export default function ProfileScreen() {
   const [savingName, setSavingName] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [promptShown, setPromptShown] = useState(false);
   const [bioEditing, setBioEditing] = useState(false);
   const [editHeight, setEditHeight] = useState<number | string>("");
   const [editSex, setEditSex] = useState<string>("");
-  const [editGoal, setEditGoal] = useState<string>("");
   const [savingBio, setSavingBio] = useState(false);
   const [showFitnessModal, setShowFitnessModal] = useState(false);
   const [fGoal, setFGoal] = useState<string>("");
@@ -53,6 +54,7 @@ export default function ProfileScreen() {
   const [fWorkoutsPerWeek, setFWorkoutsPerWeek] = useState<string>("");
   const [fDailyCalorie, setFDailyCalorie] = useState<string>("");
   const [fAutoFilled, setFAutoFilled] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let mounted = true;
@@ -138,7 +140,9 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!showFitnessModal) return;
     const est = estimateCaloriesForModal();
-    if (est && (fDailyCalorie === "" || fAutoFilled)) {
+    // Live-update the calorie input whenever goal/activity (or bio) change
+    // so the user can see the estimated value before saving.
+    if (est) {
       setFDailyCalorie(String(est));
       setFAutoFilled(true);
     }
@@ -158,12 +162,22 @@ export default function ProfileScreen() {
   }, [loading, user, promptShown]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <AuthModal
-        visible={authModalVisible}
-        onClose={() => setAuthModalVisible(false)}
-      />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 44 : 0}
+    >
+      <SafeAreaView style={styles.safe} edges={["left", "right"]}>
+        <AuthModal
+          visible={authModalVisible}
+          onClose={() => setAuthModalVisible(false)}
+        />
+        <KeyboardAwareScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+          enableOnAndroid
+          extraScrollHeight={Platform.OS === "ios" ? 20 : 120}
+        >
         <Text style={styles.title}>Profile</Text>
 
         {loading ? (
@@ -286,30 +300,7 @@ export default function ProfileScreen() {
                         ))}
                       </View>
 
-                      <Text
-                        style={[styles.inputLabel, { marginTop: Spacing.sm }]}
-                      >
-                        Goal
-                      </Text>
-                      <View style={styles.optionRowSmall}>
-                        {["Cutting", "Bulking", "Maintaining"].map((g) => (
-                          <Pressable
-                            key={g}
-                            onPress={() => setEditGoal(g)}
-                            style={[
-                              styles.optionSmall,
-                              editGoal === g && {
-                                borderColor: Palette.accent,
-                                backgroundColor: Palette.accentMuted,
-                              },
-                            ]}
-                          >
-                            <Text style={{ color: Palette.textPrimary }}>
-                              {g}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
+                      {/* Goal is not editable from the Bio card. Use the Fitness Information editor to change goal. */}
 
                       <View style={styles.rowRight}>
                         <Pressable
@@ -323,7 +314,6 @@ export default function ProfileScreen() {
                             if (editHeight)
                               updates.height = parseInt(String(editHeight));
                             if (editSex) updates.sex = editSex;
-                            if (editGoal) updates.goal = editGoal;
                             const res = await updateBioProfile(updates);
                             setSavingBio(false);
                             if (res.success) {
@@ -344,11 +334,10 @@ export default function ProfileScreen() {
                             styles.btn,
                             { backgroundColor: Palette.bgElevated },
                           ]}
-                          onPress={() => {
+                            onPress={() => {
                             setBioEditing(false);
                             setEditHeight(bioProfile.height ?? "");
                             setEditSex(bioProfile.sex ?? "");
-                            setEditGoal(bioProfile.goal ?? "");
                           }}
                         >
                           <Text style={styles.btnTextSecondary}>Cancel</Text>
@@ -370,9 +359,7 @@ export default function ProfileScreen() {
                         <Text style={styles.bioItem}>
                           Sex: {bioProfile.sex}
                         </Text>
-                        <Text style={styles.bioItem}>
-                          Goal: {bioProfile.goal}
-                        </Text>
+                        {/* Goal removed from Bio card (editable in Fitness Information) */}
                       </View>
                       <View style={styles.rowRight}>
                         <Pressable
@@ -381,7 +368,6 @@ export default function ProfileScreen() {
                             setBioEditing(true);
                             setEditHeight(bioProfile.height ?? "");
                             setEditSex(bioProfile.sex ?? "");
-                            setEditGoal(bioProfile.goal ?? "");
                           }}
                         >
                           <Text style={styles.ghostText}>Edit</Text>
@@ -450,6 +436,16 @@ export default function ProfileScreen() {
 
             <View style={styles.card}>
               <Text style={styles.label}>Change Password</Text>
+              <Text style={[styles.inputLabel, { marginTop: Spacing.sm }]}>Current Password</Text>
+              <TextInput
+                style={styles.input}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Current password"
+                placeholderTextColor={Palette.textMuted}
+                secureTextEntry
+              />
+              <Text style={[styles.inputLabel, { marginTop: Spacing.sm }]}>New Password</Text>
               <TextInput
                 style={styles.input}
                 value={newPassword}
@@ -462,11 +458,53 @@ export default function ProfileScreen() {
                 <Pressable
                   style={[styles.btn, { backgroundColor: Palette.accent }]}
                   onPress={async () => {
-                    if (!newPassword) return;
+                    // Require current password and validate new password rules
+                    if (!currentPassword) {
+                      Alert.alert("Please enter your current password to verify your identity.");
+                      return;
+                    }
+                    if (!newPassword) {
+                      Alert.alert("Please enter a new password.");
+                      return;
+                    }
+
+                    // validate new password (same rules as signup)
+                    const isValidPassword = (value: string) =>
+                      value.length >= 8 && /[^A-Za-z0-9]/.test(value);
+
+                    if (!isValidPassword(newPassword)) {
+                      Alert.alert(
+                        "Password must be at least 8 characters and include at least one special character",
+                      );
+                      return;
+                    }
+
                     setChangingPassword(true);
-                    const res = await changeUserPassword(newPassword);
-                    setChangingPassword(false);
-                    if (res.success) setNewPassword("");
+                    try {
+                      // Re-authenticate the user by signing in with current credentials
+                      const email = user?.email ?? "";
+                      const { error: signInError } = await signIn(email, currentPassword) as any;
+                      if (signInError) {
+                        // signIn in this hook returns { data, error }
+                        Alert.alert("Current password is incorrect. Please try again.");
+                        setChangingPassword(false);
+                        return;
+                      }
+
+                      const res = await changeUserPassword(newPassword);
+                      setChangingPassword(false);
+                      if (res.success) {
+                        setNewPassword("");
+                        setCurrentPassword("");
+                        Alert.alert("Password changed successfully.");
+                      } else {
+                        Alert.alert("Failed to change password. Please try again.");
+                      }
+                    } catch (e: any) {
+                      console.error("Change password error:", e);
+                      setChangingPassword(false);
+                      Alert.alert(e?.message || String(e));
+                    }
                   }}
                 >
                   <Text style={styles.btnText}>
@@ -616,10 +654,35 @@ export default function ProfileScreen() {
                       workouts_per_week: fWorkoutsPerWeek
                         ? parseInt(fWorkoutsPerWeek)
                         : null,
-                      calorie_goal: fDailyCalorie
-                        ? parseInt(fDailyCalorie)
-                        : null,
                     };
+
+                    // decide calorie_goal to persist:
+                    // prefer an auto-estimate when available (and when the user hasn't entered a custom value or we've auto-filled previously),
+                    // otherwise use the user-entered fDailyCalorie if present.
+                    try {
+                      const est = estimateCaloriesForModal();
+                      let calorieToSave: number | null = null;
+                      if (
+                        est &&
+                        (fDailyCalorie === "" || fAutoFilled || Number(fDailyCalorie) !== est)
+                      ) {
+                        calorieToSave = est;
+                        // reflect auto-filled value in UI
+                        setFDailyCalorie(String(est));
+                        setFAutoFilled(true);
+                      } else if (fDailyCalorie) {
+                        const parsed = parseInt(fDailyCalorie);
+                        calorieToSave = Number.isNaN(parsed) ? null : parsed;
+                      }
+                      updates.calorie_goal = calorieToSave;
+                    } catch (e) {
+                      // don't block saving if estimate fails
+                      console.error("Calorie estimate error:", e);
+                      updates.calorie_goal = fDailyCalorie
+                        ? parseInt(fDailyCalorie)
+                        : null;
+                    }
+
                     const res = await updateBioProfile(updates);
                     setSavingBio(false);
                     if (res.success) {
@@ -647,8 +710,9 @@ export default function ProfileScreen() {
         </View>
       </KeyboardAvoidingView>
     </Modal>
-      </ScrollView>
-    </SafeAreaView>
+  </KeyboardAwareScrollView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 const styles = StyleSheet.create({
