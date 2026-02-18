@@ -3,7 +3,9 @@ import { logWeight, skipWeightForToday } from "@/services/weightTracking";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -72,8 +74,12 @@ export default function DailyWeightPrompt({
       transparent
       onRequestClose={handleSkip}
     >
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.card}>
           {/* Decorative top bar */}
           <View style={styles.topBar} />
 
@@ -161,8 +167,9 @@ export default function DailyWeightPrompt({
               </Text>
             </Pressable>
           </View>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
