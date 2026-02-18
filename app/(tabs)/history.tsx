@@ -1,11 +1,11 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, Line, LinearGradient, Polyline, Stop, Circle as SvgCircle } from "react-native-svg";
@@ -34,6 +34,9 @@ const SAMPLE_WORKOUTS: Workout[] = [
   { id: "5", date: "2026-02-08", duration: 50, calories: 440, type: "Leg Day", icon: "🦵" },
 ];
 
+import { getCurrentUserBioProfile } from "@/services/bioProfile";
+import { getWeightHistory } from "@/services/weightTracking";
+
 const WEIGHT_DATA: WeightEntry[] = [
   { date: "Feb 7", weight: 185 },
   { date: "Feb 8", weight: 184.5 },
@@ -43,6 +46,16 @@ const WEIGHT_DATA: WeightEntry[] = [
   { date: "Feb 12", weight: 183 },
   { date: "Feb 13", weight: 182.5 },
 ];
+
+// Helper to format recorded_date (YYYY-MM-DD) to 'Mon D' like 'Feb 7'
+function formatRecordedDate(dateStr: string) {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch (e) {
+    return dateStr;
+  }
+}
 
 // ── Mini Weight Chart ───────────────────────────────────────
 function WeightChart({ data }: { data: WeightEntry[] }) {
@@ -412,6 +425,56 @@ const tabStyles = StyleSheet.create({
 // ── Main Screen ─────────────────────────────────────────────
 export default function ProgressScreen() {
   const [activeTab, setActiveTab] = useState("Overview");
+  const [weightData, setWeightData] = useState<WeightEntry[]>(WEIGHT_DATA);
+  const [loadingWeights, setLoadingWeights] = useState(false);
+  const [weightUnit, setWeightUnit] = useState<string>("lbs");
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadWeights() {
+      setLoadingWeights(true);
+      try {
+        const bpRes = await getCurrentUserBioProfile();
+        const whRes = await getWeightHistory(7);
+
+        if (!mounted) return;
+
+        if (whRes.success && whRes.data && whRes.data.length > 0) {
+          // weight history comes back newest first — reverse to oldest-first for chart
+          const entries = (whRes.data as any[])
+            .slice()
+            .reverse()
+            .map((e) => ({ date: formatRecordedDate(e.recorded_date), weight: e.weight }));
+          setWeightUnit((whRes.data as any)[0]?.weight_unit ?? "lbs");
+          setWeightData(entries);
+        } else if (bpRes.success && bpRes.profile && bpRes.profile.weight != null) {
+          // no daily history — fallback to bio_profile weight repeated across last 7 days
+          const w = bpRes.profile.weight;
+          const days = 7;
+          const arr: WeightEntry[] = [];
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            arr.push({ date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), weight: w });
+          }
+          setWeightUnit(bpRes.profile.weight_unit ?? "lbs");
+          setWeightData(arr);
+        } else {
+          // final fallback: use sample data
+          setWeightData(WEIGHT_DATA);
+        }
+      } catch (e) {
+        console.error("Error loading weight data:", e);
+        setWeightData(WEIGHT_DATA);
+      } finally {
+        if (mounted) setLoadingWeights(false);
+      }
+    }
+    loadWeights();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
@@ -431,7 +494,7 @@ export default function ProgressScreen() {
         {activeTab === "Overview" && (
           <>
             <SummaryStats />
-            <WeightChart data={WEIGHT_DATA} />
+            <WeightChart data={weightData} />
 
             <Text style={styles.sectionTitle}>Recent Workouts</Text>
             {SAMPLE_WORKOUTS.slice(0, 3).map((w) => (
@@ -464,21 +527,31 @@ export default function ProgressScreen() {
 
         {activeTab === "Body" && (
           <>
-            <WeightChart data={WEIGHT_DATA} />
+            <WeightChart data={weightData} />
             <View style={bodyStyles.infoCard}>
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Starting Weight</Text>
-                <Text style={bodyStyles.infoValue}>185 lbs</Text>
+                <Text style={bodyStyles.infoValue}>{weightData?.[0]?.weight ?? "—"} {weightUnit}</Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Current Weight</Text>
-                <Text style={bodyStyles.infoValue}>182.5 lbs</Text>
+                <Text style={bodyStyles.infoValue}>{weightData?.[weightData.length - 1]?.weight ?? "—"} {weightUnit}</Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Total Change</Text>
-                <Text style={[bodyStyles.infoValue, { color: Palette.success }]}>-2.5 lbs</Text>
+                <Text style={[bodyStyles.infoValue, { color: Palette.success }]}>{
+                  (() => {
+                    const start = weightData?.[0]?.weight;
+                    const end = weightData?.[weightData.length - 1]?.weight;
+                    if (typeof start === "number" && typeof end === "number") {
+                      const diff = (end - start).toFixed(1);
+                      return `${diff.startsWith("-") ? "" : "+"}${diff} ${weightUnit}`;
+                    }
+                    return "—";
+                  })()
+                }</Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
