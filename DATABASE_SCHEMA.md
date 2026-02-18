@@ -38,45 +38,59 @@ CREATE UNIQUE INDEX idx_bio_profile_unique_user ON bio_profile(user_id);
 
 ---
 
-### 3. **workouts** (Main workout session)
+### 3. **workout_sessions** (Workout session per day)
 ```sql
-CREATE TABLE workouts (
+CREATE TABLE workout_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT, -- e.g., "Chest Day", "Leg Press"
+  name TEXT NOT NULL,               -- e.g. "Push Day", "Leg Day"
   notes TEXT,
-  duration_minutes INTEGER, -- workout duration
+  duration_seconds INTEGER,         -- total workout duration
+  workout_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_workouts_user_id ON workouts(user_id);
-CREATE INDEX idx_workouts_created_at ON workouts(created_at);
+CREATE INDEX idx_ws_user_id ON workout_sessions(user_id);
+CREATE INDEX idx_ws_date ON workout_sessions(workout_date);
+CREATE INDEX idx_ws_user_date ON workout_sessions(user_id, workout_date DESC);
 ```
 
 ---
 
-### 4. **workout_exercises** (Individual exercises within a workout)
+### 4. **session_exercises** (Individual exercises within a workout session)
 ```sql
-CREATE TABLE workout_exercises (
+CREATE TABLE session_exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workout_id UUID NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
-  exercise_name TEXT NOT NULL, -- e.g., "Bench Press", "Squats"
-  sets INTEGER NOT NULL,
-  reps INTEGER NOT NULL,
-  weight DECIMAL(10, 2) NOT NULL,
-  weight_unit TEXT NOT NULL DEFAULT 'lbs', -- 'lbs', 'kg'
-  rest_seconds INTEGER, -- rest between sets
-  notes TEXT,
+  session_id UUID NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+  exercise_name TEXT NOT NULL,      -- e.g. "Bench Press", "Squats"
+  sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_workout_exercises_workout_id ON workout_exercises(workout_id);
-CREATE INDEX idx_workout_exercises_exercise_name ON workout_exercises(exercise_name);
+CREATE INDEX idx_se_session_id ON session_exercises(session_id);
 ```
 
 ---
 
-### 5. **personal_records** (Track PRs for each lift)
+### 5. **exercise_sets** (Individual sets within an exercise)
+```sql
+CREATE TABLE exercise_sets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercise_id UUID NOT NULL REFERENCES session_exercises(id) ON DELETE CASCADE,
+  set_number INTEGER NOT NULL,      -- 1, 2, 3...
+  reps INTEGER NOT NULL,
+  weight DECIMAL(10, 2),            -- nullable for bodyweight exercises
+  weight_unit TEXT NOT NULL DEFAULT 'lbs',
+  completed BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_es_exercise_id ON exercise_sets(exercise_id);
+```
+
+---
+
+### 6. ~~personal_records~~ (Legacy — see workout_sessions/session_exercises/exercise_sets above)
 ```sql
 CREATE TABLE personal_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,7 +112,7 @@ CREATE UNIQUE INDEX idx_pr_unique ON personal_records(user_id, exercise_name);
 
 ---
 
-### 6. **body_weight** (Daily body weight tracking)
+### 7. **body_weight** (Daily body weight tracking)
 ```sql
 CREATE TABLE body_weight (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -117,7 +131,7 @@ CREATE UNIQUE INDEX idx_body_weight_daily ON body_weight(user_id, recorded_date)
 
 ---
 
-### 7. **steps** (Daily step tracking)
+### 8. **steps** (Daily step tracking)
 ```sql
 CREATE TABLE steps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -136,7 +150,7 @@ CREATE UNIQUE INDEX idx_steps_daily ON steps(user_id, recorded_date);
 
 ---
 
-### 8. **food_logs** (Main food log entry)
+### 9. **food_logs** (Main food log entry)
 ```sql
 CREATE TABLE food_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -159,7 +173,7 @@ CREATE INDEX idx_food_logs_logged_date ON food_logs(logged_date);
 
 ---
 
-### 9. **food_items** (Individual foods within a meal)
+### 10. **food_items** (Individual foods within a meal)
 ```sql
 CREATE TABLE food_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -183,8 +197,10 @@ CREATE INDEX idx_food_items_food_log_id ON food_items(food_log_id);
 | Table | Purpose | Key Fields |
 |-------|---------|-----------|
 | **users** | Authentication & profiles | id, auth_id, firstname, lastname |
-| **workouts** | Workout sessions | id, user_id, created_at, duration |
-| **workout_exercises** | Sets/reps/weights per exercise | exercise_name, sets, reps, weight |
+| **bio_profile** | User fitness profile | weight, height, sex, goal |
+| **workout_sessions** | Workout sessions per day | name, workout_date, duration_seconds |
+| **session_exercises** | Exercises within a session | exercise_name, sort_order |
+| **exercise_sets** | Individual sets per exercise | set_number, reps, weight |
 | **personal_records** | Best lifts | exercise_name, weight, achieved_date |
 | **body_weight** | Daily weight | weight, weight_unit, recorded_date |
 | **steps** | Daily steps | step_count, recorded_date |
