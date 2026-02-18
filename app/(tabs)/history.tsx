@@ -1,18 +1,27 @@
+import { supabase } from "@/constants/supabase";
 import { Palette, Radii, Spacing } from "@/constants/theme";
+import { getCurrentUserBioProfile } from "@/services/bioProfile";
+import { getWeightHistory } from "@/services/weightTracking";
+import {
+  WorkoutHistoryItem,
+  WorkoutSession,
+  getWeeklyWorkoutStats,
+  getWorkoutHistory,
+  getWorkoutSession,
+} from "@/services/workoutTracking";
+import { formatTime } from "@/utils/formatTime";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
-import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
   Defs,
@@ -28,62 +37,6 @@ type WeightEntry = {
   date: string;
   weight: number;
 };
-
-// ── Sample Data ─────────────────────────────────────────────
-const SAMPLE_WORKOUTS: Workout[] = [
-  {
-    id: "1",
-    date: "2026-02-13",
-    duration: 55,
-    calories: 480,
-    type: "Push Day",
-    icon: "🏋️",
-  },
-  {
-    id: "2",
-    date: "2026-02-12",
-    duration: 45,
-    calories: 380,
-    type: "HIIT",
-    icon: "⚡",
-  },
-  {
-    id: "3",
-    date: "2026-02-11",
-    duration: 60,
-    calories: 520,
-    type: "Pull Day",
-    icon: "💪",
-  },
-  {
-    id: "4",
-    date: "2026-02-10",
-    duration: 30,
-    calories: 220,
-    type: "Cardio",
-    icon: "🏃",
-  },
-  {
-    id: "5",
-    date: "2026-02-08",
-    duration: 50,
-    calories: 440,
-    type: "Leg Day",
-    icon: "🦵",
-  },
-];
-
-import { supabase } from "@/constants/supabase";
-import { getCurrentUserBioProfile } from "@/services/bioProfile";
-import { getWeightHistory } from "@/services/weightTracking";
-import {
-    WorkoutHistoryItem,
-    WorkoutSession,
-    getWeeklyWorkoutStats,
-    getWorkoutHistory,
-    getWorkoutSession,
-} from "@/services/workoutTracking";
-import { formatTime } from "@/utils/formatTime";
 
 const WEIGHT_DATA: WeightEntry[] = [
   { date: "Feb 7", weight: 185 },
@@ -296,29 +249,12 @@ function SummaryStats({
       label: "This Week",
       value: String(workoutCount),
       sub: "workouts",
-  workoutsPerWeek,
-  workoutsDone,
-}: {
-  workoutsPerWeek?: number | null;
-  workoutsDone?: number;
-}) {
-  const stats = [
-    {
-      label: "Goal/Week",
-      value:
-        workoutsPerWeek != null
-          ? `${workoutsDone ?? 0}/${workoutsPerWeek}`
-          : workoutsDone != null
-            ? String(workoutsDone)
-            : "—",
-      sub: "this week",
       icon: "🏋️",
       color: Palette.accent,
     },
     {
       label: "Avg Duration",
       value: String(avgDuration),
-      value: "47",
       sub: "min",
       icon: "⏱",
       color: Palette.info,
@@ -328,10 +264,6 @@ function SummaryStats({
       value: String(totalSets),
       sub: "sets",
       icon: "💪",
-      label: "Total Burned",
-      value: "2,040",
-      sub: "cal",
-      icon: "🔥",
       color: Palette.warning,
     },
   ];
@@ -848,26 +780,6 @@ export default function ProgressScreen() {
   const [weightUnit, setWeightUnit] = useState<string>("lbs");
   const [bioProfile, setBioProfile] = useState<any | null>(null);
 
-  // Count workouts completed this week (client-side, based on SAMPLE_WORKOUTS)
-  function countWorkoutsThisWeek(workouts: Workout[]) {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const day = start.getDay(); // 0 = Sunday
-    start.setDate(start.getDate() - day);
-    return workouts.filter((w) => {
-      try {
-        const d = new Date(w.date + "T00:00:00");
-        d.setHours(0, 0, 0, 0);
-        return d >= start && d <= now;
-      } catch (e) {
-        return false;
-      }
-    }).length;
-  }
-
-  const workoutsDoneThisWeek = countWorkoutsThisWeek(SAMPLE_WORKOUTS);
-
   // Workout state
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
@@ -915,7 +827,6 @@ export default function ProgressScreen() {
           }
           setWeightUnit((whRes.data as any)[0]?.weight_unit ?? "lbs");
           setWeightData(entries);
-        } else if (bpRes.success && bpRes.profile && bpRes.profile.weight != null) {
         } else if (
           bpRes.success &&
           bpRes.profile &&
@@ -1067,8 +978,6 @@ export default function ProgressScreen() {
               workoutCount={weeklyStats.workoutCount}
               totalSets={weeklyStats.totalSets}
               totalDuration={weeklyStats.totalDuration}
-              workoutsPerWeek={bioProfile?.workouts_per_week ?? null}
-              workoutsDone={workoutsDoneThisWeek}
             />
             <WeightChart data={weightData} />
 
