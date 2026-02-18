@@ -10,7 +10,27 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Set up environment variables
+
+   ```bash
+   # Copy the example env file
+   cp .env.example .env
+   
+   # Edit .env and update EXPO_PUBLIC_BACKEND_URL with your local IP
+   # Find your IP: ifconfig getifaddr en0 (Mac) or ipconfig (Windows)
+   ```
+
+3. Start the backend server (in a separate terminal)
+
+   ```bash
+   cd backend
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   python main.py
+   ```
+
+4. Start the Expo app
 
    ```bash
    npx expo start
@@ -23,7 +43,9 @@ In the output, you'll find options to open the app in a
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Important for Physical Devices:** Make sure your phone is on the same WiFi network as your computer for the backend API to work.
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction/).
 
 ## Get a fresh project
 
