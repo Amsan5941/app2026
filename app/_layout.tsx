@@ -82,7 +82,11 @@ function NavigationContent() {
       </Stack>
       <DailyWeightPrompt
         visible={showWeightPrompt && !!session}
-        onComplete={() => setShowWeightPrompt(false)}
+        onComplete={() => {
+          setShowWeightPrompt(false);
+          // Re-check weight status after completion
+          checkWeightLogging();
+        }}
       />
     </>
   );
