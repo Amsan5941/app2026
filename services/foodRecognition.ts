@@ -13,12 +13,19 @@ import { Platform } from "react-native";
 // ── Configuration ──────────────────────────────────────────
 // Get the appropriate API URL based on platform
 function getApiBaseUrl(): string {
+  // Use environment variable if set
+  const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // Fallback to default URLs if env var not set
   if (!__DEV__) {
     // Production - use your deployed backend URL
     return "https://your-backend.railway.app/api/v1";
   }
 
-  // Development URLs per platform
+  // Development fallback URLs per platform
   if (Platform.OS === "android") {
     // Android emulator uses 10.0.2.2 to access host machine's localhost
     return "http://10.0.2.2:8000/api/v1";
@@ -30,9 +37,9 @@ function getApiBaseUrl(): string {
     return "http://localhost:8000/api/v1";
   }
   
-  // For physical devices, you'll need to use your computer's local IP:
-  // Example: return "http://192.168.1.100:8000/api/v1";
-  // Find your IP with: `ipconfig getifaddr en0` (Mac) or `ipconfig` (Windows)
+  // IMPORTANT: For physical devices, set EXPO_PUBLIC_BACKEND_URL in .env file
+  // with your computer's local IP address (e.g., http://192.168.1.100:8000/api/v1)
+  // Make sure your mobile device is on the same WiFi network as your computer!
 }
 
 const API_BASE_URL = getApiBaseUrl();
@@ -155,20 +162,33 @@ export async function recognizeFoodImage(
 
   if (__DEV__) console.log("[FoodRecognition] Uploading image to:", `${API_BASE_URL}/recognize/image`);
 
-  const response = await fetch(`${API_BASE_URL}/recognize/image`, {
-    method: "POST",
-    body: formData,
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/recognize/image`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`Recognition failed: ${errBody}`);
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Recognition failed: ${errBody}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    // Provide more helpful error messages
+    if (error.message.includes("Network request failed") || error.message.includes("Failed to fetch")) {
+      throw new Error(
+        "Cannot connect to backend server. Make sure:\n" +
+        "1. Backend is running (npm run dev in backend folder)\n" +
+        "2. Your phone is on the same WiFi network as your computer\n" +
+        `3. Server URL is correct: ${API_BASE_URL}`
+      );
+    }
+    throw error;
   }
-
-  return await response.json();
 }
 
 /**
@@ -187,20 +207,32 @@ export async function recognizeFoodText(
   if (mealType) formData.append("meal_type", mealType);
   formData.append("save_log", String(saveLog));
 
-  const response = await fetch(`${API_BASE_URL}/recognize/text`, {
-    method: "POST",
-    body: formData,
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/recognize/text`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-  if (!response.ok) {
-    const errBody = await response.text();
-    throw new Error(`Text recognition failed: ${errBody}`);
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Text recognition failed: ${errBody}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    if (error.message.includes("Network request failed") || error.message.includes("Failed to fetch")) {
+      throw new Error(
+        "Cannot connect to backend server. Make sure:\n" +
+        "1. Backend is running (npm run dev in backend folder)\n" +
+        "2. Your phone is on the same WiFi network as your computer\n" +
+        `3. Server URL is correct: ${API_BASE_URL}`
+      );
+    }
+    throw error;
   }
-
-  return await response.json();
 }
 
 // ── Food Logs ──────────────────────────────────────────────

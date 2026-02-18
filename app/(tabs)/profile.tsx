@@ -1,24 +1,26 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  changeUserPassword,
-  getCurrentUserProfile,
-  updateBioProfile,
-  updateUserProfile,
+    changeUserPassword,
+    getCurrentUserProfile,
+    updateBioProfile,
+    updateUserProfile,
 } from "@/services/auth";
 import { Alert } from "react-native";
 
@@ -479,9 +481,18 @@ export default function ProfileScreen() {
         <View style={{ height: 36 }} />
         {/* Fitness Edit Modal */}
         <Modal visible={showFitnessModal} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Edit Fitness Information</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                >
+                  <Text style={styles.modalTitle}>Edit Fitness Information</Text>
 
               <Text style={styles.inputLabel}>Goal</Text>
               <View style={styles.optionRowSmall}>
@@ -631,9 +642,11 @@ export default function ProfileScreen() {
                   <Text style={styles.btnTextSecondary}>Cancel</Text>
                 </Pressable>
               </View>
-            </View>
+            </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
       </ScrollView>
     </SafeAreaView>
   );

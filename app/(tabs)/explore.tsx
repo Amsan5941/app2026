@@ -1,32 +1,33 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  AIFoodItem,
-  AIRecognitionResult,
-  DailySummary,
-  FoodLog,
-  MealType,
-  deleteFoodLog,
-  getDailySummary,
-  getFoodLogs,
-  recognizeFoodImage,
-  recognizeFoodText,
+    AIFoodItem,
+    AIRecognitionResult,
+    DailySummary,
+    FoodLog,
+    MealType,
+    deleteFoodLog,
+    getDailySummary,
+    getFoodLogs,
+    recognizeFoodImage,
+    recognizeFoodText,
 } from "@/services/foodRecognition";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";
@@ -721,9 +722,17 @@ function AddFoodModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.container}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <ScrollView 
+              showsVerticalScrollIndicator={false} 
+              contentContainerStyle={{ paddingBottom: 20 }}
+              keyboardShouldPersistTaps="handled"
+            >
             {/* Header */}
             <View style={modalStyles.header}>
               <Text style={modalStyles.title}>Add {mealLabel}</Text>
@@ -889,9 +898,10 @@ function AddFoodModal({
                 </Pressable>
               </>
             )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
