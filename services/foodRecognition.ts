@@ -13,29 +13,34 @@ import { Platform } from "react-native";
 // ── Configuration ──────────────────────────────────────────
 // Get the appropriate API URL based on platform
 function getApiBaseUrl(): string {
-  // Use environment variable if set
+  // Production mode - use deployed backend
+  if (!__DEV__) {
+    return process.env.EXPO_PUBLIC_BACKEND_URL || "https://your-backend.railway.app/api/v1";
+  }
+
+  // Development mode - platform-specific URLs
+  // Web always uses localhost (can't access local network IPs from browser)
+  if (Platform.OS === "web") {
+    return "http://localhost:8000/api/v1";
+  }
+
+  // For mobile platforms, use env variable if set (for physical devices)
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
   if (envUrl) {
     return envUrl;
   }
 
-  // Fallback to default URLs if env var not set
-  if (!__DEV__) {
-    // Production - use your deployed backend URL
-    return "https://your-backend.railway.app/api/v1";
-  }
-
-  // Development fallback URLs per platform
+  // Fallback URLs for simulators/emulators when no env set
   if (Platform.OS === "android") {
     // Android emulator uses 10.0.2.2 to access host machine's localhost
     return "http://10.0.2.2:8000/api/v1";
   } else if (Platform.OS === "ios") {
     // iOS simulator can use localhost
     return "http://localhost:8000/api/v1";
-  } else {
-    // Web uses localhost
-    return "http://localhost:8000/api/v1";
   }
+  
+  // Default fallback
+  return "http://localhost:8000/api/v1";
   
   // IMPORTANT: For physical devices, set EXPO_PUBLIC_BACKEND_URL in .env file
   // with your computer's local IP address (e.g., http://192.168.1.100:8000/api/v1)
