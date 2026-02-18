@@ -1,33 +1,33 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    AIFoodItem,
-    AIRecognitionResult,
-    DailySummary,
-    FoodLog,
-    MealType,
-    deleteFoodLog,
-    getDailySummary,
-    getFoodLogs,
-    recognizeFoodImage,
-    recognizeFoodText,
+  AIFoodItem,
+  AIRecognitionResult,
+  DailySummary,
+  FoodLog,
+  MealType,
+  deleteFoodLog,
+  getDailySummary,
+  getFoodLogs,
+  recognizeFoodImage,
+  recognizeFoodText,
 } from "@/services/foodRecognition";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";
@@ -44,6 +44,301 @@ function todayISO(): string {
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+// ── Food Log Detail Modal ───────────────────────────────────
+function FoodLogDetailModal({
+  visible,
+  log,
+  onClose,
+  onDelete,
+}: {
+  visible: boolean;
+  log: FoodLog | null;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  if (!log) return null;
+
+  const protein = log.total_protein ?? 0;
+  const carbs = log.total_carbs ?? 0;
+  const fat = log.total_fat ?? 0;
+  const calories = log.total_calories ?? 0;
+  const totalGrams = protein + carbs + fat;
+
+  const proteinPercent = totalGrams > 0 ? (protein / totalGrams) * 100 : 0;
+  const carbsPercent = totalGrams > 0 ? (carbs / totalGrams) * 100 : 0;
+  const fatPercent = totalGrams > 0 ? (fat / totalGrams) * 100 : 0;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={detailModalStyles.overlay} onPress={onClose}>
+        <Pressable style={detailModalStyles.content} onPress={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <View style={detailModalStyles.header}>
+            <View style={detailModalStyles.headerTop}>
+              <Text style={detailModalStyles.mealIcon}>{MEAL_ICONS[log.meal_type ?? "snack"]}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={detailModalStyles.mealTitle}>
+                  {log.meal_type ? log.meal_type.charAt(0).toUpperCase() + log.meal_type.slice(1) : "Meal"}
+                </Text>
+                <Text style={detailModalStyles.mealTime}>
+                  {new Date(log.created_at).toLocaleString([], { 
+                    hour: "2-digit", 
+                    minute: "2-digit",
+                    month: "short",
+                    day: "numeric"
+                  })}
+                </Text>
+              </View>
+              <Pressable onPress={onClose} style={detailModalStyles.closeBtn}>
+                <Text style={detailModalStyles.closeBtnText}>✕</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Calories Display */}
+            <View style={detailModalStyles.caloriesSection}>
+              <Text style={detailModalStyles.caloriesLabel}>Total Calories</Text>
+              <Text style={detailModalStyles.caloriesValue}>{Math.round(calories)}</Text>
+              <Text style={detailModalStyles.caloriesUnit}>kcal</Text>
+            </View>
+
+            {/* Macro Breakdown */}
+            <View style={detailModalStyles.macrosSection}>
+              <Text style={detailModalStyles.macrosTitle}>Macro Breakdown</Text>
+              
+              {/* Protein */}
+              <View style={detailModalStyles.macroItem}>
+                <View style={detailModalStyles.macroHeader}>
+                  <View style={detailModalStyles.macroLabelRow}>
+                    <Text style={detailModalStyles.macroEmoji}>🥩</Text>
+                    <Text style={detailModalStyles.macroLabel}>Protein</Text>
+                  </View>
+                  <Text style={detailModalStyles.macroValue}>{round1(protein)}g</Text>
+                </View>
+                <View style={detailModalStyles.progressBar}>
+                  <View style={[detailModalStyles.progressFill, { width: `${proteinPercent}%`, backgroundColor: "#EF4444" }]} />
+                </View>
+                <Text style={detailModalStyles.macroPercent}>{Math.round(proteinPercent)}%</Text>
+              </View>
+
+              {/* Carbs */}
+              <View style={detailModalStyles.macroItem}>
+                <View style={detailModalStyles.macroHeader}>
+                  <View style={detailModalStyles.macroLabelRow}>
+                    <Text style={detailModalStyles.macroEmoji}>🍞</Text>
+                    <Text style={detailModalStyles.macroLabel}>Carbs</Text>
+                  </View>
+                  <Text style={detailModalStyles.macroValue}>{round1(carbs)}g</Text>
+                </View>
+                <View style={detailModalStyles.progressBar}>
+                  <View style={[detailModalStyles.progressFill, { width: `${carbsPercent}%`, backgroundColor: "#FBBF24" }]} />
+                </View>
+                <Text style={detailModalStyles.macroPercent}>{Math.round(carbsPercent)}%</Text>
+              </View>
+
+              {/* Fat */}
+              <View style={detailModalStyles.macroItem}>
+                <View style={detailModalStyles.macroHeader}>
+                  <View style={detailModalStyles.macroLabelRow}>
+                    <Text style={detailModalStyles.macroEmoji}>🥑</Text>
+                    <Text style={detailModalStyles.macroLabel}>Fat</Text>
+                  </View>
+                  <Text style={detailModalStyles.macroValue}>{round1(fat)}g</Text>
+                </View>
+                <View style={detailModalStyles.progressBar}>
+                  <View style={[detailModalStyles.progressFill, { width: `${fatPercent}%`, backgroundColor: "#38BDF8" }]} />
+                </View>
+                <Text style={detailModalStyles.macroPercent}>{Math.round(fatPercent)}%</Text>
+              </View>
+            </View>
+
+            {/* Notes if available */}
+            {log.notes && (
+              <View style={detailModalStyles.notesSection}>
+                <Text style={detailModalStyles.notesTitle}>Notes</Text>
+                <Text style={detailModalStyles.notesText}>{log.notes}</Text>
+              </View>
+            )}
+
+            {/* Delete Button */}
+            <Pressable 
+              style={({ pressed }) => [
+                detailModalStyles.deleteBtn,
+                pressed && { opacity: 0.7 }
+              ]} 
+              onPress={onDelete}
+            >
+              <Text style={detailModalStyles.deleteBtnText}>🗑️ Delete Entry</Text>
+            </Pressable>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const detailModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  content: {
+    backgroundColor: Palette.bgCard,
+    borderRadius: Radii.xl,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "85%",
+    overflow: "hidden",
+  },
+  header: {
+    backgroundColor: Palette.bgElevated,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.border,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  mealIcon: {
+    fontSize: 32,
+  },
+  mealTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+  },
+  mealTime: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Palette.bgCard,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: {
+    fontSize: 18,
+    color: Palette.textSecondary,
+  },
+  caloriesSection: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.border,
+  },
+  caloriesLabel: {
+    fontSize: 12,
+    color: Palette.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  caloriesValue: {
+    fontSize: 56,
+    fontWeight: "800",
+    color: Palette.accent,
+    lineHeight: 60,
+  },
+  caloriesUnit: {
+    fontSize: 14,
+    color: Palette.textSecondary,
+    marginTop: 4,
+  },
+  macrosSection: {
+    padding: Spacing.lg,
+  },
+  macrosTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Palette.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  macroItem: {
+    marginBottom: Spacing.lg,
+  },
+  macroHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  macroLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  macroEmoji: {
+    fontSize: 20,
+  },
+  macroLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Palette.textPrimary,
+  },
+  macroValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: Palette.border,
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: Spacing.xs,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  macroPercent: {
+    fontSize: 11,
+    color: Palette.textMuted,
+    textAlign: "right",
+  },
+  notesSection: {
+    padding: Spacing.lg,
+    paddingTop: 0,
+  },
+  notesTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Palette.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  notesText: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+    lineHeight: 20,
+    backgroundColor: Palette.bg,
+    padding: Spacing.md,
+    borderRadius: Radii.md,
+  },
+  deleteBtn: {
+    backgroundColor: "#FEE2E2",
+    margin: Spacing.lg,
+    marginTop: 0,
+    padding: Spacing.md,
+    borderRadius: Radii.md,
+    alignItems: "center",
+  },
+  deleteBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+});
 
 // ── Macro Ring ──────────────────────────────────────────────
 function MacroRing({
@@ -224,13 +519,20 @@ function MealCard({
           <Text style={mealStyles.addText}>+</Text>
         </Pressable>
       </View>
-      {items.length > 0 && (
+      {items.length > 0 ? (
         <View style={mealStyles.itemsList}>
           {items.map((item, idx) => (
-            <Text key={idx} style={mealStyles.itemText}>
-              • {item}
-            </Text>
+            <View key={idx} style={mealStyles.itemPill}>
+              <View style={mealStyles.itemPillDot} />
+              <Text style={mealStyles.itemText} numberOfLines={1}>
+                {item}
+              </Text>
+            </View>
           ))}
+        </View>
+      ) : (
+        <View style={mealStyles.emptyState}>
+          <Text style={mealStyles.emptyText}>No items logged yet</Text>
         </View>
       )}
     </View>
@@ -245,58 +547,105 @@ const mealStyles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Palette.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: Palette.accentMuted,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Palette.border,
   },
-  icon: { fontSize: 22 },
+  icon: { fontSize: 26 },
   info: {
     flex: 1,
     marginLeft: Spacing.md,
   },
   title: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     color: Palette.textPrimary,
+    letterSpacing: -0.3,
   },
   cal: {
-    fontSize: 13,
-    color: Palette.textSecondary,
-    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "600",
+    color: Palette.accent,
+    marginTop: 3,
   },
   addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Palette.accent,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: Palette.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addText: {
     color: Palette.white,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 24,
   },
   itemsList: {
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Palette.divider,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  emptyState: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Palette.divider,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 12,
+    color: Palette.textMuted,
+    fontStyle: "italic",
+  },
+  itemPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Palette.bgElevated,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    gap: Spacing.xs,
+  },
+  itemPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Palette.accent,
   },
   itemText: {
     fontSize: 13,
-    color: Palette.textSecondary,
-    marginBottom: 4,
+    fontWeight: "600",
+    color: Palette.textPrimary,
+    maxWidth: 200,
   },
 });
 
@@ -961,6 +1310,7 @@ export default function NutritionScreen() {
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [todayLogs, setTodayLogs] = useState<FoodLog[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<FoodLog | null>(null);
 
   const [calorieGoal, setCalorieGoal] = useState(2200);
   const [proteinGoal, setProteinGoal] = useState(180);
@@ -1042,7 +1392,15 @@ export default function NutritionScreen() {
   const handleDeleteLog = async (logId: string) => {
     Alert.alert("Delete Entry", "Remove this food log?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => { await deleteFoodLog(logId); loadData(); } },
+      { 
+        text: "Delete", 
+        style: "destructive", 
+        onPress: async () => { 
+          await deleteFoodLog(logId); 
+          setSelectedLog(null); // Close detail modal
+          loadData(); 
+        } 
+      },
     ]);
   };
 
@@ -1112,27 +1470,61 @@ export default function NutritionScreen() {
           <>
             <Text style={styles.sectionTitle}>Log Entries</Text>
             {todayLogs.map((log) => (
-              <Pressable key={log.id} onLongPress={() => handleDeleteLog(log.id)} style={styles.logEntry}>
+              <Pressable 
+                key={log.id} 
+                onPress={() => setSelectedLog(log)}
+                onLongPress={() => handleDeleteLog(log.id)} 
+                style={({ pressed }) => [
+                  styles.logEntry,
+                  pressed && styles.logEntryPressed
+                ]}
+              >
                 <View style={styles.logEntryLeft}>
-                  <Text style={styles.logEntryIcon}>{MEAL_ICONS[log.meal_type ?? "snack"]}</Text>
-                  <View>
-                    <Text style={styles.logEntryTitle}>
+                  <View style={styles.logEntryIconContainer}>
+                    <Text style={styles.logEntryIcon}>{MEAL_ICONS[log.meal_type ?? "snack"]}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.logEntryTitle} numberOfLines={2}>
                       {log.meal_type ? log.meal_type.charAt(0).toUpperCase() + log.meal_type.slice(1) : "Meal"}
+                      {log.notes && (
+                        <Text style={styles.logEntrySubtitle}>
+                          {" - "}{log.notes.replace("Text entry: ", "")}
+                        </Text>
+                      )}
                     </Text>
                     <Text style={styles.logEntryTime}>
                       {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </Text>
+                    {/* Macro preview pills */}
+                    <View style={styles.macroPreview}>
+                      <View style={[styles.macroPreviewPill, { backgroundColor: "#FEE2E2" }]}>
+                        <Text style={[styles.macroPreviewText, { color: "#DC2626" }]}>
+                          {round1(log.total_protein ?? 0)}g P
+                        </Text>
+                      </View>
+                      <View style={[styles.macroPreviewPill, { backgroundColor: "#FEF3C7" }]}>
+                        <Text style={[styles.macroPreviewText, { color: "#D97706" }]}>
+                          {round1(log.total_carbs ?? 0)}g C
+                        </Text>
+                      </View>
+                      <View style={[styles.macroPreviewPill, { backgroundColor: "#DBEAFE" }]}>
+                        <Text style={[styles.macroPreviewText, { color: "#2563EB" }]}>
+                          {round1(log.total_fat ?? 0)}g F
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.logEntryRight}>
-                  <Text style={styles.logEntryCal}>{Math.round(log.total_calories ?? 0)} cal</Text>
-                  <Text style={styles.logEntryMacros}>
-                    P: {round1(log.total_protein ?? 0)}g · C: {round1(log.total_carbs ?? 0)}g · F: {round1(log.total_fat ?? 0)}g
-                  </Text>
+                  <Text style={styles.logEntryCal}>{Math.round(log.total_calories ?? 0)}</Text>
+                  <Text style={styles.logEntryCalUnit}>kcal</Text>
+                  <View style={styles.tapIndicator}>
+                    <Text style={styles.tapIndicatorText}>›</Text>
+                  </View>
                 </View>
               </Pressable>
             ))}
-            <Text style={styles.logHint}>Long-press to delete an entry</Text>
+            <Text style={styles.logHint}>Tap to view details • Long-press to delete</Text>
           </>
         )}
 
@@ -1140,6 +1532,13 @@ export default function NutritionScreen() {
       </ScrollView>
 
       <AddFoodModal visible={showAddModal} mealType={addMealType} onClose={() => setShowAddModal(false)} onSuccess={loadData} />
+      
+      <FoodLogDetailModal 
+        visible={selectedLog !== null} 
+        log={selectedLog} 
+        onClose={() => setSelectedLog(null)} 
+        onDelete={() => selectedLog && handleDeleteLog(selectedLog.id)} 
+      />
     </SafeAreaView>
   );
 }
@@ -1159,13 +1558,95 @@ const styles = StyleSheet.create({
   macroRow: { flexDirection: "row", marginTop: Spacing.md },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: Palette.textPrimary, marginBottom: Spacing.md },
   mealsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
-  logEntry: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: Palette.bgCard, borderRadius: Radii.md, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Palette.border },
-  logEntryLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-  logEntryIcon: { fontSize: 20 },
-  logEntryTitle: { fontSize: 14, fontWeight: "700", color: Palette.textPrimary },
-  logEntryTime: { fontSize: 11, color: Palette.textMuted, marginTop: 2 },
-  logEntryRight: { alignItems: "flex-end" },
-  logEntryCal: { fontSize: 15, fontWeight: "800", color: Palette.textPrimary },
+  logEntry: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    backgroundColor: Palette.bgCard, 
+    borderRadius: Radii.lg, 
+    padding: Spacing.lg, 
+    marginBottom: Spacing.md, 
+    borderWidth: 1, 
+    borderColor: Palette.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  logEntryPressed: {
+    backgroundColor: Palette.bgElevated,
+    transform: [{ scale: 0.98 }],
+  },
+  logEntryLeft: { 
+    flexDirection: "row", 
+    alignItems: "flex-start", 
+    gap: Spacing.md,
+    flex: 1,
+  },
+  logEntryIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Palette.accentMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logEntryIcon: { fontSize: 24 },
+  logEntryTitle: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: Palette.textPrimary,
+  },
+  logEntrySubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Palette.textSecondary,
+  },
+  logEntryTime: { fontSize: 12, color: Palette.textMuted, marginTop: 2, marginBottom: Spacing.sm },
+  macroPreview: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
+  macroPreviewPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  macroPreviewText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  logEntryRight: { 
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  logEntryCal: { 
+    fontSize: 24, 
+    fontWeight: "800", 
+    color: Palette.accent,
+    lineHeight: 28,
+  },
+  logEntryCalUnit: {
+    fontSize: 11,
+    color: Palette.textMuted,
+    marginTop: -2,
+  },
+  tapIndicator: {
+    marginTop: Spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Palette.accentMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tapIndicatorText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Palette.accent,
+  },
   logEntryMacros: { fontSize: 10, color: Palette.textSecondary, marginTop: 2 },
   logHint: { fontSize: 11, color: Palette.textMuted, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.lg },
 });
