@@ -37,6 +37,7 @@ export default function AuthModal({
   // Bio info
   const [age, setAge] = useState("");
   const [weight, setWeight] = useState("");
+  const [goalWeight, setGoalWeight] = useState("");
   const [heightFeet, setHeightFeet] = useState("");
   const [heightInches, setHeightInches] = useState("");
   const [sex, setSex] = useState("");
@@ -104,7 +105,7 @@ export default function AuthModal({
         }
 
         if (signupStep === "bio") {
-          if (!age || !weight || !heightFeet || !sex || !goal) {
+          if (!age || !weight || !heightFeet || !sex || !goal || !goalWeight) {
             setErrorText("Please fill in all bio information");
             setLoading(false);
             return;
@@ -131,6 +132,7 @@ export default function AuthModal({
           const bioData = {
             age: parseInt(age),
             weight: parseFloat(weight),
+            goal_weight: goalWeight ? parseFloat(goalWeight) : null,
             height: totalInches,
             sex,
             goal,
@@ -201,6 +203,7 @@ export default function AuthModal({
     setLastname("");
     setAge("");
     setWeight("");
+    setGoalWeight("");
     setHeightFeet("");
     setHeightInches("");
     setSex("");
@@ -472,6 +475,18 @@ export default function AuthModal({
                         keyboardType="decimal-pad"
                       />
                     </View>
+                  </View>
+
+                  <View style={{ marginTop: Spacing.sm }}>
+                    <Text style={styles.inputLabel}>Goal Weight (lbs)</Text>
+                    <TextInput
+                      placeholder="160"
+                      placeholderTextColor={Palette.textMuted}
+                      value={goalWeight}
+                      onChangeText={setGoalWeight}
+                      style={styles.input}
+                      keyboardType="decimal-pad"
+                    />
                   </View>
 
                   <Text style={styles.inputLabel}>Height</Text>

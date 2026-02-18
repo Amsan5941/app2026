@@ -6,6 +6,7 @@ CREATE TABLE bio_profile (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   age INTEGER,
   weight DECIMAL(10, 2), -- in lbs or kg
+  goal_weight DECIMAL(10, 2), -- user's target weight (lbs or kg)
   weight_unit TEXT NOT NULL DEFAULT 'lbs', -- 'lbs' or 'kg'
   height INTEGER, -- in feet or cm
   height_unit TEXT NOT NULL DEFAULT 'feet', -- 'feet' or 'cm'

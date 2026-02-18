@@ -11,8 +11,17 @@ import {
     Text,
     View
 } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, Line, LinearGradient, Polyline, Stop, Circle as SvgCircle } from "react-native-svg";
+import Svg, {
+  Defs,
+  Line,
+  LinearGradient,
+  Polyline,
+  Stop,
+  Circle as SvgCircle,
+} from "react-native-svg";
 
 // ── Types ───────────────────────────────────────────────────
 type WeightEntry = {
@@ -20,6 +29,51 @@ type WeightEntry = {
   weight: number;
 };
 
+// ── Sample Data ─────────────────────────────────────────────
+const SAMPLE_WORKOUTS: Workout[] = [
+  {
+    id: "1",
+    date: "2026-02-13",
+    duration: 55,
+    calories: 480,
+    type: "Push Day",
+    icon: "🏋️",
+  },
+  {
+    id: "2",
+    date: "2026-02-12",
+    duration: 45,
+    calories: 380,
+    type: "HIIT",
+    icon: "⚡",
+  },
+  {
+    id: "3",
+    date: "2026-02-11",
+    duration: 60,
+    calories: 520,
+    type: "Pull Day",
+    icon: "💪",
+  },
+  {
+    id: "4",
+    date: "2026-02-10",
+    duration: 30,
+    calories: 220,
+    type: "Cardio",
+    icon: "🏃",
+  },
+  {
+    id: "5",
+    date: "2026-02-08",
+    duration: 50,
+    calories: 440,
+    type: "Leg Day",
+    icon: "🦵",
+  },
+];
+
+import { supabase } from "@/constants/supabase";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
@@ -80,10 +134,19 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
       <View style={chartStyles.header}>
         <View>
           <Text style={chartStyles.title}>Weight Trend</Text>
-          <Text style={chartStyles.subtitle}>Last 7 days</Text>
         </View>
-        <View style={[chartStyles.badge, isLoss ? chartStyles.badgeLoss : chartStyles.badgeGain]}>
-          <Text style={[chartStyles.badgeText, isLoss ? chartStyles.badgeLossText : chartStyles.badgeGainText]}>
+        <View
+          style={[
+            chartStyles.badge,
+            isLoss ? chartStyles.badgeLoss : chartStyles.badgeGain,
+          ]}
+        >
+          <Text
+            style={[
+              chartStyles.badgeText,
+              isLoss ? chartStyles.badgeLossText : chartStyles.badgeGainText,
+            ]}
+          >
             {isLoss ? "↓" : "↑"} {Math.abs(diff).toFixed(1)} lbs
           </Text>
         </View>
@@ -139,7 +202,10 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
       <View style={chartStyles.dateRow}>
         {data.map((d, i) => (
           <Text key={i} style={chartStyles.dateLabel}>
-            {d.date.split(" ")[1]}
+            {(() => {
+              const parts = String(d.date).split(" ");
+              return parts.length > 1 ? parts[1] : parts[0];
+            })()}
           </Text>
         ))}
       </View>
@@ -230,12 +296,29 @@ function SummaryStats({
       label: "This Week",
       value: String(workoutCount),
       sub: "workouts",
+  workoutsPerWeek,
+  workoutsDone,
+}: {
+  workoutsPerWeek?: number | null;
+  workoutsDone?: number;
+}) {
+  const stats = [
+    {
+      label: "Goal/Week",
+      value:
+        workoutsPerWeek != null
+          ? `${workoutsDone ?? 0}/${workoutsPerWeek}`
+          : workoutsDone != null
+            ? String(workoutsDone)
+            : "—",
+      sub: "this week",
       icon: "🏋️",
       color: Palette.accent,
     },
     {
       label: "Avg Duration",
       value: String(avgDuration),
+      value: "47",
       sub: "min",
       icon: "⏱",
       color: Palette.info,
@@ -245,6 +328,10 @@ function SummaryStats({
       value: String(totalSets),
       sub: "sets",
       icon: "💪",
+      label: "Total Burned",
+      value: "2,040",
+      sub: "cal",
+      icon: "🔥",
       color: Palette.warning,
     },
   ];
@@ -252,7 +339,10 @@ function SummaryStats({
   return (
     <View style={summaryStyles.row}>
       {stats.map((s, i) => (
-        <View key={i} style={[summaryStyles.card, { borderColor: s.color + "25" }]}>
+        <View
+          key={i}
+          style={[summaryStyles.card, { borderColor: s.color + "25" }]}
+        >
           <Text style={summaryStyles.icon}>{s.icon}</Text>
           <Text style={summaryStyles.value}>{s.value}</Text>
           <Text style={summaryStyles.sub}>{s.sub}</Text>
@@ -756,6 +846,27 @@ export default function ProgressScreen() {
   const [weightData, setWeightData] = useState<WeightEntry[]>(WEIGHT_DATA);
   const [loadingWeights, setLoadingWeights] = useState(false);
   const [weightUnit, setWeightUnit] = useState<string>("lbs");
+  const [bioProfile, setBioProfile] = useState<any | null>(null);
+
+  // Count workouts completed this week (client-side, based on SAMPLE_WORKOUTS)
+  function countWorkoutsThisWeek(workouts: Workout[]) {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const day = start.getDay(); // 0 = Sunday
+    start.setDate(start.getDate() - day);
+    return workouts.filter((w) => {
+      try {
+        const d = new Date(w.date + "T00:00:00");
+        d.setHours(0, 0, 0, 0);
+        return d >= start && d <= now;
+      } catch (e) {
+        return false;
+      }
+    }).length;
+  }
+
+  const workoutsDoneThisWeek = countWorkoutsThisWeek(SAMPLE_WORKOUTS);
 
   // Workout state
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>([]);
@@ -778,21 +889,52 @@ export default function ProgressScreen() {
 
         if (!mounted) return;
 
+        if (bpRes.success && bpRes.profile) setBioProfile(bpRes.profile);
+
         if (whRes.success && whRes.data && whRes.data.length > 0) {
           const entries = (whRes.data as any[])
             .slice()
             .reverse()
-            .map((e) => ({ date: formatRecordedDate(e.recorded_date), weight: e.weight }));
+            .map((e) => ({
+              date: formatRecordedDate(e.recorded_date),
+              weight: e.weight,
+            }));
+          // If we have a bio_profile starting weight, prepend it as the earliest point
+          if (bpRes.success && bpRes.profile && bpRes.profile.weight != null) {
+            const startWeight = bpRes.profile.weight;
+            // use bio_profile.created_at if available for a date label, else use 'Start'
+            const startDate = bpRes.profile.created_at
+              ? formatRecordedDate(
+                  (bpRes.profile.created_at as string).split("T")[0],
+                )
+              : "Start";
+            // Only prepend if it differs from the first entry to avoid duplicates
+            if (entries.length === 0 || entries[0].weight !== startWeight) {
+              entries.unshift({ date: startDate, weight: startWeight });
+            }
+          }
           setWeightUnit((whRes.data as any)[0]?.weight_unit ?? "lbs");
           setWeightData(entries);
         } else if (bpRes.success && bpRes.profile && bpRes.profile.weight != null) {
+        } else if (
+          bpRes.success &&
+          bpRes.profile &&
+          bpRes.profile.weight != null
+        ) {
+          // no daily history — fallback to bio_profile weight repeated across last 7 days
           const w = bpRes.profile.weight;
           const days = 7;
           const arr: WeightEntry[] = [];
           for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            arr.push({ date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), weight: w });
+            arr.push({
+              date: d.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              }),
+              weight: w,
+            });
           }
           setWeightUnit(bpRes.profile.weight_unit ?? "lbs");
           setWeightData(arr);
@@ -807,8 +949,64 @@ export default function ProgressScreen() {
       }
     }
     loadWeights();
+
+    // Set up realtime listener so chart updates when user logs weight
+    let channel: any = null;
+    (async () => {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError || !user) return;
+
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_id", user.id)
+          .single();
+
+        if (userError || !userData) return;
+
+        channel = supabase
+          .channel("public:body_weight")
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "body_weight",
+              filter: `user_id=eq.${userData.id}`,
+            },
+            (payload) => {
+              // reload weights when a new entry is added
+              loadWeights();
+            },
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "body_weight",
+              filter: `user_id=eq.${userData.id}`,
+            },
+            (payload) => {
+              loadWeights();
+            },
+          )
+          .subscribe();
+      } catch (e) {
+        // ignore
+      }
+    })();
+
     return () => {
       mounted = false;
+      try {
+        if (channel) supabase.removeChannel(channel);
+      } catch (e) {}
     };
   }, []);
 
@@ -869,6 +1067,8 @@ export default function ProgressScreen() {
               workoutCount={weeklyStats.workoutCount}
               totalSets={weeklyStats.totalSets}
               totalDuration={weeklyStats.totalDuration}
+              workoutsPerWeek={bioProfile?.workouts_per_week ?? null}
+              workoutsDone={workoutsDoneThisWeek}
             />
             <WeightChart data={weightData} />
 
@@ -926,32 +1126,61 @@ export default function ProgressScreen() {
             <View style={bodyStyles.infoCard}>
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Starting Weight</Text>
-                <Text style={bodyStyles.infoValue}>{weightData?.[0]?.weight ?? "—"} {weightUnit}</Text>
+                <Text style={bodyStyles.infoValue}>
+                  {bioProfile && bioProfile.weight != null
+                    ? `${bioProfile.weight} ${weightUnit}`
+                    : weightData?.[0]?.weight != null
+                      ? `${weightData[0].weight} ${weightUnit}`
+                      : "—"}
+                </Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Current Weight</Text>
-                <Text style={bodyStyles.infoValue}>{weightData?.[weightData.length - 1]?.weight ?? "—"} {weightUnit}</Text>
+                <Text style={bodyStyles.infoValue}>
+                  {weightData?.[weightData.length - 1]?.weight ?? "—"}{" "}
+                  {weightUnit}
+                </Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Total Change</Text>
-                <Text style={[bodyStyles.infoValue, { color: Palette.success }]}>{
-                  (() => {
-                    const start = weightData?.[0]?.weight;
-                    const end = weightData?.[weightData.length - 1]?.weight;
-                    if (typeof start === "number" && typeof end === "number") {
+                <Text
+                  style={[bodyStyles.infoValue, { color: Palette.success }]}
+                >
+                  {(() => {
+                    const startRaw =
+                      bioProfile && bioProfile.weight != null
+                        ? bioProfile.weight
+                        : weightData?.[0]?.weight;
+                    const endRaw = weightData?.[weightData.length - 1]?.weight;
+                    const start =
+                      typeof startRaw === "string"
+                        ? parseFloat(startRaw)
+                        : startRaw;
+                    const end =
+                      typeof endRaw === "string" ? parseFloat(endRaw) : endRaw;
+                    if (
+                      typeof start === "number" &&
+                      !Number.isNaN(start) &&
+                      typeof end === "number" &&
+                      !Number.isNaN(end)
+                    ) {
                       const diff = (end - start).toFixed(1);
                       return `${diff.startsWith("-") ? "" : "+"}${diff} ${weightUnit}`;
                     }
                     return "—";
-                  })()
-                }</Text>
+                  })()}
+                </Text>
               </View>
               <View style={bodyStyles.infoDivider} />
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Goal</Text>
-                <Text style={[bodyStyles.infoValue, { color: Palette.accent }]}>175 lbs</Text>
+                <Text style={[bodyStyles.infoValue, { color: Palette.accent }]}>
+                  {bioProfile && bioProfile.goal_weight != null
+                    ? `${bioProfile.goal_weight}${typeof bioProfile.goal_weight === "number" && String(bioProfile.goal_weight).includes(".") ? "" : ""} ${weightUnit}`
+                    : "—"}
+                </Text>
               </View>
             </View>
           </>

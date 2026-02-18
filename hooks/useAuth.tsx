@@ -6,6 +6,7 @@ type User = any;
 type BioData = {
   age: number;
   weight: number;
+  goal_weight?: number | null;
   height: number;
   sex: string;
   goal: string;
@@ -152,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             user_id: userId,
             age: bioData.age,
             weight: bioData.weight,
+            goal_weight: (bioData as any).goal_weight ?? null,
             weight_unit: "lbs",
             height: bioData.height,
             height_unit: "inches",
@@ -169,6 +171,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           return { data: authData, error: bioError };
         }
 
+        // Debug: read back the inserted bio_profile and log it
+        try {
+          const { data: insertedProfile, error: fetchErr } = await supabase
+            .from("bio_profile")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+          if (fetchErr)
+            console.warn("Could not fetch bio_profile after insert:", fetchErr);
+          else
+            console.log(
+              "Inserted bio_profile (fallback path):",
+              insertedProfile,
+            );
+        } catch (e) {
+          console.warn("Error fetching bio_profile after insert:", e);
+        }
+
         return { data: authData, error: null };
       }
 
@@ -181,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           user_id: userId,
           age: bioData.age,
           weight: bioData.weight,
+          goal_weight: (bioData as any).goal_weight ?? null,
           weight_unit: "lbs",
           height: bioData.height,
           height_unit: "inches",
@@ -196,6 +217,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (bioError) {
         console.error("Error creating bio profile:", bioError);
         return { data: authData, error: bioError };
+      }
+
+      // Debug: read back the inserted bio_profile and log it
+      try {
+        const { data: insertedProfile, error: fetchErr } = await supabase
+          .from("bio_profile")
+          .select("*")
+          .eq("user_id", userId)
+          .single();
+        if (fetchErr)
+          console.warn("Could not fetch bio_profile after insert:", fetchErr);
+        else
+          console.log("Inserted bio_profile (primary path):", insertedProfile);
+      } catch (e) {
+        console.warn("Error fetching bio_profile after insert:", e);
       }
 
       return { data: authData, error: null };
