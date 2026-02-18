@@ -10,7 +10,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  AppState, AppStateStatus, Pressable,
+  AppState,
+  AppStateStatus,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -194,7 +196,7 @@ export default function HomeScreen() {
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
-  const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide button initially
+  const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide badge initially
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
   const [firstname, setFirstname] = useState("");
 
@@ -211,7 +213,7 @@ export default function HomeScreen() {
     })();
   }, [user]);
 
-  // Check if weight has been logged today
+  // Check if weight has been logged today (not just skipped)
   useEffect(() => {
     if (!user) return;
     checkWeightStatus();
@@ -297,7 +299,7 @@ export default function HomeScreen() {
                   pressed && { opacity: 0.7 },
                 ]}
               >
-                <Text style={styles.weightIcon}>⚖️</Text>
+                <Text style={styles.weightBadgeIcon}>⚖️</Text>
               </Pressable>
             )}
             <View style={styles.streakBadge}>
@@ -407,12 +409,12 @@ export default function HomeScreen() {
         <View style={{ height: 30 }} />
       </ScrollView>
 
-      {/* ── Weight Prompt Modal ────────────── */}
+      {/* ── Weight Prompt Modal (manual trigger after skip) ── */}
       <DailyWeightPrompt
         visible={showWeightPrompt}
         onComplete={() => {
           setShowWeightPrompt(false);
-          checkWeightStatus(); // Refresh weight status after logging
+          checkWeightStatus();
         }}
       />
     </SafeAreaView>
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.accent + "30",
   },
-  weightIcon: {
+  weightBadgeIcon: {
     fontSize: 20,
   },
   streakBadge: {
