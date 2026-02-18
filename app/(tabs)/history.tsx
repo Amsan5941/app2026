@@ -1,4 +1,16 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
+} from "react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,15 +24,6 @@ import Svg, {
 } from "react-native-svg";
 
 // ── Types ───────────────────────────────────────────────────
-type Workout = {
-  id: string;
-  date: string;
-  duration: number;
-  calories: number;
-  type: string;
-  icon: string;
-};
-
 type WeightEntry = {
   date: string;
   weight: number;
@@ -73,6 +76,14 @@ const SAMPLE_WORKOUTS: Workout[] = [
 import { supabase } from "@/constants/supabase";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getWeightHistory } from "@/services/weightTracking";
+import {
+    WorkoutHistoryItem,
+    WorkoutSession,
+    getWeeklyWorkoutStats,
+    getWorkoutHistory,
+    getWorkoutSession,
+} from "@/services/workoutTracking";
+import { formatTime } from "@/utils/formatTime";
 
 const WEIGHT_DATA: WeightEntry[] = [
   { date: "Feb 7", weight: 185 },
@@ -270,6 +281,21 @@ const chartStyles = StyleSheet.create({
 
 // ── Summary Stats ───────────────────────────────────────────
 function SummaryStats({
+  workoutCount,
+  totalSets,
+  totalDuration,
+}: {
+  workoutCount: number;
+  totalSets: number;
+  totalDuration: number;
+}) {
+  const avgDuration =
+    workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
+  const stats = [
+    {
+      label: "This Week",
+      value: String(workoutCount),
+      sub: "workouts",
   workoutsPerWeek,
   workoutsDone,
 }: {
@@ -291,12 +317,17 @@ function SummaryStats({
     },
     {
       label: "Avg Duration",
+      value: String(avgDuration),
       value: "47",
       sub: "min",
       icon: "⏱",
       color: Palette.info,
     },
     {
+      label: "Total Sets",
+      value: String(totalSets),
+      sub: "sets",
+      icon: "💪",
       label: "Total Burned",
       value: "2,040",
       sub: "cal",
@@ -357,35 +388,333 @@ const summaryStyles = StyleSheet.create({
 });
 
 // ── Workout History Card ────────────────────────────────────
-function WorkoutCard({ item }: { item: Workout }) {
-  const dateObj = new Date(item.date + "T00:00:00");
+function WorkoutCard({
+  item,
+  onPress,
+}: {
+  item: WorkoutHistoryItem;
+  onPress: () => void;
+}) {
+  const dateObj = new Date(item.workout_date + "T00:00:00");
   const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
   const monthDay = dateObj.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
+  const durationMin = item.duration_seconds
+    ? Math.round(item.duration_seconds / 60)
+    : null;
 
   return (
-    <View style={wkStyles.card}>
-      <View style={wkStyles.dateCol}>
-        <Text style={wkStyles.day}>{dayName}</Text>
-        <Text style={wkStyles.monthDay}>{monthDay}</Text>
-      </View>
-      <View style={wkStyles.divider} />
-      <View style={wkStyles.iconWrap}>
-        <Text style={wkStyles.icon}>{item.icon}</Text>
-      </View>
-      <View style={wkStyles.info}>
-        <Text style={wkStyles.type}>{item.type}</Text>
-        <View style={wkStyles.metaRow}>
-          <Text style={wkStyles.meta}>⏱ {item.duration}m</Text>
-          <Text style={wkStyles.metaDot}>•</Text>
-          <Text style={wkStyles.meta}>🔥 {item.calories} cal</Text>
+    <Pressable onPress={onPress}>
+      <View style={wkStyles.card}>
+        <View style={wkStyles.dateCol}>
+          <Text style={wkStyles.day}>{dayName}</Text>
+          <Text style={wkStyles.monthDay}>{monthDay}</Text>
         </View>
+        <View style={wkStyles.divider} />
+        <View style={wkStyles.iconWrap}>
+          <Text style={wkStyles.icon}>🏋️</Text>
+        </View>
+        <View style={wkStyles.info}>
+          <Text style={wkStyles.type}>{item.name}</Text>
+          <View style={wkStyles.metaRow}>
+            <Text style={wkStyles.meta}>
+              {item.exercise_count} exercise
+              {item.exercise_count !== 1 ? "s" : ""}
+            </Text>
+            <Text style={wkStyles.metaDot}>•</Text>
+            <Text style={wkStyles.meta}>
+              {item.total_sets} set{item.total_sets !== 1 ? "s" : ""}
+            </Text>
+            {durationMin != null && (
+              <>
+                <Text style={wkStyles.metaDot}>•</Text>
+                <Text style={wkStyles.meta}>{durationMin}m</Text>
+              </>
+            )}
+          </View>
+        </View>
+        <Text style={wkStyles.chevron}>▸</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
+
+// ── Workout Detail Modal ────────────────────────────────────
+function WorkoutDetailModal({
+  visible,
+  sessionId,
+  onClose,
+}: {
+  visible: boolean;
+  sessionId: string | null;
+  onClose: () => void;
+}) {
+  const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId || !visible) {
+      setSession(null);
+      return;
+    }
+    let mounted = true;
+    setLoading(true);
+    getWorkoutSession(sessionId).then((res) => {
+      if (!mounted) return;
+      if (res.success && res.data) {
+        setSession(res.data);
+      }
+      setLoading(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [sessionId, visible]);
+
+  const dateStr = session?.workout_date
+    ? new Date(session.workout_date + "T00:00:00").toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+  const durationStr = session?.duration_seconds
+    ? formatTime(session.duration_seconds)
+    : null;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={detailStyles.overlay}>
+        <View style={detailStyles.sheet}>
+          <View style={detailStyles.handle} />
+
+          {/* Header with close */}
+          <View style={detailStyles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={detailStyles.title}>
+                {session?.name || "Workout"}
+              </Text>
+              <Text style={detailStyles.date}>{dateStr}</Text>
+            </View>
+            <Pressable style={detailStyles.closeBtn} onPress={onClose}>
+              <Text style={detailStyles.closeBtnText}>✕</Text>
+            </Pressable>
+          </View>
+
+          {loading ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <ActivityIndicator size="large" color={Palette.accent} />
+            </View>
+          ) : session ? (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 500 }}
+            >
+              {/* Duration badge */}
+              {durationStr && (
+                <View style={detailStyles.durationBadge}>
+                  <Text style={detailStyles.durationText}>
+                    ⏱ Duration: {durationStr}
+                  </Text>
+                </View>
+              )}
+
+              {/* Exercises */}
+              {(session.exercises || []).map((ex, i) => (
+                <View key={ex.id || i} style={detailStyles.exerciseCard}>
+                  <View style={detailStyles.exerciseHeader}>
+                    <View style={detailStyles.exIconWrap}>
+                      <Text style={{ fontSize: 16 }}>🏋️</Text>
+                    </View>
+                    <Text style={detailStyles.exerciseName}>
+                      {ex.exercise_name}
+                    </Text>
+                    <Text style={detailStyles.setCount}>
+                      {ex.sets.length} set{ex.sets.length !== 1 ? "s" : ""}
+                    </Text>
+                  </View>
+
+                  {/* Set header */}
+                  {ex.sets.length > 0 && (
+                    <View style={detailStyles.setHeaderRow}>
+                      <Text style={[detailStyles.setHeaderText, { flex: 0.5 }]}>
+                        #
+                      </Text>
+                      <Text style={[detailStyles.setHeaderText, { flex: 1 }]}>
+                        Reps
+                      </Text>
+                      <Text style={[detailStyles.setHeaderText, { flex: 1 }]}>
+                        Weight
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Sets */}
+                  {ex.sets.map((set, si) => (
+                    <View key={set.id || si} style={detailStyles.setRow}>
+                      <Text style={[detailStyles.setText, { flex: 0.5 }]}>
+                        {set.set_number}
+                      </Text>
+                      <Text style={[detailStyles.setText, { flex: 1 }]}>
+                        {set.reps}
+                      </Text>
+                      <Text style={[detailStyles.setText, { flex: 1 }]}>
+                        {set.weight != null ? `${set.weight} lbs` : "BW"}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              {(session.exercises || []).length === 0 && (
+                <View style={{ alignItems: "center", paddingVertical: 30 }}>
+                  <Text style={{ color: Palette.textMuted, fontSize: 14 }}>
+                    No exercises recorded
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          ) : (
+            <View style={{ alignItems: "center", paddingVertical: 30 }}>
+              <Text style={{ color: Palette.textMuted }}>
+                Could not load workout details
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const detailStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: Palette.overlay,
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Palette.bgElevated,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xl,
+    paddingBottom: Platform.OS === "ios" ? 40 : Spacing.xl,
+    maxHeight: "85%",
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Palette.border,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+  },
+  date: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Palette.bgCard,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: {
+    color: Palette.textSecondary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  durationBadge: {
+    backgroundColor: Palette.accentMuted,
+    borderRadius: Radii.md,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    alignSelf: "flex-start",
+  },
+  durationText: {
+    color: Palette.accent,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  exerciseCard: {
+    backgroundColor: Palette.bgCard,
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  exerciseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  exIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Palette.accentMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+  },
+  exerciseName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: Palette.textPrimary,
+  },
+  setCount: {
+    fontSize: 12,
+    color: Palette.textSecondary,
+    fontWeight: "600",
+  },
+  setHeaderRow: {
+    flexDirection: "row",
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.divider,
+    marginBottom: Spacing.sm,
+  },
+  setHeaderText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Palette.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  setRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.divider,
+  },
+  setText: {
+    fontSize: 14,
+    color: Palette.textPrimary,
+    fontWeight: "600",
+  },
+});
 
 const wkStyles = StyleSheet.create({
   card: {
@@ -447,6 +776,11 @@ const wkStyles = StyleSheet.create({
   metaDot: {
     color: Palette.textMuted,
     fontSize: 10,
+  },
+  chevron: {
+    fontSize: 14,
+    color: Palette.textMuted,
+    marginLeft: Spacing.sm,
   },
 });
 
@@ -534,6 +868,17 @@ export default function ProgressScreen() {
 
   const workoutsDoneThisWeek = countWorkoutsThisWeek(SAMPLE_WORKOUTS);
 
+  // Workout state
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>([]);
+  const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  const [weeklyStats, setWeeklyStats] = useState({
+    workoutCount: 0,
+    totalSets: 0,
+    totalDuration: 0,
+  });
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+
   useEffect(() => {
     let mounted = true;
     async function loadWeights() {
@@ -547,7 +892,6 @@ export default function ProgressScreen() {
         if (bpRes.success && bpRes.profile) setBioProfile(bpRes.profile);
 
         if (whRes.success && whRes.data && whRes.data.length > 0) {
-          // weight history comes back newest first — reverse to oldest-first for chart
           const entries = (whRes.data as any[])
             .slice()
             .reverse()
@@ -571,6 +915,7 @@ export default function ProgressScreen() {
           }
           setWeightUnit((whRes.data as any)[0]?.weight_unit ?? "lbs");
           setWeightData(entries);
+        } else if (bpRes.success && bpRes.profile && bpRes.profile.weight != null) {
         } else if (
           bpRes.success &&
           bpRes.profile &&
@@ -594,7 +939,6 @@ export default function ProgressScreen() {
           setWeightUnit(bpRes.profile.weight_unit ?? "lbs");
           setWeightData(arr);
         } else {
-          // final fallback: use sample data
           setWeightData(WEIGHT_DATA);
         }
       } catch (e) {
@@ -666,6 +1010,42 @@ export default function ProgressScreen() {
     };
   }, []);
 
+  // Load workout history when tab focuses or activeTab changes
+  const loadWorkouts = useCallback(async () => {
+    setLoadingWorkouts(true);
+    try {
+      const [histRes, statsRes] = await Promise.all([
+        getWorkoutHistory(30),
+        getWeeklyWorkoutStats(),
+      ]);
+      if (histRes.success) {
+        setWorkoutHistory(histRes.data || []);
+      }
+      if (statsRes.success) {
+        setWeeklyStats({
+          workoutCount: statsRes.workoutCount || 0,
+          totalSets: statsRes.totalSets || 0,
+          totalDuration: statsRes.totalDuration || 0,
+        });
+      }
+    } catch (e) {
+      console.error("Error loading workouts:", e);
+    } finally {
+      setLoadingWorkouts(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWorkouts();
+    }, [loadWorkouts]),
+  );
+
+  const handleOpenDetail = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setShowDetail(true);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScrollView
@@ -684,34 +1064,56 @@ export default function ProgressScreen() {
         {activeTab === "Overview" && (
           <>
             <SummaryStats
+              workoutCount={weeklyStats.workoutCount}
+              totalSets={weeklyStats.totalSets}
+              totalDuration={weeklyStats.totalDuration}
               workoutsPerWeek={bioProfile?.workouts_per_week ?? null}
               workoutsDone={workoutsDoneThisWeek}
             />
             <WeightChart data={weightData} />
 
             <Text style={styles.sectionTitle}>Recent Workouts</Text>
-            {SAMPLE_WORKOUTS.slice(0, 3).map((w) => (
-              <View key={w.id} style={{ marginBottom: Spacing.md }}>
-                <WorkoutCard item={w} />
+            {loadingWorkouts ? (
+              <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                <ActivityIndicator color={Palette.accent} />
               </View>
-            ))}
+            ) : workoutHistory.length > 0 ? (
+              workoutHistory.slice(0, 3).map((w) => (
+                <View key={w.id} style={{ marginBottom: Spacing.md }}>
+                  <WorkoutCard item={w} onPress={() => handleOpenDetail(w.id)} />
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🏋️</Text>
+                <Text style={styles.emptyTitle}>No workouts yet</Text>
+                <Text style={styles.emptyBody}>
+                  Log your first workout from the Workout tab!
+                </Text>
+              </View>
+            )}
           </>
         )}
 
         {activeTab === "Workouts" && (
           <>
             <Text style={styles.sectionTitle}>Workout History</Text>
-            {SAMPLE_WORKOUTS.map((w) => (
-              <View key={w.id} style={{ marginBottom: Spacing.md }}>
-                <WorkoutCard item={w} />
+            {loadingWorkouts ? (
+              <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                <ActivityIndicator color={Palette.accent} />
               </View>
-            ))}
-            {SAMPLE_WORKOUTS.length === 0 && (
+            ) : workoutHistory.length > 0 ? (
+              workoutHistory.map((w) => (
+                <View key={w.id} style={{ marginBottom: Spacing.md }}>
+                  <WorkoutCard item={w} onPress={() => handleOpenDetail(w.id)} />
+                </View>
+              ))
+            ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>🏋️</Text>
                 <Text style={styles.emptyTitle}>No workouts yet</Text>
                 <Text style={styles.emptyBody}>
-                  Start your first workout from the Home tab!
+                  Start your first workout from the Workout tab!
                 </Text>
               </View>
             )}
@@ -786,6 +1188,16 @@ export default function ProgressScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* Workout Detail Modal */}
+      <WorkoutDetailModal
+        visible={showDetail}
+        sessionId={selectedSessionId}
+        onClose={() => {
+          setShowDetail(false);
+          setSelectedSessionId(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
