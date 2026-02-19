@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
+import { getWeeklyWorkoutStats } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
@@ -196,6 +197,99 @@ const qaStyles = StyleSheet.create({
   },
 });
 
+// ── Summary Stats (copied from history.tsx) ─────────────────
+function SummaryStats({
+  workoutsDone,
+  workoutsGoal,
+  totalSets,
+  totalDuration,
+}: {
+  workoutsDone?: number | null;
+  workoutsGoal?: number | null;
+  totalSets: number;
+  totalDuration: number;
+}) {
+  const workoutCount = workoutsDone ?? 0;
+  const avgDuration =
+    workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
+  const stats = [
+    {
+      label: "This Week",
+      value:
+        workoutsGoal != null
+          ? `${workoutsDone ?? 0}/${workoutsGoal}`
+          : String(workoutsDone ?? 0),
+      sub: "workouts",
+      icon: "🏋️",
+      color: Palette.accent,
+    },
+    {
+      label: "Avg Duration",
+      value: String(avgDuration),
+      sub: "min",
+      icon: "⏱",
+      color: Palette.info,
+    },
+    {
+      label: "Total Sets",
+      value: String(totalSets),
+      sub: "sets",
+      icon: "💪",
+      color: Palette.warning,
+    },
+  ];
+
+  return (
+    <View style={summaryStyles.row}>
+      {stats.map((s, i) => (
+        <View
+          key={i}
+          style={[summaryStyles.card, { borderColor: s.color + "25" }]}
+        >
+          <Text style={summaryStyles.icon}>{s.icon}</Text>
+          <Text style={summaryStyles.value}>{s.value}</Text>
+          <Text style={summaryStyles.sub}>{s.sub}</Text>
+          <Text style={summaryStyles.label}>{s.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const summaryStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: Palette.bgCard,
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  icon: { fontSize: 20, marginBottom: 4 },
+  value: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+  },
+  sub: {
+    fontSize: 11,
+    color: Palette.textSecondary,
+    marginTop: 1,
+  },
+  label: {
+    fontSize: 10,
+    color: Palette.textMuted,
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+});
+
 // ── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const timer = useWorkoutTimer();
@@ -206,6 +300,11 @@ export default function HomeScreen() {
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide badge initially
   const [bioProfile, setBioProfile] = useState<any | null>(null);
+  const [weeklyStats, setWeeklyStats] = useState({
+    workoutCount: 0,
+    totalSets: 0,
+    totalDuration: 0,
+  });
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -229,6 +328,55 @@ export default function HomeScreen() {
       }
     })();
   }, [user]);
+
+  // Load weekly workout stats on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getWeeklyWorkoutStats();
+        if (!mounted) return;
+        if (res.success) {
+          setWeeklyStats({
+            workoutCount: res.workoutCount || 0,
+            totalSets: res.totalSets || 0,
+            totalDuration: res.totalDuration || 0,
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
+
+  // Refresh weekly workout stats when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        if (!user) return;
+        try {
+          const statsRes = await getWeeklyWorkoutStats();
+          if (!mounted) return;
+          if (statsRes.success) {
+            setWeeklyStats({
+              workoutCount: statsRes.workoutCount || 0,
+              totalSets: statsRes.totalSets || 0,
+              totalDuration: statsRes.totalDuration || 0,
+            });
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
+      return () => {
+        mounted = false;
+      };
+    }, [user]),
+  );
 
   // Check if weight has been logged today (not just skipped)
   useEffect(() => {
@@ -378,34 +526,13 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── Quick Stats ────────────────────── */}
-        <View style={styles.statsRow}>
-          <QuickAction
-            icon="🏋️"
-            label="Workouts"
-            value={
-              bioProfile && bioProfile.workout_counter != null
-                ? `${bioProfile.workout_counter}/${bioProfile.workouts_per_week ?? "—"}`
-                : "0"
-            }
-            sub="this week"
-            accentColor={Palette.accent}
-          />
-          <QuickAction
-            icon="🔥"
-            label="Calories"
-            value="0"
-            sub="burned today"
-            accentColor={Palette.warning}
-          />
-          <QuickAction
-            icon="👣"
-            label="Steps"
-            value={steps.todayStepsFormatted}
-            sub="today"
-            accentColor={Palette.success}
-          />
-        </View>
+        {/* ── Quick Stats / Weekly Summary ───── */}
+        <SummaryStats
+          workoutsDone={bioProfile?.workout_counter ?? weeklyStats.workoutCount}
+          workoutsGoal={bioProfile?.workouts_per_week ?? null}
+          totalSets={weeklyStats.totalSets}
+          totalDuration={weeklyStats.totalDuration}
+        />
 
         {/* ── Today's Goal Card ──────────────── */}
         <View style={styles.goalCard}>
