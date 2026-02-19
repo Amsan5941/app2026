@@ -4,6 +4,7 @@ import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
+import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,10 +17,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  Stop,
+  LinearGradient as SvgGradient,
+} from "react-native-svg";
 
 // ── Motivational quotes ─────────────────────────────────────
 const QUOTES = [
@@ -140,7 +146,9 @@ function QuickAction({
 }) {
   return (
     <View style={[qaStyles.card, { borderColor: accentColor + "25" }]}>
-      <View style={[qaStyles.iconWrap, { backgroundColor: accentColor + "18" }]}>
+      <View
+        style={[qaStyles.iconWrap, { backgroundColor: accentColor + "18" }]}
+      >
         <Text style={qaStyles.icon}>{icon}</Text>
       </View>
       <Text style={qaStyles.value}>{value}</Text>
@@ -197,7 +205,10 @@ export default function HomeScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide badge initially
-  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  const [bioProfile, setBioProfile] = useState<any | null>(null);
+  const [quote] = useState(
+    () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
+  );
   const [firstname, setFirstname] = useState("");
 
   // Fetch user's first name
@@ -210,6 +221,12 @@ export default function HomeScreen() {
         .eq("auth_id", user.id)
         .single();
       if (data?.firstname) setFirstname(data.firstname);
+      try {
+        const bp = await getCurrentUserBioProfile();
+        if (bp.success && bp.profile) setBioProfile(bp.profile);
+      } catch (e) {
+        // ignore
+      }
     })();
   }, [user]);
 
@@ -225,7 +242,7 @@ export default function HomeScreen() {
       if (user) {
         checkWeightStatus();
       }
-    }, [user])
+    }, [user]),
   );
 
   // Re-check weight status when app comes to foreground
@@ -236,7 +253,10 @@ export default function HomeScreen() {
       }
     };
 
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
     return () => subscription.remove();
   }, [user]);
 
@@ -363,7 +383,11 @@ export default function HomeScreen() {
           <QuickAction
             icon="🏋️"
             label="Workouts"
-            value="0"
+            value={
+              bioProfile && bioProfile.workout_counter != null
+                ? `${bioProfile.workout_counter}/${bioProfile.workouts_per_week ?? "—"}`
+                : "0"
+            }
             sub="this week"
             accentColor={Palette.accent}
           />
