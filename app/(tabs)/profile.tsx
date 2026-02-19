@@ -1,4 +1,5 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -188,79 +189,96 @@ export default function ProfileScreen() {
           ) : (
             <>
               <View style={styles.card}>
-                <Text style={styles.label}>Email</Text>
-                <Text style={styles.value}>{user?.email ?? "—"}</Text>
-
-                <Text style={[styles.label, { marginTop: Spacing.md }]}>
-                  Name
-                </Text>
-                {editing ? (
-                  <>
-                    <TextInput
-                      style={styles.input}
-                      value={firstname}
-                      onChangeText={setFirstname}
-                      placeholder="First name"
-                      placeholderTextColor={Palette.textMuted}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      value={lastname}
-                      onChangeText={setLastname}
-                      placeholder="Last name"
-                      placeholderTextColor={Palette.textMuted}
-                    />
-                    <View style={styles.rowRight}>
-                      <Pressable
-                        style={[
-                          styles.btn,
-                          { backgroundColor: Palette.accent },
-                        ]}
-                        onPress={async () => {
-                          setSavingName(true);
-                          await updateUserProfile(firstname, lastname);
-                          setSavingName(false);
-                          setEditing(false);
-                          const res = await getCurrentUserProfile();
-                          if (res.success) setProfile(res.profile ?? null);
-                        }}
-                      >
-                        <Text style={styles.btnText}>
-                          {savingName ? "Saving..." : "Save"}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        style={[
-                          styles.btn,
-                          { backgroundColor: Palette.bgElevated },
-                        ]}
-                        onPress={() => {
-                          setEditing(false);
-                          setFirstname(profile?.firstname ?? "");
-                          setLastname(profile?.lastname ?? "");
-                        }}
-                      >
-                        <Text style={styles.btnTextSecondary}>Cancel</Text>
-                      </Pressable>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.value}>
-                      {profile?.firstname || profile?.lastname
-                        ? `${profile?.firstname ?? ""} ${profile?.lastname ?? ""}`.trim()
-                        : "—"}
+                <View style={styles.profileHeader}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {(firstname || profile?.firstname || "A").charAt(0)}
                     </Text>
-                    <View style={styles.rowRight}>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                    <Text style={styles.label}>Email</Text>
+                    <Text style={styles.value}>{user?.email ?? "—"}</Text>
+
+                    <Text style={[styles.label, { marginTop: Spacing.sm }]}>
+                      Name
+                    </Text>
+                    {editing ? (
+                      <>
+                        <TextInput
+                          style={styles.input}
+                          value={firstname}
+                          onChangeText={setFirstname}
+                          placeholder="First name"
+                          placeholderTextColor={Palette.textMuted}
+                        />
+                        <TextInput
+                          style={styles.input}
+                          value={lastname}
+                          onChangeText={setLastname}
+                          placeholder="Last name"
+                          placeholderTextColor={Palette.textMuted}
+                        />
+                      </>
+                    ) : (
+                      <Text style={styles.value}>
+                        {profile?.firstname || profile?.lastname
+                          ? `${profile?.firstname ?? ""} ${profile?.lastname ?? ""}`.trim()
+                          : "—"}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.rowRight}>
+                    {editing ? (
+                      <>
+                        <Pressable
+                          style={[
+                            styles.btn,
+                            { backgroundColor: Palette.bgElevated },
+                          ]}
+                          onPress={() => {
+                            setEditing(false);
+                            setFirstname(profile?.firstname ?? "");
+                            setLastname(profile?.lastname ?? "");
+                          }}
+                        >
+                          <Text style={styles.btnTextSecondary}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.btn}
+                          onPress={async () => {
+                            setSavingName(true);
+                            await updateUserProfile(firstname, lastname);
+                            setSavingName(false);
+                            setEditing(false);
+                            const res = await getCurrentUserProfile();
+                            if (res.success) setProfile(res.profile ?? null);
+                          }}
+                        >
+                          <LinearGradient
+                            colors={[
+                              Palette.gradientStart,
+                              Palette.gradientEnd,
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.btnGradient}
+                          >
+                            <Text style={styles.btnText}>
+                              {savingName ? "Saving..." : "Save"}
+                            </Text>
+                          </LinearGradient>
+                        </Pressable>
+                      </>
+                    ) : (
                       <Pressable
                         style={styles.ghostBtn}
                         onPress={() => setEditing(true)}
                       >
                         <Text style={styles.ghostText}>Edit</Text>
                       </Pressable>
-                    </View>
-                  </>
-                )}
+                    )}
+                  </View>
+                </View>
               </View>
 
               <View style={styles.card}>
@@ -832,11 +850,15 @@ const styles = StyleSheet.create({
   bioRow: {
     marginTop: Spacing.sm,
     gap: 6,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   bioItem: {
     color: Palette.textPrimary,
     fontSize: 14,
     marginBottom: 4,
+    width: "48%",
   },
   inputLabel: {
     fontSize: 12,
@@ -871,6 +893,29 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Palette.border,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Palette.accentMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Palette.accent,
+  },
+  btnGradient: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: Radii.md,
   },
   modalTitle: {
     fontSize: 18,
