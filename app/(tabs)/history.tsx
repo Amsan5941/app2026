@@ -20,7 +20,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
@@ -234,20 +234,26 @@ const chartStyles = StyleSheet.create({
 
 // ── Summary Stats ───────────────────────────────────────────
 function SummaryStats({
-  workoutCount,
+  workoutsDone,
+  workoutsGoal,
   totalSets,
   totalDuration,
 }: {
-  workoutCount: number;
+  workoutsDone?: number | null;
+  workoutsGoal?: number | null;
   totalSets: number;
   totalDuration: number;
 }) {
+  const workoutCount = workoutsDone ?? 0;
   const avgDuration =
     workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
   const stats = [
     {
       label: "This Week",
-      value: String(workoutCount),
+      value:
+        workoutsGoal != null
+          ? `${workoutsDone ?? 0}/${workoutsGoal}`
+          : String(workoutsDone ?? 0),
       sub: "workouts",
       icon: "🏋️",
       color: Palette.accent,
@@ -781,14 +787,18 @@ export default function ProgressScreen() {
   const [bioProfile, setBioProfile] = useState<any | null>(null);
 
   // Workout state
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>([]);
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>(
+    [],
+  );
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
   const [weeklyStats, setWeeklyStats] = useState({
     workoutCount: 0,
     totalSets: 0,
     totalDuration: 0,
   });
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
   const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
@@ -975,7 +985,10 @@ export default function ProgressScreen() {
         {activeTab === "Overview" && (
           <>
             <SummaryStats
-              workoutCount={weeklyStats.workoutCount}
+              workoutsDone={
+                bioProfile?.workout_counter ?? weeklyStats.workoutCount
+              }
+              workoutsGoal={bioProfile?.workouts_per_week ?? null}
               totalSets={weeklyStats.totalSets}
               totalDuration={weeklyStats.totalDuration}
             />
@@ -989,7 +1002,10 @@ export default function ProgressScreen() {
             ) : workoutHistory.length > 0 ? (
               workoutHistory.slice(0, 3).map((w) => (
                 <View key={w.id} style={{ marginBottom: Spacing.md }}>
-                  <WorkoutCard item={w} onPress={() => handleOpenDetail(w.id)} />
+                  <WorkoutCard
+                    item={w}
+                    onPress={() => handleOpenDetail(w.id)}
+                  />
                 </View>
               ))
             ) : (
@@ -1014,7 +1030,10 @@ export default function ProgressScreen() {
             ) : workoutHistory.length > 0 ? (
               workoutHistory.map((w) => (
                 <View key={w.id} style={{ marginBottom: Spacing.md }}>
-                  <WorkoutCard item={w} onPress={() => handleOpenDetail(w.id)} />
+                  <WorkoutCard
+                    item={w}
+                    onPress={() => handleOpenDetail(w.id)}
+                  />
                 </View>
               ))
             ) : (

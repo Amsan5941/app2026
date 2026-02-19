@@ -99,6 +99,27 @@ export async function createWorkoutSession(
 
     if (error) throw error;
 
+    // Increment the user's workout counter on their bio_profile (best-effort)
+    try {
+      const { data: profileData, error: profErr } = await supabase
+        .from("bio_profile")
+        .select("id, workout_counter")
+        .eq("user_id", userId)
+        .single();
+
+      if (!profErr && profileData) {
+        const current = (profileData as any).workout_counter ?? 0;
+        const newVal = Number(current) + 1;
+        await supabase
+          .from("bio_profile")
+          .update({ workout_counter: newVal })
+          .eq("id", (profileData as any).id);
+      }
+    } catch (e) {
+      // non-fatal — log and continue
+      console.warn("Failed to increment workout_counter:", e);
+    }
+
     return { success: true, sessionId: data.id };
   } catch (error) {
     console.error("Error creating workout session:", error);
