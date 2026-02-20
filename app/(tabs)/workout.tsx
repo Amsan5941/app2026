@@ -11,6 +11,7 @@ import {
     deleteSet,
     deleteWorkoutSession,
     getTodayWorkouts,
+    updateSetNumber,
     updateWorkoutSession
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
@@ -908,12 +909,15 @@ export default function WorkoutScreen() {
     reps: number,
     weight: number | null,
   ) => {
-    // Find current set count
+    // Find the max set number for this exercise
     let setNumber = 1;
     for (const session of sessions) {
       for (const ex of session.exercises || []) {
         if (ex.id === exerciseId) {
-          setNumber = ex.sets.length + 1;
+          // Use max set_number + 1 instead of length + 1
+          const maxSetNumber = ex.sets.reduce((max, set) => 
+            Math.max(max, set.set_number), 0);
+          setNumber = maxSetNumber + 1;
         }
       }
     }
@@ -927,8 +931,36 @@ export default function WorkoutScreen() {
   };
 
   const handleDeleteSet = async (setId: string) => {
+    // Find which exercise this set belongs to and its set_number
+    let exerciseId: string | undefined;
+    let deletedSetNumber: number = 0;
+    
+    for (const session of sessions) {
+      for (const ex of session.exercises || []) {
+        const foundSet = ex.sets.find(s => s.id === setId);
+        if (foundSet) {
+          exerciseId = ex.id;
+          deletedSetNumber = foundSet.set_number;
+          break;
+        }
+      }
+      if (exerciseId) break;
+    }
+
     const res = await deleteSet(setId);
-    if (res.success) {
+    if (res.success && exerciseId) {
+      // Renumber all sets with higher set_numbers in this exercise
+      for (const session of sessions) {
+        for (const ex of session.exercises || []) {
+          if (ex.id === exerciseId) {
+            for (const set of ex.sets) {
+              if (set.set_number > deletedSetNumber) {
+                await updateSetNumber(set.id!, set.set_number - 1);
+              }
+            }
+          }
+        }
+      }
       await loadSessions();
     }
   };

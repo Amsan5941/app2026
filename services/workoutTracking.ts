@@ -191,6 +191,28 @@ export async function updateSet(
 }
 
 /**
+ * Update set number for a set
+ */
+export async function updateSetNumber(
+  setId: string,
+  setNumber: number,
+): Promise<{ success: boolean; error?: any }> {
+  try {
+    const { error } = await supabase
+      .from("exercise_sets")
+      .update({ set_number: setNumber })
+      .eq("id", setId);
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating set number:", error);
+    return { success: false, error };
+  }
+}
+
+/**
  * Delete a set
  */
 export async function deleteSet(
