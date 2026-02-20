@@ -423,19 +423,37 @@ function ExerciseCard({
         <Text style={exStyles.name}>{exercise.exercise_name}</Text>
         <Pressable
           style={exStyles.deleteBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           onPress={() => {
-            Alert.alert(
-              "Delete Exercise",
-              `Remove "${exercise.exercise_name}" and all its sets?`,
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => onDeleteExercise(exercise.id!),
-                },
-              ],
-            );
+            console.log("Delete button pressed for exercise:", exercise.exercise_name, "ID:", exercise.id);
+            if (!exercise.id) {
+              Alert.alert("Error", "Cannot delete exercise - invalid ID");
+              return;
+            }
+            
+            // For web, Alert.alert with buttons might not work properly, so provide a fallback
+            if (Platform.OS === 'web') {
+              if (window.confirm(`Remove "${exercise.exercise_name}" and all its sets?`)) {
+                console.log("Delete confirmed (web) for exercise ID:", exercise.id);
+                onDeleteExercise(exercise.id!);
+              }
+            } else {
+              Alert.alert(
+                "Delete Exercise",
+                `Remove "${exercise.exercise_name}" and all its sets?`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => {
+                      console.log("Delete confirmed for exercise ID:", exercise.id);
+                      onDeleteExercise(exercise.id!);
+                    },
+                  },
+                ],
+              );
+            }
           }}
         >
           <Text style={exStyles.deleteBtnText}>✕</Text>
@@ -510,16 +528,19 @@ const exStyles = StyleSheet.create({
     color: Palette.textPrimary,
   },
   deleteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Palette.errorMuted,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: Palette.error + "40",
   },
   deleteBtnText: {
     color: Palette.error,
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "700",
   },
   setHeader: {
@@ -966,9 +987,13 @@ export default function WorkoutScreen() {
   };
 
   const handleDeleteExercise = async (exerciseId: string) => {
+    console.log("Deleting exercise:", exerciseId);
     const res = await deleteExercise(exerciseId);
     if (res.success) {
       await loadSessions();
+    } else {
+      console.error("Failed to delete exercise:", res.error);
+      Alert.alert("Error", "Failed to delete exercise. Please try again.");
     }
   };
 
