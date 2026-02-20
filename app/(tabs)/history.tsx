@@ -967,6 +967,39 @@ export default function ProgressScreen() {
     setShowDetail(true);
   };
 
+  // Compute total change (end - start) and choose color: red for gain, green for loss
+  const { totalChangeDisplay, totalChangeColor } = (() => {
+    const startRaw =
+      bioProfile && bioProfile.weight != null
+        ? bioProfile.weight
+        : weightData?.[0]?.weight;
+    const endRaw = weightData?.[weightData.length - 1]?.weight;
+    const start =
+      typeof startRaw === "string" ? parseFloat(startRaw) : startRaw;
+    const end = typeof endRaw === "string" ? parseFloat(endRaw) : endRaw;
+
+    if (
+      typeof start === "number" &&
+      !Number.isNaN(start) &&
+      typeof end === "number" &&
+      !Number.isNaN(end)
+    ) {
+      const diff = end - start;
+      const sign = diff > 0 ? "+" : "";
+      const color =
+        diff > 0
+          ? Palette.error
+          : diff < 0
+            ? Palette.success
+            : Palette.textPrimary;
+      return {
+        totalChangeDisplay: `${sign}${diff.toFixed(1)} ${weightUnit}`,
+        totalChangeColor: color,
+      };
+    }
+    return { totalChangeDisplay: "—", totalChangeColor: Palette.textPrimary };
+  })();
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScrollView
@@ -1074,31 +1107,9 @@ export default function ProgressScreen() {
               <View style={bodyStyles.infoRow}>
                 <Text style={bodyStyles.infoLabel}>Total Change</Text>
                 <Text
-                  style={[bodyStyles.infoValue, { color: Palette.success }]}
+                  style={[bodyStyles.infoValue, { color: totalChangeColor }]}
                 >
-                  {(() => {
-                    const startRaw =
-                      bioProfile && bioProfile.weight != null
-                        ? bioProfile.weight
-                        : weightData?.[0]?.weight;
-                    const endRaw = weightData?.[weightData.length - 1]?.weight;
-                    const start =
-                      typeof startRaw === "string"
-                        ? parseFloat(startRaw)
-                        : startRaw;
-                    const end =
-                      typeof endRaw === "string" ? parseFloat(endRaw) : endRaw;
-                    if (
-                      typeof start === "number" &&
-                      !Number.isNaN(start) &&
-                      typeof end === "number" &&
-                      !Number.isNaN(end)
-                    ) {
-                      const diff = (end - start).toFixed(1);
-                      return `${diff.startsWith("-") ? "" : "+"}${diff} ${weightUnit}`;
-                    }
-                    return "—";
-                  })()}
+                  {totalChangeDisplay}
                 </Text>
               </View>
               <View style={bodyStyles.infoDivider} />

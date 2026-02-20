@@ -154,7 +154,7 @@ export default function AuthModal({
           else {
             Alert.alert(
               "Welcome aboard! 💪",
-              "Your account has been created. Let's start crushing your goals!",
+              "Before we get started, please check your email to verify your account. Once verified, you can log in and start crushing your fitness goals!",
             );
             resetForm();
             onClose();
