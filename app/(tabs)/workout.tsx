@@ -680,19 +680,37 @@ function WorkoutSessionCard({
           {/* Delete Session */}
           <Pressable
             style={sessionStyles.deleteSession}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             onPress={() => {
-              Alert.alert(
-                "Delete Workout",
-                `Delete "${session.name}" and all its exercises?`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: () => onDelete(session.id!),
-                  },
-                ],
-              );
+              console.log("Delete workout button pressed for:", session.name, "ID:", session.id);
+              if (!session.id) {
+                Alert.alert("Error", "Cannot delete workout - invalid ID");
+                return;
+              }
+              
+              // For web, Alert.alert with buttons might not work properly, so provide a fallback
+              if (Platform.OS === 'web') {
+                if (window.confirm(`Delete "${session.name}" and all its exercises?`)) {
+                  console.log("Delete workout confirmed (web) for ID:", session.id);
+                  onDelete(session.id!);
+                }
+              } else {
+                Alert.alert(
+                  "Delete Workout",
+                  `Delete "${session.name}" and all its exercises?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        console.log("Delete workout confirmed for ID:", session.id);
+                        onDelete(session.id!);
+                      },
+                    },
+                  ],
+                );
+              }
             }}
           >
             <Text style={sessionStyles.deleteSessionText}>Delete Workout</Text>
@@ -998,6 +1016,7 @@ export default function WorkoutScreen() {
   };
 
   const handleDeleteSession = async (sessionId: string) => {
+    console.log("Deleting workout session:", sessionId);
     if (activeTimerSessionId === sessionId) {
       timer.stop();
       timer.reset();
@@ -1006,6 +1025,9 @@ export default function WorkoutScreen() {
     const res = await deleteWorkoutSession(sessionId);
     if (res.success) {
       await loadSessions();
+    } else {
+      console.error("Failed to delete workout session:", res.error);
+      Alert.alert("Error", "Failed to delete workout. Please try again.");
     }
   };
 
