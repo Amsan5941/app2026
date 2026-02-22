@@ -1,22 +1,19 @@
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import { supabase } from "@/constants/supabase";
 import { Palette, Radii, Spacing } from "@/constants/theme";
-import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
-import { formatTime } from "@/utils/formatTime";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  AppState,
-  AppStateStatus,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View
+    AppState,
+    AppStateStatus,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";
@@ -190,11 +187,8 @@ const qaStyles = StyleSheet.create({
 
 // ── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
-  const timer = useWorkoutTimer();
   const { user } = useAuth();
   const steps = useSteps();
-  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide badge initially
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -245,34 +239,6 @@ export default function HomeScreen() {
     setHasLoggedWeight(hasLogged);
   }
 
-  const handleStartWorkout = () => {
-    timer.start();
-    setIsWorkoutActive(true);
-  };
-
-  const handleStopWorkout = async () => {
-    timer.stop();
-    setIsWorkoutActive(false);
-    setIsSaving(true);
-
-    try {
-      const { error } = await supabase.from("workouts").insert([
-        {
-          duration_seconds: timer.elapsedSeconds,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      if (error) {
-        console.error("Error saving workout:", error);
-      }
-      setTimeout(() => timer.reset(), 1500);
-    } catch (err) {
-      console.error("Unexpected error:", err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const displayName = firstname || "Athlete";
 
   return (
@@ -312,50 +278,6 @@ export default function HomeScreen() {
         {/* ── Progress Ring ──────────────────── */}
         <View style={styles.ringSection}>
           <ProgressRing progress={0.4} />
-        </View>
-
-        {/* ── Timer (only when active) ───────── */}
-        {isWorkoutActive && (
-          <View style={styles.timerSection}>
-            <Text style={styles.timerLabel}>WORKOUT TIME</Text>
-            <Text style={styles.timerText}>
-              {formatTime(timer.elapsedSeconds)}
-            </Text>
-          </View>
-        )}
-
-        {/* ── Start / Stop Button ────────────── */}
-        <View style={styles.buttonSection}>
-          <Pressable
-            onPress={isWorkoutActive ? handleStopWorkout : handleStartWorkout}
-            disabled={isSaving}
-            style={({ pressed }) => [
-              styles.mainButton,
-              pressed && styles.mainButtonPressed,
-            ]}
-          >
-            <LinearGradient
-              colors={
-                isWorkoutActive
-                  ? [Palette.error, "#C0392B"]
-                  : [Palette.gradientStart, Palette.gradientEnd]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.mainButtonGradient}
-            >
-              <Text style={styles.mainButtonIcon}>
-                {isSaving ? "💾" : isWorkoutActive ? "⏹" : "💪"}
-              </Text>
-              <Text style={styles.mainButtonText}>
-                {isSaving
-                  ? "Saving..."
-                  : isWorkoutActive
-                    ? "End Workout"
-                    : "Start Workout"}
-              </Text>
-            </LinearGradient>
-          </Pressable>
         </View>
 
         {/* ── Quick Stats ────────────────────── */}
@@ -491,55 +413,6 @@ const styles = StyleSheet.create({
   ringSection: {
     alignItems: "center",
     marginBottom: Spacing["2xl"],
-  },
-
-  // Timer
-  timerSection: {
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  timerLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Palette.accent,
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  timerText: {
-    fontSize: 52,
-    fontWeight: "800",
-    color: Palette.textPrimary,
-    fontVariant: ["tabular-nums"],
-    letterSpacing: 2,
-  },
-
-  // Main action button
-  buttonSection: {
-    marginBottom: Spacing["2xl"],
-  },
-  mainButton: {
-    borderRadius: Radii.lg,
-    overflow: "hidden",
-  },
-  mainButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  mainButtonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 18,
-    gap: 10,
-  },
-  mainButtonIcon: {
-    fontSize: 22,
-  },
-  mainButtonText: {
-    color: Palette.white,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.5,
   },
 
   // Stats row
