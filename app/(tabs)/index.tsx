@@ -408,6 +408,14 @@ export default function HomeScreen() {
 
   const displayName = firstname || "Athlete";
 
+  // Compute workouts this week same as History SummaryStats
+  const workoutsDone = bioProfile?.workout_counter ?? weeklyStats.workoutCount;
+  const workoutsGoal = bioProfile?.workouts_per_week ?? null;
+  const workoutsValue =
+    workoutsGoal != null
+      ? `${workoutsDone ?? 0}/${workoutsGoal}`
+      : String(workoutsDone ?? 0);
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <ScrollView
@@ -452,7 +460,7 @@ export default function HomeScreen() {
           <QuickAction
             icon="🏋️"
             label="Workouts"
-            value="0"
+            value={workoutsValue}
             sub="this week"
             accentColor={Palette.accent}
           />
