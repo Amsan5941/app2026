@@ -2,34 +2,34 @@ import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import {
-    SessionExercise,
-    WorkoutSession,
-    addExerciseToSession,
-    addSetToExercise,
-    createWorkoutSession,
-    deleteExercise,
-    deleteSet,
-    deleteWorkoutSession,
-    getTodayWorkouts,
-    updateSetNumber,
-    updateWorkoutSession
+  SessionExercise,
+  WorkoutSession,
+  addExerciseToSession,
+  addSetToExercise,
+  createWorkoutSession,
+  deleteExercise,
+  deleteSet,
+  deleteWorkoutSession,
+  getTodayWorkouts,
+  updateSetNumber,
+  updateWorkoutSession
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -234,6 +234,87 @@ const modalStyles = StyleSheet.create({
   },
 });
 
+// ── Delete Exercise Modal ───────────────────────────────────
+function DeleteExerciseModal({
+  visible,
+  exercise,
+  onConfirm,
+  onClose,
+}: {
+  visible: boolean;
+  exercise: { id: string; name: string } | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  if (!exercise) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={modalStyles.overlay}>
+        <View style={[modalStyles.sheet, deleteModalStyles.centeredSheet]}>
+          <View style={modalStyles.handle} />
+          
+          {/* Warning Icon */}
+          <View style={deleteModalStyles.iconContainer}>
+            <Text style={deleteModalStyles.icon}>⚠️</Text>
+          </View>
+
+          <Text style={modalStyles.title}>Delete Exercise</Text>
+          <Text style={[modalStyles.subtitle, deleteModalStyles.message]}>
+            Remove "{exercise.name}" and all its sets? This action cannot be undone.
+          </Text>
+
+          <Pressable style={deleteModalStyles.deleteBtn} onPress={onConfirm}>
+            <View style={deleteModalStyles.deleteBtnInner}>
+              <Text style={deleteModalStyles.deleteBtnText}>Delete Exercise</Text>
+            </View>
+          </Pressable>
+
+          <Pressable style={modalStyles.cancelBtn} onPress={onClose}>
+            <Text style={modalStyles.cancelText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const deleteModalStyles = StyleSheet.create({
+  centeredSheet: {
+    borderRadius: 24,
+    margin: Spacing.xl,
+    paddingTop: Spacing.xl,
+  },
+  iconContainer: {
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  icon: {
+    fontSize: 48,
+  },
+  message: {
+    textAlign: "center",
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  deleteBtn: {
+    borderRadius: Radii.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+    backgroundColor: Palette.error,
+  },
+  deleteBtnInner: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteBtnText: {
+    color: Palette.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+});
+
 // ── Add Exercise Modal ──────────────────────────────────────
 function AddExerciseModal({
   visible,
@@ -430,30 +511,7 @@ function ExerciseCard({
               Alert.alert("Error", "Cannot delete exercise - invalid ID");
               return;
             }
-            
-            // For web, Alert.alert with buttons might not work properly, so provide a fallback
-            if (Platform.OS === 'web') {
-              if (window.confirm(`Remove "${exercise.exercise_name}" and all its sets?`)) {
-                console.log("Delete confirmed (web) for exercise ID:", exercise.id);
-                onDeleteExercise(exercise.id!);
-              }
-            } else {
-              Alert.alert(
-                "Delete Exercise",
-                `Remove "${exercise.exercise_name}" and all its sets?`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: () => {
-                      console.log("Delete confirmed for exercise ID:", exercise.id);
-                      onDeleteExercise(exercise.id!);
-                    },
-                  },
-                ],
-              );
-            }
+            onDeleteExercise(exercise.id!);
           }}
         >
           <Text style={exStyles.deleteBtnText}>✕</Text>
@@ -901,6 +959,7 @@ export default function WorkoutScreen() {
   const [showNewWorkout, setShowNewWorkout] = useState(false);
   const [addExerciseSessionId, setAddExerciseSessionId] = useState<string | null>(null);
   const [activeTimerSessionId, setActiveTimerSessionId] = useState<string | null>(null);
+  const [exerciseToDelete, setExerciseToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const loadSessions = useCallback(async () => {
     if (!user) {
@@ -1013,6 +1072,19 @@ export default function WorkoutScreen() {
       console.error("Failed to delete exercise:", res.error);
       Alert.alert("Error", "Failed to delete exercise. Please try again.");
     }
+  };
+
+  const handleRequestDeleteExercise = (exerciseId: string) => {
+    // Find the exercise to get its name
+    for (const session of sessions) {
+      const exercise = session.exercises?.find((ex) => ex.id === exerciseId);
+      if (exercise) {
+        setExerciseToDelete({ id: exerciseId, name: exercise.exercise_name });
+        return;
+      }
+    }
+    // If not found, show error
+    Alert.alert("Error", "Cannot delete exercise - not found");
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -1137,7 +1209,7 @@ export default function WorkoutScreen() {
               onAddExercise={setAddExerciseSessionId}
               onAddSet={handleAddSet}
               onDeleteSet={handleDeleteSet}
-              onDeleteExercise={handleDeleteExercise}
+              onDeleteExercise={handleRequestDeleteExercise}
               onDelete={handleDeleteSession}
               timer={timer}
               isActive={activeTimerSessionId === session.id}
@@ -1160,6 +1232,17 @@ export default function WorkoutScreen() {
         visible={!!addExerciseSessionId}
         onClose={() => setAddExerciseSessionId(null)}
         onAdd={handleAddExercise}
+      />
+      <DeleteExerciseModal
+        visible={!!exerciseToDelete}
+        exercise={exerciseToDelete}
+        onConfirm={() => {
+          if (exerciseToDelete) {
+            handleDeleteExercise(exerciseToDelete.id);
+            setExerciseToDelete(null);
+          }
+        }}
+        onClose={() => setExerciseToDelete(null)}
       />
     </SafeAreaView>
   );
