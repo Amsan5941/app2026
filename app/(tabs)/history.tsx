@@ -806,7 +806,20 @@ export default function ProgressScreen() {
     async function loadWeights() {
       setLoadingWeights(true);
       try {
-        const bpRes = await getCurrentUserBioProfile();
+        // only call getCurrentUserBioProfile if there's an auth user to avoid AuthSessionMissingError
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let bpRes: any = { success: false, profile: null };
+        if (user) {
+          try {
+            bpRes = await getCurrentUserBioProfile();
+          } catch (e) {
+            // ignore profile fetch errors
+            console.warn("getCurrentUserBioProfile skipped/failed:", e);
+          }
+        }
+
         const whRes = await getWeightHistory(7);
 
         if (!mounted) return;
