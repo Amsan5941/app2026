@@ -6,6 +6,7 @@ import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
+import { getTodayWorkouts } from "@/services/workoutTracking";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -292,7 +293,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const steps = useSteps();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
-  const [hasLoggedWeight, setHasLoggedWeight] = useState(true); // Default true to hide badge initially
+  const [hasLoggedWeight, setHasLoggedWeight] = useState(false);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
   const [weeklyStats, setWeeklyStats] = useState({
     workoutCount: 0,
@@ -300,6 +301,12 @@ export default function HomeScreen() {
     totalDuration: 0,
   });
   const [consumedCalories, setConsumedCalories] = useState(0);
+  const [mealsLogged, setMealsLogged] = useState({
+    breakfast: false,
+    lunch: false,
+    dinner: false,
+  });
+  const [hasWorkoutToday, setHasWorkoutToday] = useState(false);
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -307,7 +314,17 @@ export default function HomeScreen() {
 
   // Fetch user's first name
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // reset UI to defaults when no user is signed in
+      setFirstname("");
+      setBioProfile(null);
+      setConsumedCalories(0);
+      setMealsLogged({ breakfast: false, lunch: false, dinner: false });
+      setHasWorkoutToday(false);
+      setHasLoggedWeight(false);
+      setWeeklyStats({ workoutCount: 0, totalSets: 0, totalDuration: 0 });
+      return;
+    }
     (async () => {
       const { data } = await supabase
         .from("users")
@@ -384,8 +401,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (user) {
-        checkWeightStatus();
-        fetchCaloriesToday();
+        updateDailyTasks();
       }
     }, [user]),
   );
@@ -394,8 +410,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active" && user) {
-        checkWeightStatus();
-        fetchCaloriesToday();
+        updateDailyTasks();
       }
     };
 
@@ -417,7 +432,54 @@ export default function HomeScreen() {
       const summary = await getDailySummary(today);
       const total = summary?.total_calories ?? 0;
       setConsumedCalories(total);
+
+      // meals_by_type contains counts per meal type
+      const meals = summary?.meals_by_type ?? {};
+      setMealsLogged({
+        breakfast: (meals.breakfast?.count ?? 0) > 0,
+        lunch: (meals.lunch?.count ?? 0) > 0,
+        dinner: (meals.dinner?.count ?? 0) > 0,
+      });
+
+      // check for workouts today
+      try {
+        const wres = await getTodayWorkouts();
+        setHasWorkoutToday(!!(wres.success && (wres.data || []).length > 0));
+      } catch (e) {
+        setHasWorkoutToday(false);
+      }
     } catch (e) {
+      // ignore
+    }
+  }
+
+  // Consolidated update to ensure UI reflects actual user data
+  async function updateDailyTasks() {
+    if (!user) return;
+    try {
+      // update calories and meals
+      await fetchCaloriesToday();
+
+      // update workout state independently (more robust)
+      try {
+        const wres = await getTodayWorkouts();
+        const has = Array.isArray(wres?.data)
+          ? wres.data.length > 0
+          : !!(
+              wres &&
+              (wres as any).success &&
+              (wres as any).data &&
+              (wres as any).data.length > 0
+            );
+        setHasWorkoutToday(has);
+      } catch (e) {
+        setHasWorkoutToday(false);
+      }
+
+      // update weight logged status
+      const hasLogged = await hasLoggedWeightToday();
+      setHasLoggedWeight(hasLogged);
+    } catch (err) {
       // ignore
     }
   }
@@ -448,7 +510,7 @@ export default function HomeScreen() {
             <Text style={styles.date}>{getTodayFormatted()}</Text>
           </View>
           <View style={styles.headerBadges}>
-            {!hasLoggedWeight && (
+            {!hasLoggedWeight && user && (
               <Pressable
                 onPress={() => setShowWeightPrompt(true)}
                 style={({ pressed }) => [
@@ -468,7 +530,94 @@ export default function HomeScreen() {
 
         {/* ── Progress Ring ──────────────────── */}
         <View style={styles.ringSection}>
-          <ProgressRing progress={0.4} />
+          {
+            // compute composite progress from workout, meals, and weight
+          }
+          <ProgressRing
+            progress={(() => {
+              const WORKOUT_PCT = 0.3; // 30%
+              const WEIGHT_PCT = 0.1; // 10%
+              const BREAKFAST_PCT = 0.2; // 20%
+              const LUNCH_PCT = 0.2; // 20%
+              const DINNER_PCT = 0.2; // 20%
+
+              let score = 0;
+              if (hasWorkoutToday) score += WORKOUT_PCT;
+              if (hasLoggedWeight) score += WEIGHT_PCT;
+              if (mealsLogged.breakfast) score += BREAKFAST_PCT;
+              if (mealsLogged.lunch) score += LUNCH_PCT;
+              if (mealsLogged.dinner) score += DINNER_PCT;
+
+              return Math.min(score, 1);
+            })()}
+          />
+          <Text style={styles.legendHeader}>Daily Tasks</Text>
+          <View style={styles.legendRow}>
+            {(() => {
+              const items = [
+                {
+                  key: "workout",
+                  icon: "🔥",
+                  done: hasWorkoutToday,
+                  pct: 30,
+                  label: "Workout",
+                },
+                {
+                  key: "breakfast",
+                  icon: "🍳",
+                  done: mealsLogged.breakfast,
+                  pct: 20,
+                  label: "Breakfast",
+                },
+                {
+                  key: "lunch",
+                  icon: "🥗",
+                  done: mealsLogged.lunch,
+                  pct: 20,
+                  label: "Lunch",
+                },
+                {
+                  key: "dinner",
+                  icon: "🍽️",
+                  done: mealsLogged.dinner,
+                  pct: 20,
+                  label: "Dinner",
+                },
+                {
+                  key: "weight",
+                  icon: "⚖️",
+                  done: hasLoggedWeight,
+                  pct: 10,
+                  label: "Weight",
+                },
+              ];
+
+              return items.map((it) => (
+                <View key={it.key} style={styles.legendItemRow}>
+                  <Text
+                    style={[
+                      styles.legendIcon,
+                      it.done
+                        ? { color: Palette.success }
+                        : { color: Palette.textMuted },
+                    ]}
+                  >
+                    {it.done ? "✅" : "○"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.legendLabel,
+                      it.done
+                        ? { color: Palette.textPrimary }
+                        : { color: Palette.textSecondary },
+                    ]}
+                  >
+                    {it.icon} {it.label}
+                  </Text>
+                </View>
+              ));
+            })()}
+          </View>
         </View>
 
         {/* ── Quick Stats ────────────────────── */}
@@ -483,8 +632,8 @@ export default function HomeScreen() {
           <QuickAction
             icon="🔥"
             label="Calories"
-            value="0"
-            sub="burned today"
+            value={Math.round(consumedCalories).toString()}
+            sub="eaten today"
             accentColor={Palette.warning}
           />
           <QuickAction
@@ -726,5 +875,48 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: Palette.accentLight,
     lineHeight: 22,
+  },
+  legendRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  legendHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Palette.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+    alignSelf: "center",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: Spacing.sm,
+  },
+  legendItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  legendIcon: {
+    fontSize: 16,
+  },
+  legendLabel: {
+    fontSize: 12,
+    color: Palette.textSecondary,
+  },
+  legendPct: {
+    fontSize: 12,
+    marginLeft: 6,
+    color: Palette.textSecondary,
+    fontWeight: "700",
   },
 });
