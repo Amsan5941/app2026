@@ -588,7 +588,7 @@ export default function HomeScreen() {
                   icon: "⚖️",
                   done: hasLoggedWeight,
                   pct: 10,
-                  label: "Weight",
+                  label: "Log Weight",
                 },
               ];
 
