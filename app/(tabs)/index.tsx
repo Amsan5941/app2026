@@ -4,6 +4,7 @@ import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
+import { getDailySummary } from "@/services/foodRecognition";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -298,6 +299,7 @@ export default function HomeScreen() {
     totalSets: 0,
     totalDuration: 0,
   });
+  const [consumedCalories, setConsumedCalories] = useState(0);
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -375,6 +377,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user) return;
     checkWeightStatus();
+    fetchCaloriesToday();
   }, [user]);
 
   // Re-check weight status when screen comes into focus
@@ -382,6 +385,7 @@ export default function HomeScreen() {
     useCallback(() => {
       if (user) {
         checkWeightStatus();
+        fetchCaloriesToday();
       }
     }, [user]),
   );
@@ -391,6 +395,7 @@ export default function HomeScreen() {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active" && user) {
         checkWeightStatus();
+        fetchCaloriesToday();
       }
     };
 
@@ -404,6 +409,17 @@ export default function HomeScreen() {
   async function checkWeightStatus() {
     const hasLogged = await hasLoggedWeightToday();
     setHasLoggedWeight(hasLogged);
+  }
+
+  async function fetchCaloriesToday() {
+    try {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const summary = await getDailySummary(today);
+      const total = summary?.total_calories ?? 0;
+      setConsumedCalories(total);
+    } catch (e) {
+      // ignore
+    }
   }
 
   const displayName = firstname || "Athlete";
@@ -480,21 +496,66 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* ── Today's Goal Card ──────────────── */}
+        {/* ── Calories Remaining Card ─────────── */}
         <View style={styles.goalCard}>
           <View style={styles.goalHeader}>
-            <Text style={styles.goalIcon}>🎯</Text>
-            <Text style={styles.goalTitle}>Today's Goal</Text>
+            <Text style={styles.goalIcon}>🍽️</Text>
+            <Text style={styles.goalTitle}>Calories Left</Text>
           </View>
-          <Text style={styles.goalBody}>
-            Complete 1 workout and burn 300 calories
-          </Text>
-          <View style={styles.goalProgress}>
-            <View style={styles.goalBarTrack}>
-              <View style={[styles.goalBarFill, { width: "40%" }]} />
-            </View>
-            <Text style={styles.goalPct}>40%</Text>
-          </View>
+          {bioProfile?.calorie_goal ? (
+            <>
+              <Text style={styles.goalBody}>
+                {Math.max(
+                  Math.round((bioProfile.calorie_goal ?? 0) - consumedCalories),
+                  0,
+                )}{" "}
+                cal left
+              </Text>
+              <View style={styles.goalProgress}>
+                <View style={styles.goalBarTrack}>
+                  <View
+                    style={[
+                      styles.goalBarFill,
+                      {
+                        width: `${
+                          Math.min(
+                            (consumedCalories || 0) /
+                              (bioProfile?.calorie_goal || 1),
+                            1,
+                          ) * 100
+                        }%`,
+                        backgroundColor: Palette.warning,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.goalPct}>
+                  {bioProfile.calorie_goal
+                    ? `${Math.round(
+                        Math.min(
+                          (consumedCalories / bioProfile.calorie_goal) * 100,
+                          100,
+                        ),
+                      )}%`
+                    : "—"}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: Palette.textMuted,
+                  marginTop: Spacing.sm,
+                }}
+              >
+                {Math.round(consumedCalories)} eaten • {bioProfile.calorie_goal}{" "}
+                goal
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.goalBody}>
+              Set a daily calorie goal in your profile
+            </Text>
+          )}
         </View>
 
         {/* ── Motivational Quote ─────────────── */}
