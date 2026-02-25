@@ -1,7 +1,7 @@
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -11,9 +11,11 @@ import "react-native-reanimated";
 
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import LoginButton from "@/components/login-button";
+import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { Palette } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
 
 export const unstable_settings = {
@@ -24,20 +26,24 @@ function NavigationContent() {
   const colorScheme = useColorScheme();
   const { session } = useAuth();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
+  const [showWaterReminder, setShowWaterReminder] = useState(false);
 
   useEffect(() => {
     if (session) {
       checkWeightLogging();
+      checkWaterReminder();
     } else {
       setShowWeightPrompt(false);
+      setShowWaterReminder(false);
     }
   }, [session]);
 
-  // Re-check weight status when app comes to foreground
+  // Re-check when app comes to foreground
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active" && session) {
         checkWeightLogging();
+        checkWaterReminder();
       }
     };
 
@@ -51,6 +57,19 @@ function NavigationContent() {
       setShowWeightPrompt(!hasCompleted);
     } catch (error) {
       console.error("Error checking weight logging status:", error);
+    }
+  }
+
+  async function checkWaterReminder() {
+    try {
+      const shouldShow = await shouldShowWaterReminder();
+      // Show water reminder only when weight prompt is NOT showing
+      // (delay slightly so it appears after the weight modal if needed)
+      if (shouldShow) {
+        setTimeout(() => setShowWaterReminder(true), 500);
+      }
+    } catch (error) {
+      console.error("Error checking water reminder:", error);
     }
   }
 
@@ -87,6 +106,10 @@ function NavigationContent() {
           // Re-check weight status after completion
           checkWeightLogging();
         }}
+      />
+      <WaterReminderBanner
+        visible={showWaterReminder && !showWeightPrompt && !!session}
+        onDismiss={() => setShowWaterReminder(false)}
       />
     </>
   );
