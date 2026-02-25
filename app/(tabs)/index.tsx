@@ -5,25 +5,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
+import {
+    DAILY_WATER_GOAL,
+    getTodayWaterIntake,
+    logWaterGlass,
+    removeWaterGlass,
+} from "@/services/waterTracking";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 import { getTodayWorkouts } from "@/services/workoutTracking";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  AppState,
-  AppStateStatus,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    AppState,
+    AppStateStatus,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-  Circle,
-  Defs,
-  Stop,
-  LinearGradient as SvgGradient,
+    Circle,
+    Defs,
+    Stop,
+    LinearGradient as SvgGradient,
 } from "react-native-svg";
 
 // ── Motivational quotes ─────────────────────────────────────
@@ -307,6 +313,7 @@ export default function HomeScreen() {
     dinner: false,
   });
   const [hasWorkoutToday, setHasWorkoutToday] = useState(false);
+  const [waterIntake, setWaterIntake] = useState(0);
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -395,6 +402,7 @@ export default function HomeScreen() {
     if (!user) return;
     checkWeightStatus();
     fetchCaloriesToday();
+    refreshWaterIntake();
   }, [user]);
 
   // Re-check weight status when screen comes into focus
@@ -424,6 +432,21 @@ export default function HomeScreen() {
   async function checkWeightStatus() {
     const hasLogged = await hasLoggedWeightToday();
     setHasLoggedWeight(hasLogged);
+  }
+
+  async function refreshWaterIntake() {
+    const intake = await getTodayWaterIntake();
+    setWaterIntake(intake);
+  }
+
+  async function handleAddWater() {
+    const updated = await logWaterGlass();
+    setWaterIntake(updated);
+  }
+
+  async function handleRemoveWater() {
+    const updated = await removeWaterGlass();
+    setWaterIntake(updated);
   }
 
   async function fetchCaloriesToday() {
@@ -479,6 +502,9 @@ export default function HomeScreen() {
       // update weight logged status
       const hasLogged = await hasLoggedWeightToday();
       setHasLoggedWeight(hasLogged);
+
+      // update water intake
+      await refreshWaterIntake();
     } catch (err) {
       // ignore
     }
@@ -643,6 +669,72 @@ export default function HomeScreen() {
             sub="today"
             accentColor={Palette.success}
           />
+        </View>
+
+        {/* ── Water Intake Tracker ───────────── */}
+        <View style={styles.goalCard}>
+          <View style={styles.goalHeader}>
+            <Text style={styles.goalIcon}>💧</Text>
+            <Text style={styles.goalTitle}>Water Intake</Text>
+            <Text style={styles.waterCount}>
+              {waterIntake}/{DAILY_WATER_GOAL} glasses
+            </Text>
+          </View>
+          <View style={styles.waterRow}>
+            {Array.from({ length: DAILY_WATER_GOAL }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.waterDrop,
+                  i < waterIntake
+                    ? styles.waterDropFilled
+                    : styles.waterDropEmpty,
+                ]}
+              >
+                <Text style={{ fontSize: 18 }}>
+                  {i < waterIntake ? "💧" : "○"}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.goalProgress}>
+            <View style={styles.goalBarTrack}>
+              <View
+                style={[
+                  styles.goalBarFill,
+                  {
+                    width: `${Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100}%`,
+                    backgroundColor: "#38BDF8",
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.goalPct, { color: "#38BDF8" }]}>
+              {Math.round(Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100)}%
+            </Text>
+          </View>
+          <View style={styles.waterButtons}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.waterBtnMinus,
+                pressed && { opacity: 0.7 },
+                waterIntake === 0 && { opacity: 0.3 },
+              ]}
+              onPress={handleRemoveWater}
+              disabled={waterIntake === 0}
+            >
+              <Text style={styles.waterBtnText}>−</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.waterBtnPlus,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+              onPress={handleAddWater}
+            >
+              <Text style={styles.waterBtnPlusText}>+ Log Glass</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* ── Calories Remaining Card ─────────── */}
@@ -918,5 +1010,69 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: Palette.textSecondary,
     fontWeight: "700",
+  },
+
+  // Water intake tracker
+  waterCount: {
+    fontSize: 13,
+    color: "#38BDF8",
+    fontWeight: "700",
+    marginLeft: "auto",
+  },
+  waterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    justifyContent: "center",
+  },
+  waterDrop: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waterDropFilled: {
+    backgroundColor: "rgba(56, 189, 248, 0.15)",
+  },
+  waterDropEmpty: {
+    backgroundColor: Palette.bgCard,
+  },
+  waterButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  waterBtnMinus: {
+    width: 44,
+    height: 40,
+    borderRadius: Radii.md,
+    backgroundColor: Palette.bgCard,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waterBtnText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Palette.textSecondary,
+  },
+  waterBtnPlus: {
+    flex: 1,
+    height: 40,
+    borderRadius: Radii.md,
+    backgroundColor: "rgba(56, 189, 248, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.20)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waterBtnPlusText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#38BDF8",
+    letterSpacing: 0.3,
   },
 });
