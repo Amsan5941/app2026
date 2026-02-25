@@ -16,6 +16,7 @@ import { getTodayWorkouts, getWeeklyWorkoutStats } from "@/services/workoutTrack
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   AppState,
   AppStateStatus,
   Pressable,
@@ -298,6 +299,7 @@ const summaryStyles = StyleSheet.create({
 export default function HomeScreen() {
   const { user } = useAuth();
   const steps = useSteps();
+  const [loading, setLoading] = useState(true);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(false);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -319,10 +321,84 @@ export default function HomeScreen() {
   );
   const [firstname, setFirstname] = useState("");
 
-  // Fetch user's first name
+  // ── All-in-one parallel data loader ───────────────────────
+  async function loadAllData(isInitial = false) {
+    if (!user) return;
+    if (isInitial) setLoading(true);
+
+    try {
+      // Fire ALL requests in parallel instead of sequentially
+      const [
+        nameResult,
+        bioResult,
+        statsResult,
+        weightResult,
+        caloriesResult,
+        workoutsResult,
+        waterResult,
+      ] = await Promise.allSettled([
+        supabase.from("users").select("firstname").eq("auth_id", user.id).single(),
+        getCurrentUserBioProfile(),
+        getWeeklyWorkoutStats(),
+        hasLoggedWeightToday(),
+        getDailySummary(new Date().toISOString().slice(0, 10)),
+        getTodayWorkouts(),
+        getTodayWaterIntake(),
+      ]);
+
+      // Apply all results at once (single render batch)
+      if (nameResult.status === "fulfilled" && nameResult.value.data?.firstname) {
+        setFirstname(nameResult.value.data.firstname);
+      }
+
+      if (bioResult.status === "fulfilled" && bioResult.value.success && bioResult.value.profile) {
+        setBioProfile(bioResult.value.profile);
+      }
+
+      if (statsResult.status === "fulfilled" && statsResult.value.success) {
+        setWeeklyStats({
+          workoutCount: statsResult.value.workoutCount || 0,
+          totalSets: statsResult.value.totalSets || 0,
+          totalDuration: statsResult.value.totalDuration || 0,
+        });
+      }
+
+      if (weightResult.status === "fulfilled") {
+        setHasLoggedWeight(weightResult.value);
+      }
+
+      if (caloriesResult.status === "fulfilled") {
+        const summary = caloriesResult.value;
+        setConsumedCalories(summary?.total_calories ?? 0);
+        const meals = summary?.meals_by_type ?? {};
+        setMealsLogged({
+          breakfast: (meals.breakfast?.count ?? 0) > 0,
+          lunch: (meals.lunch?.count ?? 0) > 0,
+          dinner: (meals.dinner?.count ?? 0) > 0,
+        });
+      }
+
+      if (workoutsResult.status === "fulfilled") {
+        const wres = workoutsResult.value;
+        const has = Array.isArray(wres?.data)
+          ? wres.data.length > 0
+          : !!(wres && (wres as any).success && (wres as any).data && (wres as any).data.length > 0);
+        setHasWorkoutToday(has);
+      }
+
+      if (waterResult.status === "fulfilled") {
+        setWaterIntake(waterResult.value);
+      }
+    } catch (err) {
+      // ignore
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }
+
+  // ── Initial load when user signs in ───────────────────────
   useEffect(() => {
     if (!user) {
-      // reset UI to defaults when no user is signed in
       setFirstname("");
       setBioProfile(null);
       setConsumedCalories(0);
@@ -330,114 +406,30 @@ export default function HomeScreen() {
       setHasWorkoutToday(false);
       setHasLoggedWeight(false);
       setWeeklyStats({ workoutCount: 0, totalSets: 0, totalDuration: 0 });
+      setWaterIntake(0);
+      setLoading(false);
       return;
     }
-    (async () => {
-      const { data } = await supabase
-        .from("users")
-        .select("firstname")
-        .eq("auth_id", user.id)
-        .single();
-      if (data?.firstname) setFirstname(data.firstname);
-      try {
-        const bp = await getCurrentUserBioProfile();
-        if (bp.success && bp.profile) setBioProfile(bp.profile);
-      } catch (e) {
-        // ignore
-      }
-    })();
+    loadAllData(true);
   }, [user]);
 
-  // Load weekly workout stats on mount
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await getWeeklyWorkoutStats();
-        if (!mounted) return;
-        if (res.success) {
-          setWeeklyStats({
-            workoutCount: res.workoutCount || 0,
-            totalSets: res.totalSets || 0,
-            totalDuration: res.totalDuration || 0,
-          });
-        }
-      } catch (e) {
-        // ignore
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
-
-  // Refresh weekly workout stats when screen focuses
+  // ── Refresh on screen focus ───────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      let mounted = true;
-      (async () => {
-        if (!user) return;
-        try {
-          const statsRes = await getWeeklyWorkoutStats();
-          if (!mounted) return;
-          if (statsRes.success) {
-            setWeeklyStats({
-              workoutCount: statsRes.workoutCount || 0,
-              totalSets: statsRes.totalSets || 0,
-              totalDuration: statsRes.totalDuration || 0,
-            });
-          }
-        } catch (e) {
-          // ignore
-        }
-      })();
-      return () => {
-        mounted = false;
-      };
+      if (user) loadAllData(false);
     }, [user]),
   );
 
-  // Check if weight has been logged today (not just skipped)
-  useEffect(() => {
-    if (!user) return;
-    checkWeightStatus();
-    fetchCaloriesToday();
-    refreshWaterIntake();
-  }, [user]);
-
-  // Re-check weight status when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        updateDailyTasks();
-      }
-    }, [user]),
-  );
-
-  // Re-check weight status when app comes to foreground
+  // ── Refresh when app comes to foreground ──────────────────
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active" && user) {
-        updateDailyTasks();
+        loadAllData(false);
       }
     };
-
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange,
-    );
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
     return () => subscription.remove();
   }, [user]);
-
-  async function checkWeightStatus() {
-    const hasLogged = await hasLoggedWeightToday();
-    setHasLoggedWeight(hasLogged);
-  }
-
-  async function refreshWaterIntake() {
-    const intake = await getTodayWaterIntake();
-    setWaterIntake(intake);
-  }
 
   async function handleAddWater() {
     const updated = await logWaterGlass();
@@ -447,67 +439,6 @@ export default function HomeScreen() {
   async function handleRemoveWater() {
     const updated = await removeWaterGlass();
     setWaterIntake(updated);
-  }
-
-  async function fetchCaloriesToday() {
-    try {
-      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const summary = await getDailySummary(today);
-      const total = summary?.total_calories ?? 0;
-      setConsumedCalories(total);
-
-      // meals_by_type contains counts per meal type
-      const meals = summary?.meals_by_type ?? {};
-      setMealsLogged({
-        breakfast: (meals.breakfast?.count ?? 0) > 0,
-        lunch: (meals.lunch?.count ?? 0) > 0,
-        dinner: (meals.dinner?.count ?? 0) > 0,
-      });
-
-      // check for workouts today
-      try {
-        const wres = await getTodayWorkouts();
-        setHasWorkoutToday(!!(wres.success && (wres.data || []).length > 0));
-      } catch (e) {
-        setHasWorkoutToday(false);
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Consolidated update to ensure UI reflects actual user data
-  async function updateDailyTasks() {
-    if (!user) return;
-    try {
-      // update calories and meals
-      await fetchCaloriesToday();
-
-      // update workout state independently (more robust)
-      try {
-        const wres = await getTodayWorkouts();
-        const has = Array.isArray(wres?.data)
-          ? wres.data.length > 0
-          : !!(
-              wres &&
-              (wres as any).success &&
-              (wres as any).data &&
-              (wres as any).data.length > 0
-            );
-        setHasWorkoutToday(has);
-      } catch (e) {
-        setHasWorkoutToday(false);
-      }
-
-      // update weight logged status
-      const hasLogged = await hasLoggedWeightToday();
-      setHasLoggedWeight(hasLogged);
-
-      // update water intake
-      await refreshWaterIntake();
-    } catch (err) {
-      // ignore
-    }
   }
 
   const displayName = firstname || "Athlete";
@@ -522,6 +453,12 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
+      {loading && user ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Palette.accent} />
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -807,13 +744,14 @@ export default function HomeScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+      )}
 
       {/* ── Weight Prompt Modal (manual trigger after skip) ── */}
       <DailyWeightPrompt
         visible={showWeightPrompt}
         onComplete={() => {
           setShowWeightPrompt(false);
-          checkWeightStatus();
+          loadAllData(false);
         }}
       />
     </SafeAreaView>
@@ -825,6 +763,17 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: Palette.bg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.lg,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Palette.textSecondary,
+    fontWeight: "600",
   },
   scroll: {
     flex: 1,
