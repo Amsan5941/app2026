@@ -82,6 +82,12 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
   const diff = endWeight - startWeight;
   const isLoss = diff < 0;
 
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  function handlePointPress(index: number) {
+    setSelectedIndex(selectedIndex === index ? null : index);
+  }
+
   return (
     <View style={chartStyles.card}>
       <View style={chartStyles.header}>
@@ -110,46 +116,114 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
         <Text style={chartStyles.weightUnit}>lbs</Text>
       </View>
 
-      <Svg width={width} height={height}>
-        <Defs>
-          <LinearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor={Palette.gradientStart} />
-            <Stop offset="100%" stopColor={Palette.gradientEnd} />
-          </LinearGradient>
-        </Defs>
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
-          <Line
-            key={i}
-            x1={paddingX}
-            y1={paddingY + pct * chartH}
-            x2={paddingX + chartW}
-            y2={paddingY + pct * chartH}
-            stroke={Palette.border}
-            strokeWidth={0.5}
+      <Pressable onPress={() => setSelectedIndex(null)} style={{ position: "relative" }}>
+        <Svg width={width} height={height}>
+          <Defs>
+            <LinearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0%" stopColor={Palette.gradientStart} />
+              <Stop offset="100%" stopColor={Palette.gradientEnd} />
+            </LinearGradient>
+          </Defs>
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => (
+            <Line
+              key={i}
+              x1={paddingX}
+              y1={paddingY + pct * chartH}
+              x2={paddingX + chartW}
+              y2={paddingY + pct * chartH}
+              stroke={Palette.border}
+              strokeWidth={0.5}
+            />
+          ))}
+          {/* Vertical indicator line for selected point */}
+          {selectedIndex !== null && (
+            <Line
+              x1={points[selectedIndex].x}
+              y1={paddingY}
+              x2={points[selectedIndex].x}
+              y2={paddingY + chartH}
+              stroke={Palette.accent + "40"}
+              strokeWidth={1}
+              strokeDasharray="4,3"
+            />
+          )}
+          {/* Line */}
+          <Polyline
+            fill="none"
+            stroke="url(#chartLine)"
+            strokeWidth={2.5}
+            points={polyline}
+            strokeLinejoin="round"
           />
-        ))}
-        {/* Line */}
-        <Polyline
-          fill="none"
-          stroke="url(#chartLine)"
-          strokeWidth={2.5}
-          points={polyline}
-          strokeLinejoin="round"
-        />
-        {/* Dots */}
+          {/* Dots */}
+          {points.map((p, i) => (
+            <SvgCircle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={selectedIndex === i ? 6 : 4}
+              fill={selectedIndex === i ? Palette.accentLight : Palette.accent}
+              stroke={selectedIndex === i ? Palette.accent : Palette.bg}
+              strokeWidth={2}
+            />
+          ))}
+        </Svg>
+
+        {/* Invisible touch targets over each point */}
         {points.map((p, i) => (
-          <SvgCircle
+          <Pressable
             key={i}
-            cx={p.x}
-            cy={p.y}
-            r={4}
-            fill={Palette.accent}
-            stroke={Palette.bg}
-            strokeWidth={2}
+            onPress={(e) => {
+              e.stopPropagation();
+              handlePointPress(i);
+            }}
+            hitSlop={6}
+            style={{
+              position: "absolute",
+              left: p.x - 16,
+              top: p.y - 16,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+            }}
           />
         ))}
-      </Svg>
+
+        {/* Tooltip for selected point */}
+        {selectedIndex !== null && (
+          <View
+            style={[
+              chartStyles.tooltip,
+              {
+                left: Math.max(
+                  4,
+                  Math.min(points[selectedIndex].x - 44, width - 92),
+                ),
+                top: Math.max(0, points[selectedIndex].y - 48),
+              },
+            ]}
+          >
+            <Text style={chartStyles.tooltipWeight}>
+              {data[selectedIndex].weight} lbs
+            </Text>
+            <Text style={chartStyles.tooltipDate}>
+              {data[selectedIndex].date}
+            </Text>
+            <View
+              style={[
+                chartStyles.tooltipArrow,
+                {
+                  left: Math.min(
+                    Math.max(points[selectedIndex].x - Math.max(4, Math.min(points[selectedIndex].x - 44, width - 92)) - 4, 8),
+                    76,
+                  ),
+                },
+              ]}
+            />
+          </View>
+        )}
+      </Pressable>
 
       {/* Date labels */}
       <View style={chartStyles.dateRow}>
@@ -229,6 +303,44 @@ const chartStyles = StyleSheet.create({
   dateLabel: {
     fontSize: 10,
     color: Palette.textMuted,
+  },
+  tooltip: {
+    position: "absolute",
+    backgroundColor: Palette.bgElevated,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Palette.accent + "40",
+    alignItems: "center",
+    minWidth: 88,
+    shadowColor: Palette.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 10,
+  },
+  tooltipWeight: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: Palette.textPrimary,
+  },
+  tooltipDate: {
+    fontSize: 10,
+    color: Palette.textMuted,
+    marginTop: 1,
+  },
+  tooltipArrow: {
+    position: "absolute",
+    bottom: -5,
+    width: 10,
+    height: 10,
+    backgroundColor: Palette.bgElevated,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Palette.accent + "40",
+    transform: [{ rotate: "45deg" }],
   },
 });
 

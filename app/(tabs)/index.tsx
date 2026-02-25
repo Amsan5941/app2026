@@ -6,30 +6,30 @@ import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
 import {
-    DAILY_WATER_GOAL,
-    getTodayWaterIntake,
-    logWaterGlass,
-    removeWaterGlass,
+  DAILY_WATER_GOAL,
+  getTodayWaterIntake,
+  logWaterGlass,
+  removeWaterGlass,
 } from "@/services/waterTracking";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
-import { getTodayWorkouts } from "@/services/workoutTracking";
+import { getTodayWorkouts, getWeeklyWorkoutStats } from "@/services/workoutTracking";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    AppState,
-    AppStateStatus,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  AppState,
+  AppStateStatus,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-    Circle,
-    Defs,
-    Stop,
-    LinearGradient as SvgGradient,
+  Circle,
+  Defs,
+  Stop,
+  LinearGradient as SvgGradient,
 } from "react-native-svg";
 
 // ── Motivational quotes ─────────────────────────────────────
