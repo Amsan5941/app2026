@@ -1,6 +1,11 @@
 import { supabase } from "@/constants/supabase";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
+import {
+  deleteProgressPhoto,
+  getProgressPhotos,
+  uploadProgressPhoto,
+} from "@/services/progressPhotos";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
   WorkoutHistoryItem,
@@ -10,16 +15,22 @@ import {
   getWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -116,7 +127,10 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
         <Text style={chartStyles.weightUnit}>lbs</Text>
       </View>
 
-      <Pressable onPress={() => setSelectedIndex(null)} style={{ position: "relative" }}>
+      <Pressable
+        onPress={() => setSelectedIndex(null)}
+        style={{ position: "relative" }}
+      >
         <Svg width={width} height={height}>
           <Defs>
             <LinearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
@@ -215,7 +229,15 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
                 chartStyles.tooltipArrow,
                 {
                   left: Math.min(
-                    Math.max(points[selectedIndex].x - Math.max(4, Math.min(points[selectedIndex].x - 44, width - 92)) - 4, 8),
+                    Math.max(
+                      points[selectedIndex].x -
+                        Math.max(
+                          4,
+                          Math.min(points[selectedIndex].x - 44, width - 92),
+                        ) -
+                        4,
+                      8,
+                    ),
                     76,
                   ),
                 },
@@ -913,6 +935,12 @@ export default function ProgressScreen() {
   );
   const [showDetail, setShowDetail] = useState(false);
 
+  // Progress photos state
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+
   useEffect(() => {
     let mounted = true;
     async function loadWeights() {
@@ -1092,6 +1120,96 @@ export default function ProgressScreen() {
     setShowDetail(true);
   };
 
+  // Load user's progress photos from DB + storage
+  async function loadPhotosForUser() {
+    try {
+      setLoadingPhotos(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .single();
+      if (userError || !userData) return;
+      const res = await getProgressPhotos(userData.id);
+      if (res.success) setPhotos(res.data || []);
+    } catch (e) {
+      console.error("loadPhotosForUser", e);
+    } finally {
+      setLoadingPhotos(false);
+    }
+  }
+
+  async function pickAndUploadPhoto() {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Camera permission required");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+      const cancelled =
+        (result as any).cancelled ?? (result as any).canceled ?? false;
+      if (cancelled) return;
+
+      const uri = (result as any).uri ?? (result as any).assets?.[0]?.uri;
+      if (!uri) return;
+
+      const manip = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const resp = await fetch(manip.uri);
+      const blob = await resp.blob();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .single();
+      if (!userData) throw new Error("User row missing");
+
+      const fileName = `${Date.now()}.jpg`;
+      const up = await uploadProgressPhoto({
+        authUid: user.id,
+        userId: userData.id,
+        fileName,
+        blob,
+      });
+      if (!up.success) throw up.error;
+      await loadPhotosForUser();
+    } catch (e) {
+      console.error("pickAndUploadPhoto", e);
+      Alert.alert("Upload failed");
+    }
+  }
+
+  async function handleDeletePhoto(p: any) {
+    Alert.alert("Delete photo?", "This will remove the photo permanently.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const res = await deleteProgressPhoto(p.id, p.storage_path);
+          if (res.success) loadPhotosForUser();
+        },
+      },
+    ]);
+  }
+
   // Compute total change (end - start) and choose color: red for gain, green for loss
   const { totalChangeDisplay, totalChangeColor } = (() => {
     const startRaw =
@@ -1247,6 +1365,106 @@ export default function ProgressScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Progress photos section */}
+            <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
+              Progress Photos
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: Spacing.md,
+              }}
+            >
+              <Text style={{ color: Palette.textSecondary }}>
+                Take photos to track your progress over time
+              </Text>
+              <TouchableOpacity
+                onPress={pickAndUploadPhoto}
+                style={{
+                  backgroundColor: Palette.accent,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>
+                  Add Photo
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginBottom: Spacing.lg }}>
+              {loadingPhotos ? (
+                <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                  <ActivityIndicator color={Palette.accent} />
+                </View>
+              ) : photos.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>📷</Text>
+                  <Text style={styles.emptyTitle}>No progress photos yet</Text>
+                  <Text style={styles.emptyBody}>
+                    Tap "Add Photo" to take your first progress picture.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={photos}
+                  keyExtractor={(i) => i.id}
+                  numColumns={3}
+                  columnWrapperStyle={{
+                    justifyContent: "space-between",
+                    marginBottom: 10,
+                  }}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setViewerIndex(index);
+                        setViewerVisible(true);
+                      }}
+                      onLongPress={() => handleDeletePhoto(item)}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Image
+                        source={{ uri: item.url }}
+                        style={{ width: "100%", height: "100%" }}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+
+            {/* full-screen viewer */}
+            <Modal
+              visible={viewerVisible}
+              transparent={false}
+              onRequestClose={() => setViewerVisible(false)}
+            >
+              <View style={{ flex: 1, backgroundColor: Palette.bgElevated }}>
+                <Pressable
+                  onPress={() => setViewerVisible(false)}
+                  style={{ padding: 16 }}
+                >
+                  <Text style={{ color: Palette.textSecondary }}>Close ✕</Text>
+                </Pressable>
+                {viewerIndex != null && photos[viewerIndex] && (
+                  <Image
+                    source={{ uri: photos[viewerIndex].url }}
+                    style={{ flex: 1, width: "100%" }}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+            </Modal>
           </>
         )}
 
