@@ -12,11 +12,15 @@ import {
   removeWaterGlass,
 } from "@/services/waterTracking";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
-import { getTodayWorkouts, getWeeklyWorkoutStats } from "@/services/workoutTracking";
+import {
+  getTodayWorkouts,
+  getWeeklyWorkoutStats,
+} from "@/services/workoutTracking";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   AppStateStatus,
   Pressable,
@@ -316,6 +320,14 @@ export default function HomeScreen() {
   });
   const [hasWorkoutToday, setHasWorkoutToday] = useState(false);
   const [waterIntake, setWaterIntake] = useState(0);
+  // track EST date string so we can detect day rollover in Eastern Time (US)
+  const [estDate, setEstDate] = useState(() =>
+    new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
+  );
+  // track whether we've shown the congrats popup for the current EST day
+  const [congratsShownDate, setCongratsShownDate] = useState<string | null>(
+    null,
+  );
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -327,6 +339,11 @@ export default function HomeScreen() {
     if (isInitial) setLoading(true);
 
     try {
+      // ensure estDate is current when loading initially
+      const currentEst = new Date().toLocaleDateString("en-CA", {
+        timeZone: "America/New_York",
+      });
+      if (isInitial) setEstDate(currentEst);
       // Fire ALL requests in parallel instead of sequentially
       const [
         nameResult,
@@ -337,7 +354,11 @@ export default function HomeScreen() {
         workoutsResult,
         waterResult,
       ] = await Promise.allSettled([
-        supabase.from("users").select("firstname").eq("auth_id", user.id).single(),
+        supabase
+          .from("users")
+          .select("firstname")
+          .eq("auth_id", user.id)
+          .single(),
         getCurrentUserBioProfile(),
         getWeeklyWorkoutStats(),
         hasLoggedWeightToday(),
@@ -345,13 +366,26 @@ export default function HomeScreen() {
         getTodayWorkouts(),
         getTodayWaterIntake(),
       ]);
-
+      // if backend tracks water by date, above getTodayWaterIntake should already return EST-aware count
+      // ensure we keep estDate in sync with today in EST
+      setEstDate(
+        new Date().toLocaleDateString("en-CA", {
+          timeZone: "America/New_York",
+        }),
+      );
       // Apply all results at once (single render batch)
-      if (nameResult.status === "fulfilled" && nameResult.value.data?.firstname) {
+      if (
+        nameResult.status === "fulfilled" &&
+        nameResult.value.data?.firstname
+      ) {
         setFirstname(nameResult.value.data.firstname);
       }
 
-      if (bioResult.status === "fulfilled" && bioResult.value.success && bioResult.value.profile) {
+      if (
+        bioResult.status === "fulfilled" &&
+        bioResult.value.success &&
+        bioResult.value.profile
+      ) {
         setBioProfile(bioResult.value.profile);
       }
 
@@ -382,7 +416,12 @@ export default function HomeScreen() {
         const wres = workoutsResult.value;
         const has = Array.isArray(wres?.data)
           ? wres.data.length > 0
-          : !!(wres && (wres as any).success && (wres as any).data && (wres as any).data.length > 0);
+          : !!(
+              wres &&
+              (wres as any).success &&
+              (wres as any).data &&
+              (wres as any).data.length > 0
+            );
         setHasWorkoutToday(has);
       }
 
@@ -427,19 +466,70 @@ export default function HomeScreen() {
         loadAllData(false);
       }
     };
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
     return () => subscription.remove();
   }, [user]);
 
+  // ── Detect EST day rollover and reset water at midnight EST ─────────────────
+  useEffect(() => {
+    // check every minute whether the date in America/New_York changed
+    const check = () => {
+      const todayEst = new Date().toLocaleDateString("en-CA", {
+        timeZone: "America/New_York",
+      });
+      if (todayEst !== estDate) {
+        // new EST day: reset local water counter and refresh remote data
+        setEstDate(todayEst);
+        setWaterIntake(0);
+        // allow the congrats popup to show again on the new day
+        setCongratsShownDate(null);
+        if (user) loadAllData(false);
+      }
+    };
+
+    const id = setInterval(check, 60_000);
+    // also run once immediately in case interval delay would miss exact rollover
+    check();
+    return () => clearInterval(id);
+  }, [estDate, user]);
+
   async function handleAddWater() {
+    if (waterIntake >= DAILY_WATER_GOAL) {
+      Alert.alert(
+        "Goal reached",
+        "You've already reached your daily water goal.",
+      );
+      return;
+    }
+
     const updated = await logWaterGlass();
-    setWaterIntake(updated);
+    setWaterIntake(Math.min(updated, DAILY_WATER_GOAL));
   }
 
   async function handleRemoveWater() {
     const updated = await removeWaterGlass();
     setWaterIntake(updated);
   }
+
+  // show a one-time congrats popup when the user reaches the daily water goal
+  useEffect(() => {
+    if (
+      typeof DAILY_WATER_GOAL === "number" &&
+      waterIntake >= DAILY_WATER_GOAL &&
+      estDate &&
+      congratsShownDate !== estDate
+    ) {
+      Alert.alert(
+        "Nice!",
+        `You hit ${DAILY_WATER_GOAL}/${DAILY_WATER_GOAL} glasses today — great job!`,
+        [{ text: "Awesome" }],
+      );
+      setCongratsShownDate(estDate);
+    }
+  }, [waterIntake, estDate, congratsShownDate]);
 
   const displayName = firstname || "Athlete";
 
@@ -459,291 +549,302 @@ export default function HomeScreen() {
           <Text style={styles.loadingText}>Loading your dashboard...</Text>
         </View>
       ) : (
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Header ─────────────────────────── */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              {getGreeting()}, {displayName} 👋
-            </Text>
-            <Text style={styles.date}>{getTodayFormatted()}</Text>
-          </View>
-          <View style={styles.headerBadges}>
-            {!hasLoggedWeight && user && (
-              <Pressable
-                onPress={() => setShowWeightPrompt(true)}
-                style={({ pressed }) => [
-                  styles.weightBadge,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text style={styles.weightBadgeIcon}>⚖️</Text>
-              </Pressable>
-            )}
-            <View style={styles.streakBadge}>
-              <Text style={styles.streakIcon}>🔥</Text>
-              <Text style={styles.streakCount}>0</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Header ─────────────────────────── */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>
+                {getGreeting()}, {displayName} 👋
+              </Text>
+              <Text style={styles.date}>{getTodayFormatted()}</Text>
+            </View>
+            <View style={styles.headerBadges}>
+              {!hasLoggedWeight && user && (
+                <Pressable
+                  onPress={() => setShowWeightPrompt(true)}
+                  style={({ pressed }) => [
+                    styles.weightBadge,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={styles.weightBadgeIcon}>⚖️</Text>
+                </Pressable>
+              )}
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakIcon}>🔥</Text>
+                <Text style={styles.streakCount}>0</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* ── Progress Ring ──────────────────── */}
-        <View style={styles.ringSection}>
-          {
-            // compute composite progress from workout, meals, and weight
-          }
-          <ProgressRing
-            progress={(() => {
-              const WORKOUT_PCT = 0.3; // 30%
-              const WEIGHT_PCT = 0.1; // 10%
-              const BREAKFAST_PCT = 0.2; // 20%
-              const LUNCH_PCT = 0.2; // 20%
-              const DINNER_PCT = 0.2; // 20%
+          {/* ── Progress Ring ──────────────────── */}
+          <View style={styles.ringSection}>
+            {
+              // compute composite progress from workout, meals, and weight
+            }
+            <ProgressRing
+              progress={(() => {
+                const WORKOUT_PCT = 0.2; // 20% (reduced 10% to give to Water)
+                const WATER_PCT = 0.1; // 10% new for water
+                const WEIGHT_PCT = 0.1; // 10%
+                const BREAKFAST_PCT = 0.2; // 20%
+                const LUNCH_PCT = 0.2; // 20%
+                const DINNER_PCT = 0.2; // 20%
 
-              let score = 0;
-              if (hasWorkoutToday) score += WORKOUT_PCT;
-              if (hasLoggedWeight) score += WEIGHT_PCT;
-              if (mealsLogged.breakfast) score += BREAKFAST_PCT;
-              if (mealsLogged.lunch) score += LUNCH_PCT;
-              if (mealsLogged.dinner) score += DINNER_PCT;
+                let score = 0;
+                if (hasWorkoutToday) score += WORKOUT_PCT;
+                if (waterIntake >= DAILY_WATER_GOAL) score += WATER_PCT;
+                if (hasLoggedWeight) score += WEIGHT_PCT;
+                if (mealsLogged.breakfast) score += BREAKFAST_PCT;
+                if (mealsLogged.lunch) score += LUNCH_PCT;
+                if (mealsLogged.dinner) score += DINNER_PCT;
 
-              return Math.min(score, 1);
-            })()}
-          />
-          <Text style={styles.legendHeader}>Daily Tasks</Text>
-          <View style={styles.legendRow}>
-            {(() => {
-              const items = [
-                {
-                  key: "workout",
-                  icon: "🔥",
-                  done: hasWorkoutToday,
-                  pct: 30,
-                  label: "Workout",
-                },
-                {
-                  key: "breakfast",
-                  icon: "🍳",
-                  done: mealsLogged.breakfast,
-                  pct: 20,
-                  label: "Breakfast",
-                },
-                {
-                  key: "lunch",
-                  icon: "🥗",
-                  done: mealsLogged.lunch,
-                  pct: 20,
-                  label: "Lunch",
-                },
-                {
-                  key: "dinner",
-                  icon: "🍽️",
-                  done: mealsLogged.dinner,
-                  pct: 20,
-                  label: "Dinner",
-                },
-                {
-                  key: "weight",
-                  icon: "⚖️",
-                  done: hasLoggedWeight,
-                  pct: 10,
-                  label: "Log Weight",
-                },
-              ];
-
-              return items.map((it) => (
-                <View key={it.key} style={styles.legendItemRow}>
-                  <Text
-                    style={[
-                      styles.legendIcon,
-                      it.done
-                        ? { color: Palette.success }
-                        : { color: Palette.textMuted },
-                    ]}
-                  >
-                    {it.done ? "✅" : "○"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.legendLabel,
-                      it.done
-                        ? { color: Palette.textPrimary }
-                        : { color: Palette.textSecondary },
-                    ]}
-                  >
-                    {it.icon} {it.label}
-                  </Text>
-                </View>
-              ));
-            })()}
-          </View>
-        </View>
-
-        {/* ── Quick Stats ────────────────────── */}
-        <View style={styles.statsRow}>
-          <QuickAction
-            icon="🏋️"
-            label="Workouts"
-            value={workoutsValue}
-            sub="this week"
-            accentColor={Palette.accent}
-          />
-          <QuickAction
-            icon="🔥"
-            label="Calories"
-            value={Math.round(consumedCalories).toString()}
-            sub="eaten today"
-            accentColor={Palette.warning}
-          />
-          <QuickAction
-            icon="👣"
-            label="Steps"
-            value={steps.todayStepsFormatted}
-            sub="today"
-            accentColor={Palette.success}
-          />
-        </View>
-
-        {/* ── Water Intake Tracker ───────────── */}
-        <View style={styles.goalCard}>
-          <View style={styles.goalHeader}>
-            <Text style={styles.goalIcon}>💧</Text>
-            <Text style={styles.goalTitle}>Water Intake</Text>
-            <Text style={styles.waterCount}>
-              {waterIntake}/{DAILY_WATER_GOAL} glasses
-            </Text>
-          </View>
-          <View style={styles.waterRow}>
-            {Array.from({ length: DAILY_WATER_GOAL }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.waterDrop,
-                  i < waterIntake
-                    ? styles.waterDropFilled
-                    : styles.waterDropEmpty,
-                ]}
-              >
-                <Text style={{ fontSize: 18 }}>
-                  {i < waterIntake ? "💧" : "○"}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.goalProgress}>
-            <View style={styles.goalBarTrack}>
-              <View
-                style={[
-                  styles.goalBarFill,
+                return Math.min(score, 1);
+              })()}
+            />
+            <Text style={styles.legendHeader}>Daily Tasks</Text>
+            <View style={styles.legendRow}>
+              {(() => {
+                const items = [
                   {
-                    width: `${Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100}%`,
-                    backgroundColor: "#38BDF8",
+                    key: "workout",
+                    icon: "🔥",
+                    done: hasWorkoutToday,
+                    pct: 20,
+                    label: "Workout",
                   },
-                ]}
-              />
+                  {
+                    key: "water",
+                    icon: "💧",
+                    done: waterIntake >= DAILY_WATER_GOAL,
+                    pct: 10,
+                    label: "Water",
+                  },
+                  {
+                    key: "breakfast",
+                    icon: "🍳",
+                    done: mealsLogged.breakfast,
+                    pct: 20,
+                    label: "Breakfast",
+                  },
+                  {
+                    key: "lunch",
+                    icon: "🥗",
+                    done: mealsLogged.lunch,
+                    pct: 20,
+                    label: "Lunch",
+                  },
+                  {
+                    key: "dinner",
+                    icon: "🍽️",
+                    done: mealsLogged.dinner,
+                    pct: 20,
+                    label: "Dinner",
+                  },
+                  {
+                    key: "weight",
+                    icon: "⚖️",
+                    done: hasLoggedWeight,
+                    pct: 10,
+                    label: "Log Weight",
+                  },
+                ];
+
+                return items.map((it) => (
+                  <View key={it.key} style={styles.legendItemRow}>
+                    <Text
+                      style={[
+                        styles.legendIcon,
+                        it.done
+                          ? { color: Palette.success }
+                          : { color: Palette.textMuted },
+                      ]}
+                    >
+                      {it.done ? "✅" : "○"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.legendLabel,
+                        it.done
+                          ? { color: Palette.textPrimary }
+                          : { color: Palette.textSecondary },
+                      ]}
+                    >
+                      {it.icon} {it.label}
+                    </Text>
+                  </View>
+                ));
+              })()}
             </View>
-            <Text style={[styles.goalPct, { color: "#38BDF8" }]}>
-              {Math.round(Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100)}%
-            </Text>
           </View>
-          <View style={styles.waterButtons}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.waterBtnMinus,
-                pressed && { opacity: 0.7 },
-                waterIntake === 0 && { opacity: 0.3 },
-              ]}
-              onPress={handleRemoveWater}
-              disabled={waterIntake === 0}
-            >
-              <Text style={styles.waterBtnText}>−</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.waterBtnPlus,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-              onPress={handleAddWater}
-            >
-              <Text style={styles.waterBtnPlusText}>+ Log Glass</Text>
-            </Pressable>
-          </View>
-        </View>
 
-        {/* ── Calories Remaining Card ─────────── */}
-        <View style={styles.goalCard}>
-          <View style={styles.goalHeader}>
-            <Text style={styles.goalIcon}>🍽️</Text>
-            <Text style={styles.goalTitle}>Calories Left</Text>
+          {/* ── Quick Stats ────────────────────── */}
+          <View style={styles.statsRow}>
+            <QuickAction
+              icon="🏋️"
+              label="Workouts"
+              value={workoutsValue}
+              sub="this week"
+              accentColor={Palette.accent}
+            />
+            <QuickAction
+              icon="🔥"
+              label="Calories"
+              value={Math.round(consumedCalories).toString()}
+              sub="eaten today"
+              accentColor={Palette.warning}
+            />
+            <QuickAction
+              icon="👣"
+              label="Steps"
+              value={steps.todayStepsFormatted}
+              sub="today"
+              accentColor={Palette.success}
+            />
           </View>
-          {bioProfile?.calorie_goal ? (
-            <>
-              <Text style={styles.goalBody}>
-                {Math.max(
-                  Math.round((bioProfile.calorie_goal ?? 0) - consumedCalories),
-                  0,
-                )}{" "}
-                cal left
+
+          {/* ── Water Intake Tracker ───────────── */}
+          <View style={styles.goalCard}>
+            <View style={styles.goalHeader}>
+              <Text style={styles.goalIcon}>💧</Text>
+              <Text style={styles.goalTitle}>Water Intake</Text>
+              <Text style={styles.waterCount}>
+                {waterIntake}/{DAILY_WATER_GOAL} glasses
               </Text>
-              <View style={styles.goalProgress}>
-                <View style={styles.goalBarTrack}>
-                  <View
-                    style={[
-                      styles.goalBarFill,
-                      {
-                        width: `${
-                          Math.min(
-                            (consumedCalories || 0) /
-                              (bioProfile?.calorie_goal || 1),
-                            1,
-                          ) * 100
-                        }%`,
-                        backgroundColor: Palette.warning,
-                      },
-                    ]}
-                  />
+            </View>
+            <View style={styles.waterRow}>
+              {Array.from({ length: DAILY_WATER_GOAL }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.waterDrop,
+                    i < waterIntake
+                      ? styles.waterDropFilled
+                      : styles.waterDropEmpty,
+                  ]}
+                >
+                  <Text style={{ fontSize: 18 }}>
+                    {i < waterIntake ? "💧" : "○"}
+                  </Text>
                 </View>
-                <Text style={styles.goalPct}>
-                  {bioProfile.calorie_goal
-                    ? `${Math.round(
-                        Math.min(
-                          (consumedCalories / bioProfile.calorie_goal) * 100,
-                          100,
-                        ),
-                      )}%`
-                    : "—"}
-                </Text>
+              ))}
+            </View>
+            <View style={styles.goalProgress}>
+              <View style={styles.goalBarTrack}>
+                <View
+                  style={[
+                    styles.goalBarFill,
+                    {
+                      width: `${Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100}%`,
+                      backgroundColor: "#38BDF8",
+                    },
+                  ]}
+                />
               </View>
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: Palette.textMuted,
-                  marginTop: Spacing.sm,
-                }}
-              >
-                {Math.round(consumedCalories)} eaten • {bioProfile.calorie_goal}{" "}
-                goal
+              <Text style={[styles.goalPct, { color: "#38BDF8" }]}>
+                {Math.round(Math.min(waterIntake / DAILY_WATER_GOAL, 1) * 100)}%
               </Text>
-            </>
-          ) : (
-            <Text style={styles.goalBody}>
-              Set a daily calorie goal in your profile
-            </Text>
-          )}
-        </View>
+            </View>
+            <View style={styles.waterButtons}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.waterBtnMinus,
+                  pressed && { opacity: 0.7 },
+                  waterIntake === 0 && { opacity: 0.3 },
+                ]}
+                onPress={handleRemoveWater}
+                disabled={waterIntake === 0}
+              >
+                <Text style={styles.waterBtnText}>−</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.waterBtnPlus,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+                onPress={handleAddWater}
+              >
+                <Text style={styles.waterBtnPlusText}>+ Log Glass</Text>
+              </Pressable>
+            </View>
+          </View>
 
-        {/* ── Motivational Quote ─────────────── */}
-        <View style={styles.quoteCard}>
-          <Text style={styles.quoteIcon}>💬</Text>
-          <Text style={styles.quoteText}>"{quote}"</Text>
-        </View>
+          {/* ── Calories Remaining Card ─────────── */}
+          <View style={styles.goalCard}>
+            <View style={styles.goalHeader}>
+              <Text style={styles.goalIcon}>🍽️</Text>
+              <Text style={styles.goalTitle}>Calories Left</Text>
+            </View>
+            {bioProfile?.calorie_goal ? (
+              <>
+                <Text style={styles.goalBody}>
+                  {Math.max(
+                    Math.round(
+                      (bioProfile.calorie_goal ?? 0) - consumedCalories,
+                    ),
+                    0,
+                  )}{" "}
+                  cal left
+                </Text>
+                <View style={styles.goalProgress}>
+                  <View style={styles.goalBarTrack}>
+                    <View
+                      style={[
+                        styles.goalBarFill,
+                        {
+                          width: `${
+                            Math.min(
+                              (consumedCalories || 0) /
+                                (bioProfile?.calorie_goal || 1),
+                              1,
+                            ) * 100
+                          }%`,
+                          backgroundColor: Palette.warning,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.goalPct}>
+                    {bioProfile.calorie_goal
+                      ? `${Math.round(
+                          Math.min(
+                            (consumedCalories / bioProfile.calorie_goal) * 100,
+                            100,
+                          ),
+                        )}%`
+                      : "—"}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: Palette.textMuted,
+                    marginTop: Spacing.sm,
+                  }}
+                >
+                  {Math.round(consumedCalories)} eaten •{" "}
+                  {bioProfile.calorie_goal} goal
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.goalBody}>
+                Set a daily calorie goal in your profile
+              </Text>
+            )}
+          </View>
 
-        <View style={{ height: 30 }} />
-      </ScrollView>
+          {/* ── Motivational Quote ─────────────── */}
+          <View style={styles.quoteCard}>
+            <Text style={styles.quoteIcon}>💬</Text>
+            <Text style={styles.quoteText}>"{quote}"</Text>
+          </View>
+
+          <View style={{ height: 30 }} />
+        </ScrollView>
       )}
 
       {/* ── Weight Prompt Modal (manual trigger after skip) ── */}

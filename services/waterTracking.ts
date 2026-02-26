@@ -24,7 +24,7 @@ export async function getTodayWaterIntake(): Promise<number> {
 /** Log one glass of water */
 export async function logWaterGlass(): Promise<number> {
   const current = await getTodayWaterIntake();
-  const updated = current + 1;
+  const updated = Math.min(current + 1, DAILY_WATER_GOAL);
   await AsyncStorage.setItem(getTodayKey(), String(updated));
   return updated;
 }
@@ -39,7 +39,8 @@ export async function removeWaterGlass(): Promise<number> {
 
 /** Set water intake to a specific count */
 export async function setWaterIntake(count: number): Promise<void> {
-  await AsyncStorage.setItem(getTodayKey(), String(Math.max(0, count)));
+  const clamped = Math.min(Math.max(0, count), DAILY_WATER_GOAL);
+  await AsyncStorage.setItem(getTodayKey(), String(clamped));
 }
 
 /**
