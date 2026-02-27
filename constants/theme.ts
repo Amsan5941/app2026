@@ -1,12 +1,12 @@
 /**
  * Fitness App Design System
- * Premium dark theme with energetic accent colors.
+ * Supports dark and light themes with energetic accent colors.
  */
 
 import { Platform } from 'react-native';
 
-// ── Core Palette ──────────────────────────────────────────────
-export const Palette = {
+// ── Dark Palette ──────────────────────────────────────────────
+export const DarkPalette = {
   // Backgrounds (deep dark)
   bg: '#0A0A10',
   bgCard: '#13131E',
@@ -49,6 +49,55 @@ export const Palette = {
   white: '#FFFFFF',
   black: '#000000',
 };
+
+// ── Light Palette ─────────────────────────────────────────────
+export const LightPalette = {
+  // Backgrounds (clean light)
+  bg: '#F2F2F8',
+  bgCard: '#FFFFFF',
+  bgCardHover: '#EBEBF5',
+  bgElevated: '#FAFAFE',
+  bgInput: '#EEEEF8',
+
+  // Accent — same brand purple (unchanged for brand consistency)
+  accent: '#7C5CFC',
+  accentLight: '#A78BFA',
+  accentDark: '#5B3FD4',
+  accentMuted: 'rgba(124, 92, 252, 0.10)',
+
+  // Semantic (slightly more saturated for light backgrounds)
+  success: '#16A34A',
+  successMuted: 'rgba(22, 163, 74, 0.12)',
+  warning: '#D97706',
+  warningMuted: 'rgba(217, 119, 6, 0.12)',
+  error: '#DC2626',
+  errorMuted: 'rgba(220, 38, 38, 0.12)',
+  info: '#0284C7',
+
+  // Text
+  textPrimary: '#0F0E1A',
+  textSecondary: '#4B4A6A',
+  textMuted: '#9090B0',
+  textInverse: '#F1F1F6',
+
+  // Borders & dividers
+  border: '#E0DFF0',
+  borderLight: '#CCCCE8',
+  divider: 'rgba(0,0,0,0.06)',
+
+  // Gradients (unchanged — same brand accent)
+  gradientStart: '#7C5CFC',
+  gradientEnd: '#38BDF8',
+
+  // Misc
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  white: '#FFFFFF',
+  black: '#000000',
+};
+
+// ── Backward-compat alias ─────────────────────────────────────
+// All existing static imports of `Palette` continue to work (default dark).
+export const Palette = DarkPalette;
 
 // ── Spacing scale ─────────────────────────────────────────────
 export const Spacing = {

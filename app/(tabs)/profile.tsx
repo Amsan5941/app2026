@@ -1,6 +1,6 @@
-import { Palette, Radii, Spacing } from "@/constants/theme";
+import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,6 +20,7 @@ import {
 } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
+import { useTheme, ThemeMode } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import {
   changeUserPassword,
@@ -31,6 +32,10 @@ import { Alert } from "react-native";
 
 export default function ProfileScreen() {
   const { user, signOut, signIn } = useAuth();
+  const { palette: P, themeMode, setThemeMode } = useTheme();
+  // Shadow the static import so every inline Palette.xxx in JSX becomes reactive
+  const Palette = P;
+  const styles = useMemo(() => makeProfileStyles(P), [P]);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any | null>(null);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -554,6 +559,36 @@ export default function ProfileScreen() {
             </>
           )}
 
+          {/* ── Appearance Card ── */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Appearance</Text>
+            <View style={styles.themeRow}>
+              {([
+                { mode: "light" as ThemeMode, label: "☀️ Light" },
+                { mode: "dark" as ThemeMode, label: "🌙 Dark" },
+                { mode: "system" as ThemeMode, label: "📱 System" },
+              ] as { mode: ThemeMode; label: string }[]).map(({ mode, label }) => (
+                <Pressable
+                  key={mode}
+                  style={[
+                    styles.themeBtn,
+                    themeMode === mode && styles.themeBtnActive,
+                  ]}
+                  onPress={() => setThemeMode(mode)}
+                >
+                  <Text
+                    style={[
+                      styles.themeBtnText,
+                      themeMode === mode && styles.themeBtnTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           <View style={{ height: 36 }} />
           {/* Fitness Edit Modal */}
           <Modal visible={showFitnessModal} transparent animationType="slide">
@@ -773,10 +808,11 @@ export default function ProfileScreen() {
     </KeyboardAvoidingView>
   );
 }
-const styles = StyleSheet.create({
+function makeProfileStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Palette.bg,
+    backgroundColor: P.bg,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -784,35 +820,35 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.lg,
   },
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   label: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     fontWeight: "600",
     marginBottom: 6,
   },
   value: {
     fontSize: 16,
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   input: {
-    backgroundColor: Palette.bgInput,
-    color: Palette.textPrimary,
+    backgroundColor: P.bgInput,
+    color: P.textPrimary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Palette.borderLight,
+    borderColor: P.borderLight,
     marginTop: Spacing.sm,
   },
   rowRight: {
@@ -828,11 +864,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: {
-    color: Palette.white,
+    color: P.white,
     fontWeight: "700",
   },
   btnTextSecondary: {
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     fontWeight: "700",
   },
   ghostBtn: {
@@ -840,11 +876,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     alignItems: "center",
   },
   ghostText: {
-    color: Palette.accent,
+    color: P.accent,
     fontWeight: "700",
   },
   bioRow: {
@@ -855,14 +891,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   bioItem: {
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     fontSize: 14,
     marginBottom: 4,
     width: "48%",
   },
   inputLabel: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginBottom: 6,
   },
   optionRowSmall: {
@@ -875,8 +911,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.bgCard,
+    borderColor: P.border,
+    backgroundColor: P.bgCard,
   },
   modalOverlay: {
     flex: 1,
@@ -888,11 +924,11 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 640,
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   profileHeader: {
     flexDirection: "row",
@@ -903,14 +939,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     fontSize: 20,
     fontWeight: "800",
-    color: Palette.accent,
+    color: P.accent,
   },
   btnGradient: {
     paddingHorizontal: 14,
@@ -920,7 +956,36 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.sm,
   },
+  // ── Appearance toggle ─────────────────────
+  themeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  themeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: P.border,
+    alignItems: "center",
+    backgroundColor: P.bgElevated,
+  },
+  themeBtnActive: {
+    borderColor: P.accent,
+    backgroundColor: P.accentMuted,
+  },
+  themeBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: P.textSecondary,
+  },
+  themeBtnTextActive: {
+    color: P.accent,
+    fontWeight: "700",
+  },
 });
+}

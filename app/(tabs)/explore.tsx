@@ -1,5 +1,6 @@
-import { Palette, Radii, Spacing } from "@/constants/theme";
+import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import {
   AIFoodItem,
   AIRecognitionResult,
@@ -14,7 +15,7 @@ import {
 } from "@/services/foodRecognition";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -57,6 +58,8 @@ function FoodLogDetailModal({
   onClose: () => void;
   onDelete: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const detailModalStyles = useMemo(() => makeDetailModalStyles(Palette), [Palette]);
   if (!log) return null;
 
   const protein = log.total_protein ?? 0;
@@ -179,7 +182,8 @@ function FoodLogDetailModal({
   );
 }
 
-const detailModalStyles = StyleSheet.create({
+function makeDetailModalStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -188,7 +192,7 @@ const detailModalStyles = StyleSheet.create({
     padding: Spacing.lg,
   },
   content: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.xl,
     width: "100%",
     maxWidth: 400,
@@ -196,9 +200,9 @@ const detailModalStyles = StyleSheet.create({
     overflow: "hidden",
   },
   header: {
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
+    borderBottomColor: P.border,
   },
   headerTop: {
     flexDirection: "row",
@@ -212,34 +216,34 @@ const detailModalStyles = StyleSheet.create({
   mealTitle: {
     fontSize: 20,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   mealTime: {
     fontSize: 13,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtnText: {
     fontSize: 18,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   caloriesSection: {
     alignItems: "center",
     paddingVertical: Spacing["2xl"],
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
+    borderBottomColor: P.border,
   },
   caloriesLabel: {
     fontSize: 12,
-    color: Palette.textMuted,
+    color: P.textMuted,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: Spacing.sm,
@@ -247,12 +251,12 @@ const detailModalStyles = StyleSheet.create({
   caloriesValue: {
     fontSize: 56,
     fontWeight: "800",
-    color: Palette.accent,
+    color: P.accent,
     lineHeight: 60,
   },
   caloriesUnit: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 4,
   },
   macrosSection: {
@@ -261,7 +265,7 @@ const detailModalStyles = StyleSheet.create({
   macrosTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.lg,
   },
   macroItem: {
@@ -284,16 +288,16 @@ const detailModalStyles = StyleSheet.create({
   macroLabel: {
     fontSize: 15,
     fontWeight: "600",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   macroValue: {
     fontSize: 18,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   progressBar: {
     height: 8,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     borderRadius: 4,
     overflow: "hidden",
     marginBottom: Spacing.xs,
@@ -304,7 +308,7 @@ const detailModalStyles = StyleSheet.create({
   },
   macroPercent: {
     fontSize: 11,
-    color: Palette.textMuted,
+    color: P.textMuted,
     textAlign: "right",
   },
   notesSection: {
@@ -314,14 +318,14 @@ const detailModalStyles = StyleSheet.create({
   notesTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.sm,
   },
   notesText: {
     fontSize: 13,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     lineHeight: 20,
-    backgroundColor: Palette.bg,
+    backgroundColor: P.bg,
     padding: Spacing.md,
     borderRadius: Radii.md,
   },
@@ -339,6 +343,7 @@ const detailModalStyles = StyleSheet.create({
     color: "#DC2626",
   },
 });
+}
 
 // ── Macro Ring ──────────────────────────────────────────────
 function MacroRing({
@@ -354,6 +359,8 @@ function MacroRing({
   color: string;
   size?: number;
 }) {
+  const { palette: Palette } = useTheme();
+  const macroStyles = useMemo(() => makeMacroStyles(Palette), [Palette]);
   const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -393,29 +400,31 @@ function MacroRing({
   );
 }
 
-const macroStyles = StyleSheet.create({
+function makeMacroStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   wrapper: { alignItems: "center", flex: 1 },
   ringWrap: { justifyContent: "center", alignItems: "center" },
   value: {
     position: "absolute",
     fontSize: 14,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   label: {
     fontSize: 12,
     fontWeight: "700",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   target: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 2,
   },
 });
+}
 
 // ── Calorie Summary Ring ────────────────────────────────────
 function CalorieRing({
@@ -425,6 +434,7 @@ function CalorieRing({
   consumed: number;
   target: number;
 }) {
+  const { palette: Palette } = useTheme();
   const size = 140;
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
@@ -499,6 +509,8 @@ function MealCard({
   items: string[];
   onAdd: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const mealStyles = useMemo(() => makeMealStyles(Palette), [Palette]);
   return (
     <View style={mealStyles.card}>
       <View style={mealStyles.row}>
@@ -539,14 +551,15 @@ function MealCard({
   );
 }
 
-const mealStyles = StyleSheet.create({
+function makeMealStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -561,11 +574,11 @@ const mealStyles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 14,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   icon: { fontSize: 26 },
   info: {
@@ -575,30 +588,30 @@ const mealStyles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     letterSpacing: -0.3,
   },
   cal: {
     fontSize: 14,
     fontWeight: "600",
-    color: Palette.accent,
+    color: P.accent,
     marginTop: 3,
   },
   addBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Palette.accent,
+    backgroundColor: P.accent,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Palette.accent,
+    shadowColor: P.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
   addText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 22,
     fontWeight: "700",
     lineHeight: 24,
@@ -607,7 +620,7 @@ const mealStyles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Palette.divider,
+    borderTopColor: P.divider,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
@@ -616,38 +629,39 @@ const mealStyles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Palette.divider,
+    borderTopColor: P.divider,
     alignItems: "center",
   },
   emptyText: {
     fontSize: 12,
-    color: Palette.textMuted,
+    color: P.textMuted,
     fontStyle: "italic",
   },
   itemPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     gap: Spacing.xs,
   },
   itemPillDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Palette.accent,
+    backgroundColor: P.accent,
   },
   itemText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     maxWidth: 200,
   },
 });
+}
 
 // ── Water Tracker ───────────────────────────────────────────
 function WaterTracker({
@@ -659,6 +673,8 @@ function WaterTracker({
   goal: number;
   onAdd: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const waterStyles = useMemo(() => makeWaterStyles(Palette), [Palette]);
   return (
     <View style={waterStyles.card}>
       <View style={waterStyles.row}>
@@ -694,14 +710,15 @@ function WaterTracker({
   );
 }
 
-const waterStyles = StyleSheet.create({
+function makeWaterStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   row: {
     flexDirection: "row",
@@ -712,21 +729,21 @@ const waterStyles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   sub: {
     fontSize: 13,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 2,
   },
   addBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: Radii.sm,
-    backgroundColor: Palette.info + "20",
+    backgroundColor: P.info + "20",
   },
   addText: {
-    color: Palette.info,
+    color: P.info,
     fontWeight: "700",
     fontSize: 14,
   },
@@ -739,15 +756,18 @@ const waterStyles = StyleSheet.create({
     flex: 1,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
   },
   glassFilled: {
-    backgroundColor: Palette.info,
+    backgroundColor: P.info,
   },
 });
+}
 
 // ── Nutrition Result Item ───────────────────────────────────
 function FoodResultItem({ item }: { item: AIFoodItem }) {
+  const { palette: Palette } = useTheme();
+  const resultStyles = useMemo(() => makeResultStyles(Palette), [Palette]);
   return (
     <View style={resultStyles.itemCard}>
       <View style={resultStyles.itemHeader}>
@@ -804,14 +824,15 @@ function FoodResultItem({ item }: { item: AIFoodItem }) {
   );
 }
 
-const resultStyles = StyleSheet.create({
+function makeResultStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   itemCard: {
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderRadius: Radii.md,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   itemHeader: {
     flexDirection: "row",
@@ -822,12 +843,12 @@ const resultStyles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     flex: 1,
   },
   itemServing: {
     fontSize: 12,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginLeft: Spacing.sm,
   },
   macroRow: {
@@ -839,24 +860,24 @@ const resultStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 6,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.sm,
   },
   macroEmoji: { fontSize: 12 },
   macroVal: {
     fontSize: 14,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   macroLabel: {
     fontSize: 9,
-    color: Palette.textMuted,
+    color: P.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
   confidenceBar: {
     height: 4,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     borderRadius: 2,
     overflow: "hidden",
     marginBottom: 4,
@@ -867,9 +888,10 @@ const resultStyles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
   },
 });
+}
 
 // ── Add Food Modal ──────────────────────────────────────────
 function AddFoodModal({
@@ -883,6 +905,8 @@ function AddFoodModal({
   onClose: () => void;
   onSuccess: () => Promise<void> | void;
 }) {
+  const { palette: Palette } = useTheme();
+  const modalStyles = useMemo(() => makeAddFoodModalStyles(Palette), [Palette]);
   const [mode, setMode] = useState<"choose" | "webcam" | "text" | "results">("choose");
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -1255,55 +1279,59 @@ function AddFoodModal({
   );
 }
 
-const modalStyles = StyleSheet.create({
+function makeAddFoodModalStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  container: { backgroundColor: Palette.bg, borderTopLeftRadius: Radii.xl, borderTopRightRadius: Radii.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, maxHeight: "92%" },
+  container: { backgroundColor: P.bg, borderTopLeftRadius: Radii.xl, borderTopRightRadius: Radii.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, maxHeight: "92%" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.lg },
-  title: { fontSize: 22, fontWeight: "800", color: Palette.textPrimary },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Palette.bgCard, alignItems: "center", justifyContent: "center" },
-  closeText: { fontSize: 18, color: Palette.textSecondary },
-  subtitle: { fontSize: 15, color: Palette.textSecondary, marginBottom: Spacing.xl },
-  errorBanner: { backgroundColor: Palette.errorMuted, padding: Spacing.md, borderRadius: Radii.md, marginBottom: Spacing.md },
-  errorText: { color: Palette.error, fontSize: 13, fontWeight: "600" },
+  title: { fontSize: 22, fontWeight: "800", color: P.textPrimary },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: P.bgCard, alignItems: "center", justifyContent: "center" },
+  closeText: { fontSize: 18, color: P.textSecondary },
+  subtitle: { fontSize: 15, color: P.textSecondary, marginBottom: Spacing.xl },
+  errorBanner: { backgroundColor: P.errorMuted, padding: Spacing.md, borderRadius: Radii.md, marginBottom: Spacing.md },
+  errorText: { color: P.error, fontSize: 13, fontWeight: "600" },
   optionCard: { marginBottom: Spacing.md, borderRadius: Radii.lg, overflow: "hidden" },
   optionGradient: { flexDirection: "row", alignItems: "center", padding: Spacing.xl },
-  optionOutline: { flexDirection: "row", alignItems: "center", padding: Spacing.xl, borderWidth: 1, borderColor: Palette.border, borderRadius: Radii.lg, backgroundColor: Palette.bgCard },
+  optionOutline: { flexDirection: "row", alignItems: "center", padding: Spacing.xl, borderWidth: 1, borderColor: P.border, borderRadius: Radii.lg, backgroundColor: P.bgCard },
   optionIcon: { fontSize: 36, marginRight: Spacing.lg },
   optionInfo: { flex: 1 },
-  optionTitle: { fontSize: 17, fontWeight: "700", color: Palette.white, marginBottom: 4 },
+  optionTitle: { fontSize: 17, fontWeight: "700", color: P.white, marginBottom: 4 },
   optionDesc: { fontSize: 13, color: "rgba(255,255,255,0.7)" },
-  optionDescDark: { fontSize: 13, color: Palette.textSecondary },
+  optionDescDark: { fontSize: 13, color: P.textSecondary },
   textSection: { marginTop: Spacing.md },
   dividerRow: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Palette.border },
-  dividerText: { color: Palette.textMuted, fontSize: 12, marginHorizontal: Spacing.md, textTransform: "uppercase", letterSpacing: 0.5 },
-  textArea: { backgroundColor: Palette.bgInput, color: Palette.textPrimary, borderRadius: Radii.md, borderWidth: 1, borderColor: Palette.borderLight, padding: Spacing.lg, fontSize: 15, minHeight: 80 },
-  analyzeBtn: { backgroundColor: Palette.accent, borderRadius: Radii.md, paddingVertical: 14, alignItems: "center", marginTop: Spacing.md },
-  analyzeBtnText: { color: Palette.white, fontWeight: "700", fontSize: 15 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: P.border },
+  dividerText: { color: P.textMuted, fontSize: 12, marginHorizontal: Spacing.md, textTransform: "uppercase", letterSpacing: 0.5 },
+  textArea: { backgroundColor: P.bgInput, color: P.textPrimary, borderRadius: Radii.md, borderWidth: 1, borderColor: P.borderLight, padding: Spacing.lg, fontSize: 15, minHeight: 80 },
+  analyzeBtn: { backgroundColor: P.accent, borderRadius: Radii.md, paddingVertical: 14, alignItems: "center", marginTop: Spacing.md },
+  analyzeBtnText: { color: P.white, fontWeight: "700", fontSize: 15 },
   loadingWrap: { alignItems: "center", paddingVertical: Spacing["3xl"] },
   previewImage: { width: 200, height: 150, borderRadius: Radii.lg },
-  loadingText: { fontSize: 16, fontWeight: "700", color: Palette.textPrimary, marginTop: Spacing.lg },
-  loadingSubtext: { fontSize: 13, color: Palette.textSecondary, marginTop: Spacing.sm, textAlign: "center" },
+  loadingText: { fontSize: 16, fontWeight: "700", color: P.textPrimary, marginTop: Spacing.lg },
+  loadingSubtext: { fontSize: 13, color: P.textSecondary, marginTop: Spacing.sm, textAlign: "center" },
   resultImage: { width: "100%", height: 200, borderRadius: Radii.lg, marginBottom: Spacing.lg },
-  totalCard: { backgroundColor: Palette.bgCard, borderRadius: Radii.lg, padding: Spacing.xl, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Palette.border },
-  totalTitle: { fontSize: 16, fontWeight: "700", color: Palette.textPrimary, marginBottom: Spacing.md },
+  totalCard: { backgroundColor: P.bgCard, borderRadius: Radii.lg, padding: Spacing.xl, marginBottom: Spacing.lg, borderWidth: 1, borderColor: P.border },
+  totalTitle: { fontSize: 16, fontWeight: "700", color: P.textPrimary, marginBottom: Spacing.md },
   totalRow: { flexDirection: "row", justifyContent: "space-between" },
   totalItem: { alignItems: "center" },
-  totalVal: { fontSize: 20, fontWeight: "800", color: Palette.textPrimary },
-  totalLabel: { fontSize: 10, color: Palette.textMuted, textTransform: "uppercase", marginTop: 2, letterSpacing: 0.3 },
-  confidenceBadge: { marginTop: Spacing.md, paddingVertical: 6, paddingHorizontal: Spacing.md, backgroundColor: Palette.accentMuted, borderRadius: Radii.full, alignSelf: "center" },
-  confidenceBadgeText: { fontSize: 12, fontWeight: "600", color: Palette.accentLight },
-  itemsTitle: { fontSize: 16, fontWeight: "700", color: Palette.textPrimary, marginBottom: Spacing.md },
+  totalVal: { fontSize: 20, fontWeight: "800", color: P.textPrimary },
+  totalLabel: { fontSize: 10, color: P.textMuted, textTransform: "uppercase", marginTop: 2, letterSpacing: 0.3 },
+  confidenceBadge: { marginTop: Spacing.md, paddingVertical: 6, paddingHorizontal: Spacing.md, backgroundColor: P.accentMuted, borderRadius: Radii.full, alignSelf: "center" },
+  confidenceBadgeText: { fontSize: 12, fontWeight: "600", color: P.accentLight },
+  itemsTitle: { fontSize: 16, fontWeight: "700", color: P.textPrimary, marginBottom: Spacing.md },
   doneBtn: { borderRadius: Radii.lg, overflow: "hidden", marginTop: Spacing.md },
   doneBtnGradient: { paddingVertical: 16, alignItems: "center" },
-  doneBtnText: { color: Palette.white, fontSize: 16, fontWeight: "800" },
+  doneBtnText: { color: P.white, fontSize: 16, fontWeight: "800" },
   addAnotherBtn: { paddingVertical: 14, alignItems: "center", marginTop: Spacing.sm },
-  addAnotherText: { color: Palette.accent, fontWeight: "700", fontSize: 14 },
+  addAnotherText: { color: P.accent, fontWeight: "700", fontSize: 14 },
 });
+}
 
 // ── Main Nutrition Screen ───────────────────────────────────
 export default function NutritionScreen() {
   const { user } = useAuth();
+  const { palette: Palette } = useTheme();
+  const styles = useMemo(() => makeNutritionStyles(Palette), [Palette]);
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [addMealType, setAddMealType] = useState<MealType>("breakfast");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1543,31 +1571,32 @@ export default function NutritionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Palette.bg },
+function makeNutritionStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: P.bg },
   scrollContent: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
-  pageTitle: { fontSize: 28, fontWeight: "800", color: Palette.textPrimary, letterSpacing: -0.5 },
-  pageSub: { fontSize: 14, color: Palette.textSecondary, marginTop: 4, marginBottom: Spacing.xl },
+  pageTitle: { fontSize: 28, fontWeight: "800", color: P.textPrimary, letterSpacing: -0.5 },
+  pageSub: { fontSize: 14, color: P.textSecondary, marginTop: 4, marginBottom: Spacing.xl },
   calSection: { alignItems: "center", marginBottom: Spacing["2xl"] },
   calStats: { flexDirection: "row", gap: Spacing["2xl"], marginTop: Spacing.lg, alignItems: "center" },
   calStat: { alignItems: "center" },
-  calStatVal: { fontSize: 20, fontWeight: "800", color: Palette.textPrimary },
-  calStatLabel: { fontSize: 11, color: Palette.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
-  calStatDivider: { width: 1, height: 30, backgroundColor: Palette.border },
+  calStatVal: { fontSize: 20, fontWeight: "800", color: P.textPrimary },
+  calStatLabel: { fontSize: 11, color: P.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
+  calStatDivider: { width: 1, height: 30, backgroundColor: P.border },
   macroSection: { marginBottom: Spacing.xl },
   macroRow: { flexDirection: "row", marginTop: Spacing.md },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: Palette.textPrimary, marginBottom: Spacing.md },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: P.textPrimary, marginBottom: Spacing.md },
   mealsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
   logEntry: { 
     flexDirection: "row", 
     justifyContent: "space-between", 
     alignItems: "center", 
-    backgroundColor: Palette.bgCard, 
+    backgroundColor: P.bgCard, 
     borderRadius: Radii.lg, 
     padding: Spacing.lg, 
     marginBottom: Spacing.md, 
     borderWidth: 1, 
-    borderColor: Palette.border,
+    borderColor: P.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -1575,7 +1604,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   logEntryPressed: {
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     transform: [{ scale: 0.98 }],
   },
   logEntryLeft: { 
@@ -1588,7 +1617,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1596,14 +1625,14 @@ const styles = StyleSheet.create({
   logEntryTitle: { 
     fontSize: 16, 
     fontWeight: "700", 
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   logEntrySubtitle: {
     fontSize: 14,
     fontWeight: "500",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
-  logEntryTime: { fontSize: 12, color: Palette.textMuted, marginTop: 2, marginBottom: Spacing.sm },
+  logEntryTime: { fontSize: 12, color: P.textMuted, marginTop: 2, marginBottom: Spacing.sm },
   macroPreview: {
     flexDirection: "row",
     gap: Spacing.xs,
@@ -1625,12 +1654,12 @@ const styles = StyleSheet.create({
   logEntryCal: { 
     fontSize: 24, 
     fontWeight: "800", 
-    color: Palette.accent,
+    color: P.accent,
     lineHeight: 28,
   },
   logEntryCalUnit: {
     fontSize: 11,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: -2,
   },
   tapIndicator: {
@@ -1638,15 +1667,16 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   tapIndicatorText: {
     fontSize: 18,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
   },
-  logEntryMacros: { fontSize: 10, color: Palette.textSecondary, marginTop: 2 },
-  logHint: { fontSize: 11, color: Palette.textMuted, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.lg },
+  logEntryMacros: { fontSize: 10, color: P.textSecondary, marginTop: 2 },
+  logHint: { fontSize: 11, color: P.textMuted, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.lg },
 });
+}

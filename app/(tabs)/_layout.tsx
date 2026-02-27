@@ -4,19 +4,20 @@ import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Palette } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function TabLayout() {
+  const { palette: P } = useTheme();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Palette.accent,
-        tabBarInactiveTintColor: Palette.textMuted,
+        tabBarActiveTintColor: P.accent,
+        tabBarInactiveTintColor: P.textMuted,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: Palette.bgCard,
-          borderTopColor: Palette.border,
+          backgroundColor: P.bgCard,
+          borderTopColor: P.border,
           borderTopWidth: 1,
           height: Platform.OS === "ios" ? 88 : 64,
           paddingTop: 8,

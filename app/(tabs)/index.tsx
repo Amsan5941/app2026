@@ -1,6 +1,6 @@
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import { supabase } from "@/constants/supabase";
-import { Palette, Radii, Spacing } from "@/constants/theme";
+import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
@@ -17,7 +17,8 @@ import {
   getWeeklyWorkoutStats,
 } from "@/services/workoutTracking";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -74,6 +75,8 @@ function ProgressRing({
   size?: number;
   strokeWidth?: number;
 }) {
+  const { palette: Palette } = useTheme();
+  const ringStyles = useMemo(() => makeRingStyles(Palette), [Palette]);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
@@ -119,7 +122,8 @@ function ProgressRing({
   );
 }
 
-const ringStyles = StyleSheet.create({
+function makeRingStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   container: { justifyContent: "center", alignItems: "center" },
   inner: {
     position: "absolute",
@@ -128,17 +132,18 @@ const ringStyles = StyleSheet.create({
   pct: {
     fontSize: 32,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     letterSpacing: -1,
   },
   label: {
     fontSize: 12,
-    color: Palette.textMuted,
+    color: P.textMuted,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginTop: 2,
   },
 });
+}
 
 // ── Quick-Action Card ───────────────────────────────────────
 function QuickAction({
@@ -146,7 +151,7 @@ function QuickAction({
   label,
   value,
   sub,
-  accentColor = Palette.accent,
+  accentColor = DarkPalette.accent,
 }: {
   icon: string;
   label: string;
@@ -154,6 +159,8 @@ function QuickAction({
   sub?: string;
   accentColor?: string;
 }) {
+  const { palette: Palette } = useTheme();
+  const qaStyles = useMemo(() => makeQaStyles(Palette), [Palette]);
   return (
     <View style={[qaStyles.card, { borderColor: accentColor + "25" }]}>
       <View
@@ -168,10 +175,11 @@ function QuickAction({
   );
 }
 
-const qaStyles = StyleSheet.create({
+function makeQaStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     alignItems: "center",
@@ -189,22 +197,23 @@ const qaStyles = StyleSheet.create({
   value: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: 2,
   },
   label: {
     fontSize: 11,
     fontWeight: "600",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
   sub: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 2,
   },
 });
+}
 
 // ── Summary Stats (copied from history.tsx) ─────────────────
 function SummaryStats({
@@ -218,6 +227,8 @@ function SummaryStats({
   totalSets: number;
   totalDuration: number;
 }) {
+  const { palette: Palette } = useTheme();
+  const summaryStyles = useMemo(() => makeSummaryStyles(Palette), [Palette]);
   const workoutCount = workoutsDone ?? 0;
   const avgDuration =
     workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
@@ -265,7 +276,8 @@ function SummaryStats({
   );
 }
 
-const summaryStyles = StyleSheet.create({
+function makeSummaryStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: Spacing.md,
@@ -273,7 +285,7 @@ const summaryStyles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     alignItems: "center",
@@ -283,25 +295,28 @@ const summaryStyles = StyleSheet.create({
   value: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   sub: {
     fontSize: 11,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 1,
   },
   label: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
 });
+}
 
 // ── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { palette: Palette } = useTheme();
+  const styles = useMemo(() => makeHomeStyles(Palette), [Palette]);
   const steps = useSteps();
   const [loading, setLoading] = useState(true);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
@@ -860,10 +875,11 @@ export default function HomeScreen() {
 }
 
 // ── Styles ────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+function makeHomeStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Palette.bg,
+    backgroundColor: P.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -873,7 +889,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     fontWeight: "600",
   },
   scroll: {
@@ -899,23 +915,23 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 24,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     letterSpacing: -0.5,
   },
   date: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 4,
   },
   weightBadge: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Palette.accent + "30",
+    borderColor: P.accent + "30",
   },
   weightBadgeIcon: {
     fontSize: 20,
@@ -923,7 +939,7 @@ const styles = StyleSheet.create({
   streakBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Palette.warningMuted,
+    backgroundColor: P.warningMuted,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -933,30 +949,27 @@ const styles = StyleSheet.create({
   streakCount: {
     fontSize: 16,
     fontWeight: "800",
-    color: Palette.warning,
+    color: P.warning,
   },
-
   // Progress ring
   ringSection: {
     alignItems: "center",
     marginBottom: Spacing["2xl"],
   },
-
   // Stats row
   statsRow: {
     flexDirection: "row",
     gap: Spacing.md,
     marginBottom: Spacing.xl,
   },
-
   // Goal card
   goalCard: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.xl,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   goalHeader: {
     flexDirection: "row",
@@ -968,11 +981,11 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   goalBody: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     lineHeight: 20,
     marginBottom: Spacing.md,
   },
@@ -984,38 +997,37 @@ const styles = StyleSheet.create({
   goalBarTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     borderRadius: 4,
     overflow: "hidden",
   },
   goalBarFill: {
     height: "100%",
-    backgroundColor: Palette.accent,
+    backgroundColor: P.accent,
     borderRadius: 4,
   },
   goalPct: {
     fontSize: 13,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
   },
-
   // Quote card
   quoteCard: {
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     borderRadius: Radii.lg,
     padding: Spacing.xl,
     flexDirection: "row",
     gap: Spacing.md,
     alignItems: "flex-start",
     borderWidth: 1,
-    borderColor: Palette.accent + "30",
+    borderColor: P.accent + "30",
   },
   quoteIcon: { fontSize: 20, marginTop: 2 },
   quoteText: {
     flex: 1,
     fontSize: 14,
     fontStyle: "italic",
-    color: Palette.accentLight,
+    color: P.accentLight,
     lineHeight: 22,
   },
   legendRow: {
@@ -1028,7 +1040,7 @@ const styles = StyleSheet.create({
   legendHeader: {
     fontSize: 13,
     fontWeight: "700",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.6,
     marginBottom: Spacing.sm,
@@ -1053,15 +1065,14 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   legendPct: {
     fontSize: 12,
     marginLeft: 6,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     fontWeight: "700",
   },
-
   // Water intake tracker
   waterCount: {
     fontSize: 13,
@@ -1087,7 +1098,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(56, 189, 248, 0.15)",
   },
   waterDropEmpty: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
   },
   waterButtons: {
     flexDirection: "row",
@@ -1098,16 +1109,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 40,
     borderRadius: Radii.md,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     alignItems: "center",
     justifyContent: "center",
   },
   waterBtnText: {
     fontSize: 20,
     fontWeight: "700",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   waterBtnPlus: {
     flex: 1,
@@ -1126,3 +1137,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
+}
