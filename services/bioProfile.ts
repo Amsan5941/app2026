@@ -1,4 +1,5 @@
 import { supabase } from "@/constants/supabase";
+import { getCachedUserId } from "@/services/userCache";
 
 export type BioProfile = {
   id: string;
@@ -25,32 +26,39 @@ export type BioProfileUpdate = {
 };
 
 /**
+ * Resolve the internal user_id, preferring the cache.
+ */
+async function getUserId(): Promise<string> {
+  const cached = getCachedUserId();
+  if (cached) return cached;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error("Not authenticated");
+
+  const { data: userData, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("auth_id", user.id)
+    .single();
+  if (userError || !userData) throw new Error("User profile not found");
+  return userData.id;
+}
+
+/**
  * Get the bio profile for the current user
  */
 export async function getCurrentUserBioProfile() {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!user) throw new Error("No user logged in");
-
-    // Get user_id from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-
-    if (userError) throw userError;
+    const userId = await getUserId();
 
     // Get bio profile
     const { data: bioProfile, error: bioError } = await supabase
       .from("bio_profile")
       .select("*")
-      .eq("user_id", userData.id)
+      .eq("user_id", userId)
       .single();
 
     if (bioError) throw bioError;
@@ -67,28 +75,13 @@ export async function getCurrentUserBioProfile() {
  */
 export async function updateBioProfile(updates: BioProfileUpdate) {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!user) throw new Error("No user logged in");
-
-    // Get user_id from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-
-    if (userError) throw userError;
+    const userId = await getUserId();
 
     // Update bio profile
     const { error: updateError } = await supabase
       .from("bio_profile")
       .update(updates)
-      .eq("user_id", userData.id);
+      .eq("user_id", userId);
 
     if (updateError) throw updateError;
 

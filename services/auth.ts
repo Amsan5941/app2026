@@ -1,7 +1,30 @@
 import { supabase } from "@/constants/supabase";
+import { getCachedUserId } from "@/services/userCache";
 
 // NOTE: signUp, login, and logout are handled by hooks/useAuth.tsx
 // This file contains additional utility functions for user profile management
+
+/**
+ * Resolve the internal user_id, preferring the cache.
+ */
+async function getUserId(): Promise<string> {
+  const cached = getCachedUserId();
+  if (cached) return cached;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error("Not authenticated");
+
+  const { data: userData, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("auth_id", user.id)
+    .single();
+  if (userError || !userData) throw new Error("User profile not found");
+  return userData.id;
+}
 
 export async function getCurrentUserProfile() {
   try {
@@ -14,14 +37,27 @@ export async function getCurrentUserProfile() {
 
     if (!user) return { success: false, user: null, profile: null };
 
-    // Fetch their profile from users table
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("auth_id", user.id)
-      .single();
+    // Use cached internal ID when available to skip a query
+    const cachedId = getCachedUserId();
 
-    if (profileError) throw profileError;
+    let profile;
+    if (cachedId) {
+      const { data, error: profileError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", cachedId)
+        .single();
+      if (profileError) throw profileError;
+      profile = data;
+    } else {
+      const { data, error: profileError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_id", user.id)
+        .single();
+      if (profileError) throw profileError;
+      profile = data;
+    }
 
     // Fetch bio_profile (fitness data) if present
     let bioProfile = null;
@@ -90,27 +126,12 @@ export async function updateBioProfile(updates: {
   calorie_goal?: number | null;
 }) {
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) throw userError;
-    if (!user) return { success: false, error: new Error("No user logged in") };
-
-    // find users entry to get user id
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-
-    if (profileError) throw profileError;
+    const userId = await getUserId();
 
     const { error } = await supabase
       .from("bio_profile")
       .update(updates)
-      .eq("user_id", profile.id);
+      .eq("user_id", userId);
 
     if (error) throw error;
     return { success: true };

@@ -1,4 +1,5 @@
 import { supabase } from "@/constants/supabase";
+import { getCachedUserId } from "@/services/userCache";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -52,9 +53,14 @@ function getTodayLocal(): string {
 }
 
 /**
- * Get the internal user_id (from users table) for the current auth user
+ * Get the internal user_id (from users table) for the current auth user.
+ * Uses the cached value when available to avoid 2 DB round-trips.
  */
 async function getUserId(): Promise<string> {
+  const cached = getCachedUserId();
+  if (cached) return cached;
+
+  // Fallback: resolve from DB (should rarely happen)
   const {
     data: { user },
     error: authError,

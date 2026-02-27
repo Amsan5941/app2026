@@ -1,4 +1,5 @@
 import { supabase } from "@/constants/supabase";
+import { getCachedUserId } from "@/services/userCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SKIP_STORAGE_KEY = "@weight_skip_date";
@@ -67,36 +68,40 @@ export async function hasSkippedToday(): Promise<boolean> {
 }
 
 /**
+ * Resolve the internal user_id, preferring the cache.
+ */
+async function getUserId(): Promise<string> {
+  const cached = getCachedUserId();
+  if (cached) return cached;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error("Not authenticated");
+
+  const { data: userData, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("auth_id", user.id)
+    .single();
+  if (userError || !userData) throw new Error("User profile not found");
+  return userData.id;
+}
+
+/**
  * Check if user has logged weight today
  */
 export async function hasLoggedWeightToday(): Promise<boolean> {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return false;
-    }
-
-    // Get user_id from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-    
-    if (userError || !userData) {
-      return false;
-    }
+    const userId = await getUserId();
 
     const today = getTodayLocal();
 
     const { data, error } = await supabase
       .from("body_weight")
       .select("id")
-      .eq("user_id", userData.id)
+      .eq("user_id", userId)
       .eq("recorded_date", today);
 
     // If no data returned, user hasn't logged weight today
@@ -132,22 +137,7 @@ export async function logWeight(
   notes?: string
 ) {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!user) throw new Error("No user logged in");
-
-    // Get user_id from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-
-    if (userError) throw userError;
+    const userId = await getUserId();
 
     const today = getTodayLocal();
 
@@ -156,7 +146,7 @@ export async function logWeight(
       .from("body_weight")
       .upsert(
         {
-          user_id: userData.id,
+          user_id: userId,
           weight,
           weight_unit: weightUnit,
           recorded_date: today,
@@ -184,27 +174,12 @@ export async function logWeight(
  */
 export async function getWeightHistory(limit: number = 30) {
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!user) throw new Error("No user logged in");
-
-    // Get user_id from users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .single();
-
-    if (userError) throw userError;
+    const userId = await getUserId();
 
     const { data, error } = await supabase
       .from("body_weight")
       .select("*")
-      .eq("user_id", userData.id)
+      .eq("user_id", userId)
       .order("recorded_date", { ascending: false })
       .limit(limit);
 

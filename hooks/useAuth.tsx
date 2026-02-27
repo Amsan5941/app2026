@@ -1,4 +1,8 @@
 import { supabase } from "@/constants/supabase";
+import {
+    clearCachedUserId,
+    resolveAndCacheUserId,
+} from "@/services/userCache";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type User = any;
@@ -19,6 +23,8 @@ type BioData = {
 type AuthContextValue = {
   user: User | null;
   session: any | null;
+  /** Cached internal user ID from the `users` table (null until resolved) */
+  internalUserId: string | null;
   signUp: (
     email: string,
     password: string,
@@ -37,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any | null>(null);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -48,7 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } = await supabase.auth.getSession();
         if (!mounted) return;
         setSession(currentSession);
-        setUser((currentSession as any)?.user ?? null);
+        const authUser = (currentSession as any)?.user ?? null;
+        setUser(authUser);
+        if (authUser?.id) {
+          try {
+            const id = await resolveAndCacheUserId(authUser.id);
+            if (mounted) setInternalUserId(id);
+          } catch (e) {
+            console.warn("Failed to resolve internal user ID:", e);
+          }
+        }
       } catch (e) {
         // ignore
       }
@@ -57,9 +73,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      async (_event, newSession) => {
         setSession(newSession);
-        setUser((newSession as any)?.user ?? null);
+        const authUser = (newSession as any)?.user ?? null;
+        setUser(authUser);
+        if (authUser?.id) {
+          try {
+            const id = await resolveAndCacheUserId(authUser.id);
+            setInternalUserId(id);
+          } catch (e) {
+            console.warn("Failed to resolve internal user ID:", e);
+          }
+        } else {
+          clearCachedUserId();
+          setInternalUserId(null);
+        }
       },
     );
 
@@ -246,11 +274,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   async function signOut() {
+    clearCachedUserId();
+    setInternalUserId(null);
     await supabase.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, internalUserId, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
