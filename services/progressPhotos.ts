@@ -12,12 +12,14 @@ export type PhotoRow = {
 };
 
 export async function uploadProgressPhoto({
+  authUid,
   userId,
   fileName,
   blob,
   recordedDate,
   caption,
 }: {
+  authUid: string;
   userId: string;
   fileName: string;
   blob: Blob | Uint8Array;
@@ -34,7 +36,7 @@ export async function uploadProgressPhoto({
   if (upErr) return { success: false, error: upErr };
 
   const { data, error } = await supabase
-    .from<PhotoRow>("progress_photos")
+    .from("progress_photos")
     .insert({
       user_id: userId,
       storage_path: path,
@@ -50,7 +52,7 @@ export async function uploadProgressPhoto({
 
 export async function getProgressPhotos(userId: string) {
   const { data, error } = await supabase
-    .from<PhotoRow>("progress_photos")
+    .from("progress_photos")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });

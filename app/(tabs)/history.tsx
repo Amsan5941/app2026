@@ -1,11 +1,13 @@
 import { supabase } from "@/constants/supabase";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
   deleteProgressPhoto,
   getProgressPhotos,
   uploadProgressPhoto,
 } from "@/services/progressPhotos";
+import { getCachedUserId } from "@/services/userCache";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
   WorkoutHistoryItem,
@@ -15,7 +17,6 @@ import {
   getWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
-import { useTheme } from "@/hooks/useTheme";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
@@ -1052,20 +1053,8 @@ export default function ProgressScreen() {
     let channel: any = null;
     (async () => {
       try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) return;
-
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id")
-          .eq("auth_id", user.id)
-          .single();
-
-        if (userError || !userData) return;
+        const userId = getCachedUserId();
+        if (!userId) return;
 
         channel = supabase
           .channel("public:body_weight")
@@ -1075,7 +1064,7 @@ export default function ProgressScreen() {
               event: "INSERT",
               schema: "public",
               table: "body_weight",
-              filter: `user_id=eq.${userData.id}`,
+              filter: `user_id=eq.${userId}`,
             },
             (payload) => {
               // reload weights when a new entry is added
@@ -1088,7 +1077,7 @@ export default function ProgressScreen() {
               event: "UPDATE",
               schema: "public",
               table: "body_weight",
-              filter: `user_id=eq.${userData.id}`,
+              filter: `user_id=eq.${userId}`,
             },
             (payload) => {
               loadWeights();
@@ -1148,17 +1137,9 @@ export default function ProgressScreen() {
   async function loadPhotosForUser() {
     try {
       setLoadingPhotos(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .single();
-      if (userError || !userData) return;
-      const res = await getProgressPhotos(userData.id);
+      const userId = getCachedUserId();
+      if (!userId) return;
+      const res = await getProgressPhotos(userId);
       if (res.success) setPhotos(res.data || []);
     } catch (e) {
       console.error("loadPhotosForUser", e);
@@ -1198,17 +1179,13 @@ export default function ProgressScreen() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .single();
-      if (!userData) throw new Error("User row missing");
+      const userId = getCachedUserId();
+      if (!userId) throw new Error("User ID not cached");
 
       const fileName = `${Date.now()}.jpg`;
       const up = await uploadProgressPhoto({
         authUid: user.id,
-        userId: userData.id,
+        userId: userId,
         fileName,
         blob,
       });
