@@ -1,5 +1,5 @@
 import { supabase } from "@/constants/supabase";
-import { Palette, Radii, Spacing } from "@/constants/theme";
+import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
   deleteProgressPhoto,
@@ -15,10 +15,11 @@ import {
   getWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
+import { useTheme } from "@/hooks/useTheme";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -71,6 +72,8 @@ function formatRecordedDate(dateStr: string) {
 
 // ── Mini Weight Chart ───────────────────────────────────────
 function WeightChart({ data }: { data: WeightEntry[] }) {
+  const { palette: Palette } = useTheme();
+  const chartStyles = useMemo(() => makeChartStyles(Palette), [Palette]);
   const width = 320;
   const height = 140;
   const paddingX = 10;
@@ -262,14 +265,15 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
   );
 }
 
-const chartStyles = StyleSheet.create({
+function makeChartStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   header: {
     flexDirection: "row",
@@ -280,11 +284,11 @@ const chartStyles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 2,
   },
   badge: {
@@ -292,14 +296,14 @@ const chartStyles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
-  badgeLoss: { backgroundColor: Palette.successMuted },
-  badgeGain: { backgroundColor: Palette.warningMuted },
+  badgeLoss: { backgroundColor: P.successMuted },
+  badgeGain: { backgroundColor: P.warningMuted },
   badgeText: {
     fontSize: 12,
     fontWeight: "700",
   },
-  badgeLossText: { color: Palette.success },
-  badgeGainText: { color: Palette.warning },
+  badgeLossText: { color: P.success },
+  badgeGainText: { color: P.warning },
   currentWeight: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -309,12 +313,12 @@ const chartStyles = StyleSheet.create({
   weightValue: {
     fontSize: 36,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   weightUnit: {
     fontSize: 16,
     fontWeight: "600",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   dateRow: {
     flexDirection: "row",
@@ -324,19 +328,19 @@ const chartStyles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
   },
   tooltip: {
     position: "absolute",
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderRadius: Radii.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: Palette.accent + "40",
+    borderColor: P.accent + "40",
     alignItems: "center",
     minWidth: 88,
-    shadowColor: Palette.accent,
+    shadowColor: P.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -346,11 +350,11 @@ const chartStyles = StyleSheet.create({
   tooltipWeight: {
     fontSize: 14,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   tooltipDate: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 1,
   },
   tooltipArrow: {
@@ -358,13 +362,14 @@ const chartStyles = StyleSheet.create({
     bottom: -5,
     width: 10,
     height: 10,
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Palette.accent + "40",
+    borderColor: P.accent + "40",
     transform: [{ rotate: "45deg" }],
   },
 });
+}
 
 // ── Summary Stats ───────────────────────────────────────────
 function SummaryStats({
@@ -378,6 +383,8 @@ function SummaryStats({
   totalSets: number;
   totalDuration: number;
 }) {
+  const { palette: Palette } = useTheme();
+  const summaryStyles = useMemo(() => makeSummaryStyles(Palette), [Palette]);
   const workoutCount = workoutsDone ?? 0;
   const avgDuration =
     workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
@@ -425,7 +432,8 @@ function SummaryStats({
   );
 }
 
-const summaryStyles = StyleSheet.create({
+function makeSummaryStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: Spacing.md,
@@ -433,7 +441,7 @@ const summaryStyles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     alignItems: "center",
@@ -443,21 +451,22 @@ const summaryStyles = StyleSheet.create({
   value: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   sub: {
     fontSize: 11,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 1,
   },
   label: {
     fontSize: 10,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
 });
+}
 
 // ── Workout History Card ────────────────────────────────────
 function WorkoutCard({
@@ -467,6 +476,8 @@ function WorkoutCard({
   item: WorkoutHistoryItem;
   onPress: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const wkStyles = useMemo(() => makeWkStyles(Palette), [Palette]);
   const dateObj = new Date(item.workout_date + "T00:00:00");
   const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
   const monthDay = dateObj.toLocaleDateString("en-US", {
@@ -523,6 +534,8 @@ function WorkoutDetailModal({
   sessionId: string | null;
   onClose: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const detailStyles = useMemo(() => makeDetailStyles(Palette), [Palette]);
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -664,14 +677,15 @@ function WorkoutDetailModal({
   );
 }
 
-const detailStyles = StyleSheet.create({
+function makeDetailStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Palette.overlay,
+    backgroundColor: P.overlay,
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: Spacing.xl,
@@ -682,7 +696,7 @@ const detailStyles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     alignSelf: "center",
     marginBottom: Spacing.lg,
   },
@@ -694,28 +708,28 @@ const detailStyles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   date: {
     fontSize: 13,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtnText: {
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     fontSize: 14,
     fontWeight: "700",
   },
   durationBadge: {
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     borderRadius: Radii.md,
     paddingVertical: 10,
     paddingHorizontal: Spacing.lg,
@@ -723,17 +737,17 @@ const detailStyles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   durationText: {
-    color: Palette.accent,
+    color: P.accent,
     fontSize: 13,
     fontWeight: "700",
   },
   exerciseCard: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   exerciseHeader: {
     flexDirection: "row",
@@ -744,7 +758,7 @@ const detailStyles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.sm,
@@ -753,24 +767,24 @@ const detailStyles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   setCount: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     fontWeight: "600",
   },
   setHeaderRow: {
     flexDirection: "row",
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.divider,
+    borderBottomColor: P.divider,
     marginBottom: Spacing.sm,
   },
   setHeaderText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Palette.textMuted,
+    color: P.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -779,24 +793,26 @@ const detailStyles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.divider,
+    borderBottomColor: P.divider,
   },
   setText: {
     fontSize: 14,
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     fontWeight: "600",
   },
 });
+}
 
-const wkStyles = StyleSheet.create({
+function makeWkStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   dateCol: {
     alignItems: "center",
@@ -805,25 +821,25 @@ const wkStyles = StyleSheet.create({
   day: {
     fontSize: 11,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
     textTransform: "uppercase",
   },
   monthDay: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 2,
   },
   divider: {
     width: 1,
     height: 36,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     marginHorizontal: Spacing.md,
   },
   iconWrap: {
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -833,7 +849,7 @@ const wkStyles = StyleSheet.create({
   type: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   metaRow: {
     flexDirection: "row",
@@ -843,18 +859,19 @@ const wkStyles = StyleSheet.create({
   },
   meta: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   metaDot: {
-    color: Palette.textMuted,
+    color: P.textMuted,
     fontSize: 10,
   },
   chevron: {
     fontSize: 14,
-    color: Palette.textMuted,
+    color: P.textMuted,
     marginLeft: Spacing.sm,
   },
 });
+}
 
 // ── Tab Selector ────────────────────────────────────────────
 function TabSelector({
@@ -866,6 +883,8 @@ function TabSelector({
   active: string;
   onChange: (t: string) => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const tabStyles = useMemo(() => makeTabStyles(Palette), [Palette]);
   return (
     <View style={tabStyles.row}>
       {tabs.map((t) => (
@@ -883,15 +902,16 @@ function TabSelector({
   );
 }
 
-const tabStyles = StyleSheet.create({
+function makeTabStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   row: {
     flexDirection: "row",
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.md,
     padding: 3,
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   tab: {
     flex: 1,
@@ -900,20 +920,24 @@ const tabStyles = StyleSheet.create({
     alignItems: "center",
   },
   tabActive: {
-    backgroundColor: Palette.accent,
+    backgroundColor: P.accent,
   },
   text: {
     fontSize: 13,
     fontWeight: "700",
-    color: Palette.textMuted,
+    color: P.textMuted,
   },
   textActive: {
-    color: Palette.white,
+    color: P.white,
   },
 });
+}
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function ProgressScreen() {
+  const { palette: Palette } = useTheme();
+  const bodyStyles = useMemo(() => makeBodyStyles(Palette), [Palette]);
+  const styles = useMemo(() => makeProgressStyles(Palette), [Palette]);
   const [activeTab, setActiveTab] = useState("Overview");
   const [weightData, setWeightData] = useState<WeightEntry[]>(WEIGHT_DATA);
   const [loadingWeights, setLoadingWeights] = useState(false);
@@ -1484,13 +1508,14 @@ export default function ProgressScreen() {
   );
 }
 
-const bodyStyles = StyleSheet.create({
+function makeBodyStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   infoCard: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   infoRow: {
     flexDirection: "row",
@@ -1500,23 +1525,25 @@ const bodyStyles = StyleSheet.create({
   },
   infoDivider: {
     height: 1,
-    backgroundColor: Palette.divider,
+    backgroundColor: P.divider,
   },
   infoLabel: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
 });
+}
 
-const styles = StyleSheet.create({
+function makeProgressStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Palette.bg,
+    backgroundColor: P.bg,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -1525,19 +1552,19 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     letterSpacing: -0.5,
   },
   pageSub: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 4,
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.md,
   },
   emptyState: {
@@ -1551,12 +1578,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.sm,
   },
   emptyBody: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     textAlign: "center",
   },
 });
+}

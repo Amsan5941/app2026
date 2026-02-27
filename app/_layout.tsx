@@ -12,8 +12,7 @@ import "react-native-reanimated";
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import LoginButton from "@/components/login-button";
 import WaterReminderBanner from "@/components/WaterReminderBanner";
-import { Palette } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
@@ -23,8 +22,8 @@ export const unstable_settings = {
 };
 
 function NavigationContent() {
-  const colorScheme = useColorScheme();
   const { session } = useAuth();
+  const { palette: Palette } = useTheme();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [showWaterReminder, setShowWaterReminder] = useState(false);
 
@@ -115,15 +114,25 @@ function NavigationContent() {
   );
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
+// Reads from AppThemeProvider so react-navigation theme stays in sync
+function NavThemeWrapper({ children }: { children: React.ReactNode }) {
+  const { isDark } = useTheme();
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <NavigationContent />
-      </AuthProvider>
-      <StatusBar style="auto" />
+    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      {children}
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppThemeProvider>
+      <NavThemeWrapper>
+        <AuthProvider>
+          <NavigationContent />
+        </AuthProvider>
+        <StatusBar style="auto" />
+      </NavThemeWrapper>
+    </AppThemeProvider>
   );
 }

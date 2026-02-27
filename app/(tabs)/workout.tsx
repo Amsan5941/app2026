@@ -1,4 +1,4 @@
-import { Palette, Radii, Spacing } from "@/constants/theme";
+import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -15,9 +15,10 @@ import {
   updateWorkoutSession
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
+import { useTheme } from "@/hooks/useTheme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +44,8 @@ function NewWorkoutModal({
   onClose: () => void;
   onCreated: (sessionId: string) => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const modalStyles = useMemo(() => makeModalStyles(Palette), [Palette]);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -136,17 +139,18 @@ function NewWorkoutModal({
   );
 }
 
-const modalStyles = StyleSheet.create({
+function makeModalStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Palette.overlay,
+    backgroundColor: P.overlay,
     justifyContent: "flex-end",
   },
   keyboardView: {
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: Palette.bgElevated,
+    backgroundColor: P.bgElevated,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: Spacing.xl,
@@ -156,29 +160,29 @@ const modalStyles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Palette.border,
+    backgroundColor: P.border,
     alignSelf: "center",
     marginBottom: Spacing.lg,
   },
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginBottom: Spacing.xl,
   },
   input: {
-    backgroundColor: Palette.bgInput,
+    backgroundColor: P.bgInput,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     padding: Spacing.lg,
     fontSize: 16,
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.lg,
   },
   quickTags: {
@@ -191,21 +195,21 @@ const modalStyles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   tagActive: {
-    backgroundColor: Palette.accentMuted,
-    borderColor: Palette.accent,
+    backgroundColor: P.accentMuted,
+    borderColor: P.accent,
   },
   tagText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
   },
   tagTextActive: {
-    color: Palette.accent,
+    color: P.accent,
   },
   btn: {
     borderRadius: Radii.lg,
@@ -219,7 +223,7 @@ const modalStyles = StyleSheet.create({
     justifyContent: "center",
   },
   btnText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -228,11 +232,12 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   cancelText: {
-    color: Palette.textMuted,
+    color: P.textMuted,
     fontSize: 14,
     fontWeight: "600",
   },
 });
+}
 
 // ── Delete Exercise Modal ───────────────────────────────────
 function DeleteExerciseModal({
@@ -246,6 +251,9 @@ function DeleteExerciseModal({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const modalStyles = useMemo(() => makeModalStyles(Palette), [Palette]);
+  const deleteModalStyles = useMemo(() => makeDeleteModalStyles(Palette), [Palette]);
   if (!exercise) return null;
 
   return (
@@ -279,7 +287,8 @@ function DeleteExerciseModal({
   );
 }
 
-const deleteModalStyles = StyleSheet.create({
+function makeDeleteModalStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   centeredSheet: {
     borderRadius: 24,
     margin: Spacing.xl,
@@ -301,7 +310,7 @@ const deleteModalStyles = StyleSheet.create({
     borderRadius: Radii.lg,
     overflow: "hidden",
     marginBottom: Spacing.md,
-    backgroundColor: Palette.error,
+    backgroundColor: P.error,
   },
   deleteBtnInner: {
     paddingVertical: 16,
@@ -309,11 +318,12 @@ const deleteModalStyles = StyleSheet.create({
     justifyContent: "center",
   },
   deleteBtnText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 16,
     fontWeight: "800",
   },
 });
+}
 
 // ── Add Exercise Modal ──────────────────────────────────────
 function AddExerciseModal({
@@ -325,6 +335,8 @@ function AddExerciseModal({
   onClose: () => void;
   onAdd: (name: string) => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const modalStyles = useMemo(() => makeModalStyles(Palette), [Palette]);
   const [name, setName] = useState("");
 
   const handleAdd = () => {
@@ -408,6 +420,8 @@ function AddSetRow({
 }: {
   onAdd: (reps: number, weight: number | null) => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const setRowStyles = useMemo(() => makeSetRowStyles(Palette), [Palette]);
   const [reps, setReps] = useState("");
   const [weight, setWeight] = useState("");
 
@@ -448,7 +462,8 @@ function AddSetRow({
   );
 }
 
-const setRowStyles = StyleSheet.create({
+function makeSetRowStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   addRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -457,31 +472,32 @@ const setRowStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: Palette.bgInput,
+    backgroundColor: P.bgInput,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: Platform.OS === "ios" ? 10 : 8,
     fontSize: 14,
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     textAlign: "center",
   },
   addBtn: {
     width: 40,
     height: 40,
     borderRadius: Radii.sm,
-    backgroundColor: Palette.accent,
+    backgroundColor: P.accent,
     alignItems: "center",
     justifyContent: "center",
   },
   addBtnText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 22,
     fontWeight: "700",
     lineHeight: 24,
   },
 });
+}
 
 // ── Exercise Card ───────────────────────────────────────────
 function ExerciseCard({
@@ -495,6 +511,8 @@ function ExerciseCard({
   onDeleteSet: (setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const exStyles = useMemo(() => makeExStyles(Palette), [Palette]);
   return (
     <View style={exStyles.card}>
       <View style={exStyles.header}>
@@ -555,14 +573,15 @@ function ExerciseCard({
   );
 }
 
-const exStyles = StyleSheet.create({
+function makeExStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   header: {
     flexDirection: "row",
@@ -573,7 +592,7 @@ const exStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -583,21 +602,21 @@ const exStyles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "700",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   deleteBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Palette.errorMuted,
+    backgroundColor: P.errorMuted,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
     borderWidth: 1,
-    borderColor: Palette.error + "40",
+    borderColor: P.error + "40",
   },
   deleteBtnText: {
-    color: Palette.error,
+    color: P.error,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -605,13 +624,13 @@ const exStyles = StyleSheet.create({
     flexDirection: "row",
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.divider,
+    borderBottomColor: P.divider,
     marginBottom: Spacing.sm,
   },
   setHeaderText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Palette.textMuted,
+    color: P.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -620,11 +639,11 @@ const exStyles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.divider,
+    borderBottomColor: P.divider,
   },
   setText: {
     fontSize: 14,
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     fontWeight: "600",
   },
   setDeleteBtn: {
@@ -632,10 +651,11 @@ const exStyles = StyleSheet.create({
     alignItems: "center",
   },
   setDeleteText: {
-    color: Palette.textMuted,
+    color: P.textMuted,
     fontSize: 11,
   },
 });
+}
 
 // ── Workout Session Card (collapsed / today view) ───────────
 function WorkoutSessionCard({
@@ -661,6 +681,8 @@ function WorkoutSessionCard({
   onStartTimer: () => void;
   onStopTimer: () => void;
 }) {
+  const { palette: Palette } = useTheme();
+  const sessionStyles = useMemo(() => makeSessionStyles(Palette), [Palette]);
   const [expanded, setExpanded] = useState(true);
   const exerciseCount = session.exercises?.length || 0;
   const totalSets = (session.exercises || []).reduce(
@@ -779,12 +801,13 @@ function WorkoutSessionCard({
   );
 }
 
-const sessionStyles = StyleSheet.create({
+function makeSessionStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
     marginBottom: Spacing.lg,
     overflow: "hidden",
   },
@@ -803,19 +826,19 @@ const sessionStyles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   meta: {
     fontSize: 12,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 2,
   },
   chevron: {
     fontSize: 16,
-    color: Palette.textMuted,
+    color: P.textMuted,
   },
   timerBadge: {
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
@@ -823,7 +846,7 @@ const sessionStyles = StyleSheet.create({
   timerText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
     fontVariant: ["tabular-nums"],
   },
   body: {
@@ -837,22 +860,22 @@ const sessionStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Palette.accentMuted,
+    backgroundColor: P.accentMuted,
     borderRadius: Radii.md,
     paddingVertical: 12,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Palette.accent + "30",
+    borderColor: P.accent + "30",
   },
   timerBtnStop: {
-    backgroundColor: Palette.errorMuted,
-    borderColor: Palette.error + "30",
+    backgroundColor: P.errorMuted,
+    borderColor: P.error + "30",
   },
-  timerBtnIcon: { fontSize: 14, color: Palette.accent },
+  timerBtnIcon: { fontSize: 14, color: P.accent },
   timerBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
   },
   addExBtn: {
     flexDirection: "row",
@@ -861,7 +884,7 @@ const sessionStyles = StyleSheet.create({
     borderRadius: Radii.md,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: Palette.accent + "40",
+    borderColor: P.accent + "40",
     borderStyle: "dashed",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
@@ -869,12 +892,12 @@ const sessionStyles = StyleSheet.create({
   addExIcon: {
     fontSize: 18,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
   },
   addExText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Palette.accent,
+    color: P.accent,
   },
   deleteSession: {
     alignItems: "center",
@@ -884,12 +907,15 @@ const sessionStyles = StyleSheet.create({
   deleteSessionText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Palette.error,
+    color: P.error,
   },
 });
+}
 
 // ── Empty State ─────────────────────────────────────────────
 function EmptyState({ onStart }: { onStart: () => void }) {
+  const { palette: Palette } = useTheme();
+  const emptyStyles = useMemo(() => makeEmptyStyles(Palette), [Palette]);
   return (
     <View style={emptyStyles.container}>
       <Text style={emptyStyles.icon}>💪</Text>
@@ -911,7 +937,8 @@ function EmptyState({ onStart }: { onStart: () => void }) {
   );
 }
 
-const emptyStyles = StyleSheet.create({
+function makeEmptyStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   container: {
     alignItems: "center",
     paddingVertical: 60,
@@ -923,12 +950,12 @@ const emptyStyles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     marginBottom: Spacing.sm,
   },
   body: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     textAlign: "center",
     lineHeight: 20,
     paddingHorizontal: 40,
@@ -944,15 +971,18 @@ const emptyStyles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 16,
     fontWeight: "800",
   },
 });
+}
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function WorkoutScreen() {
   const { user } = useAuth();
+  const { palette: Palette } = useTheme();
+  const styles = useMemo(() => makeWorkoutStyles(Palette), [Palette]);
   const timer = useWorkoutTimer();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1249,10 +1279,11 @@ export default function WorkoutScreen() {
 }
 
 // ── Styles ────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+function makeWorkoutStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Palette.bg,
+    backgroundColor: P.bg,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -1267,12 +1298,12 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
     letterSpacing: -0.5,
   },
   pageSub: {
     fontSize: 14,
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     marginTop: 4,
   },
   newBtn: {
@@ -1284,7 +1315,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   newBtnText: {
-    color: Palette.white,
+    color: P.white,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1295,22 +1326,22 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: Palette.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: Radii.lg,
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: P.border,
   },
   summaryValue: {
     fontSize: 22,
     fontWeight: "800",
-    color: Palette.textPrimary,
+    color: P.textPrimary,
   },
   summaryLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: Palette.textSecondary,
+    color: P.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 2,
@@ -1320,3 +1351,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+}
