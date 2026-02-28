@@ -6,6 +6,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Logs
+logs/
+*.log
+
 # Models
 models/*.pth
 models/*.pt

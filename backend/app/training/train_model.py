@@ -15,27 +15,30 @@ After training, the model is saved to models/food_classifier.pth
 Set USE_CUSTOM_MODEL=true in .env to activate hybrid mode.
 """
 
-import os
 import argparse
 import json
+import logging
+import os
 import time
 from datetime import datetime
+from io import BytesIO
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset, random_split, ConcatDataset
-from torchvision import transforms, datasets
 from PIL import Image
-from io import BytesIO
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
+from torchvision import datasets, transforms
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 # Add project root to path so we can import app modules
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from app.services.custom_model_service import FoodClassifier, FOOD101_CLASSES
-
+from app.services.custom_model_service import FOOD101_CLASSES, FoodClassifier
 
 # ── Training Transforms ───────────────────────────────────
 
@@ -78,7 +81,7 @@ class CustomFoodDataset(Dataset):
         self.class_names = class_names or []
 
         if not os.path.exists(root_dir):
-            print(f"[Dataset] Custom dataset directory not found: {root_dir}")
+            logger.warning("Custom dataset directory not found: %s", root_dir)
             return
 
         # Build class mapping
@@ -96,7 +99,7 @@ class CustomFoodDataset(Dataset):
                 if img_name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
                     self.samples.append((os.path.join(class_dir, img_name), self.class_to_idx[class_name]))
 
-        print(f"[Dataset] Loaded {len(self.samples)} custom samples across {len(self.class_names)} classes")
+        logger.info("Loaded %d custom samples across %d classes", len(self.samples), len(self.class_names))
 
     def __len__(self):
         return len(self.samples)
@@ -116,7 +119,7 @@ def load_food101_dataset(data_dir: str = "datasets/food101"):
     Download and load the Food-101 dataset via torchvision.
     First run will download ~5GB of data.
     """
-    print("[Dataset] Loading Food-101 dataset...")
+    logger.info("Loading Food-101 dataset...")
 
     train_dataset = datasets.Food101(
         root=data_dir,
@@ -132,7 +135,7 @@ def load_food101_dataset(data_dir: str = "datasets/food101"):
         download=True,
     )
 
-    print(f"[Dataset] Food-101: {len(train_dataset)} train, {len(test_dataset)} test samples")
+    logger.info("Food-101: %d train, %d test samples", len(train_dataset), len(test_dataset))
     return train_dataset, test_dataset
 
 
@@ -158,7 +161,7 @@ def train_model(
         output_path: Where to save the trained model
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    print(f"[Training] Using device: {device}")
+    logger.info("Training device: %s", device)
 
     # Load datasets
     train_datasets = []
@@ -184,10 +187,10 @@ def train_model(
                 _, custom_val = random_split(custom_val_dataset, [train_size, val_size])
                 val_datasets.append(custom_val)
         else:
-            print(f"[Warning] Custom dataset directory not found: {custom_dir}")
+            logger.warning("Custom dataset directory not found: %s", custom_dir)
 
     if not train_datasets:
-        print("[Error] No training data available!")
+        logger.error("No training data available!")
         return
 
     # Combine datasets
@@ -197,7 +200,7 @@ def train_model(
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
-    print(f"[Training] Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
+    logger.info("Train samples: %d, Val samples: %d", len(train_dataset), len(val_dataset))
 
     # Create model
     model = FoodClassifier(num_classes=num_classes, pretrained_backbone=True)
@@ -262,10 +265,9 @@ def train_model(
         val_acc = 100.0 * val_correct / val_total
         epoch_time = time.time() - start_time
 
-        print(
-            f"\nEpoch {epoch + 1}/{epochs} ({epoch_time:.1f}s) — "
-            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | "
-            f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
+        logger.info(
+            "Epoch %d/%d (%.1fs) — Train Loss: %.4f, Train Acc: %.2f%% | Val Loss: %.4f, Val Acc: %.2f%%",
+            epoch + 1, epochs, epoch_time, train_loss, train_acc, val_loss, val_acc,
         )
 
         training_history.append({
@@ -292,7 +294,7 @@ def train_model(
                 },
                 output_path,
             )
-            print(f"  ✓ New best model saved ({val_acc:.2f}%)")
+            logger.info("New best model saved (%.2f%%)", val_acc)
 
         scheduler.step()
 
@@ -308,9 +310,9 @@ def train_model(
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
 
-    print(f"\n[Training] Complete! Best accuracy: {best_accuracy:.2f}%")
-    print(f"[Training] Model saved to: {output_path}")
-    print(f"[Training] Report saved to: {report_path}")
+    logger.info("Training complete! Best accuracy: %.2f%%", best_accuracy)
+    logger.info("Model saved to: %s", output_path)
+    logger.info("Report saved to: %s", report_path)
 
 
 if __name__ == "__main__":

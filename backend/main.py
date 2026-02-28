@@ -2,11 +2,31 @@
 AI Diet Tracker - FastAPI Application Entry Point
 """
 
+import logging
+import os
+
+from app.api import food_logs, food_recognition, nutrition
+from app.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import food_recognition, nutrition, food_logs
-from app.config import settings
+# ── Structured Logging ───────────────────────────────────────
+os.makedirs("logs", exist_ok=True)
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler("logs/app.log"),  # File output
+    ],
+)
+# Silence noisy third-party loggers
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("hpack").setLevel(logging.WARNING)
+logging.getLogger("multipart").setLevel(logging.WARNING)
 
 app = FastAPI(
     title="AI Diet Tracker",

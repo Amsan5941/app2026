@@ -2,33 +2,33 @@ import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import {
-  AIFoodItem,
-  AIRecognitionResult,
-  DailySummary,
-  FoodLog,
-  MealType,
-  deleteFoodLog,
-  getDailySummary,
-  getFoodLogs,
-  recognizeFoodImage,
-  recognizeFoodText,
+    AIFoodItem,
+    AIRecognitionResult,
+    DailySummary,
+    FoodLog,
+    MealType,
+    deleteFoodLog,
+    getDailySummary,
+    getFoodLogs,
+    recognizeFoodImage,
+    recognizeFoodText,
 } from "@/services/foodRecognition";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Stop, LinearGradient as SvgGradient } from "react-native-svg";

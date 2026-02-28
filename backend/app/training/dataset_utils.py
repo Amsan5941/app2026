@@ -7,15 +7,18 @@ Tools for:
   3. Dataset statistics and validation
 """
 
-import os
 import asyncio
 import json
+import logging
+import os
+from io import BytesIO
 from typing import Optional
 
 import httpx
 from PIL import Image
-from io import BytesIO
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 async def download_supabase_dataset(
@@ -39,14 +42,14 @@ async def download_supabase_dataset(
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
     from app.services.supabase_service import get_dataset_samples
 
-    print("[Dataset] Fetching samples from Supabase...")
+    logger.info("Fetching dataset samples from Supabase (verified_only=%s)", verified_only)
     samples = await get_dataset_samples(verified_only=verified_only, limit=10000)
 
     if not samples:
-        print("[Dataset] No samples found in Supabase")
+        logger.warning("No dataset samples found in Supabase")
         return
 
-    print(f"[Dataset] Found {len(samples)} samples")
+    logger.info("Found %d dataset samples", len(samples))
     os.makedirs(output_dir, exist_ok=True)
 
     async with httpx.AsyncClient() as client:
@@ -64,7 +67,7 @@ async def download_supabase_dataset(
                     img_path = os.path.join(class_dir, f"img_{i:05d}.jpg")
                     img.save(img_path, "JPEG", quality=95)
             except Exception as e:
-                print(f"  Warning: Failed to download {sample['image_url']}: {e}")
+                logger.warning("Failed to download image %s: %s", sample['image_url'], e)
 
     # Save metadata
     metadata = {
@@ -75,7 +78,7 @@ async def download_supabase_dataset(
     with open(os.path.join(output_dir, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"[Dataset] Downloaded {len(samples)} images to {output_dir}")
+    logger.info("Downloaded %d images to %s", len(samples), output_dir)
 
 
 def get_dataset_stats(data_dir: str = "datasets") -> dict:
