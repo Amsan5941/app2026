@@ -1,5 +1,5 @@
 import { supabase } from "@/constants/supabase";
-import { getCachedUserId } from "@/services/userCache";
+import { getUserId } from "@/services/userCache";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -52,32 +52,7 @@ function getTodayLocal(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-/**
- * Get the internal user_id (from users table) for the current auth user.
- * Uses the cached value when available to avoid 2 DB round-trips.
- */
-async function getUserId(): Promise<string> {
-  const cached = getCachedUserId();
-  if (cached) return cached;
-
-  // Fallback: resolve from DB (should rarely happen)
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) throw new Error("Not authenticated");
-
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_id", user.id)
-    .single();
-
-  if (userError || !userData) throw new Error("User profile not found");
-
-  return userData.id;
-}
+// getUserId() imported from userCache (shared, fast, cached)
 
 // ── CRUD Operations ────────────────────────────────────────────
 
@@ -327,7 +302,8 @@ export async function updateWorkoutSession(
 // ── Query Operations ───────────────────────────────────────────
 
 /**
- * Get today's workout sessions with exercises and sets
+ * Get today's workout sessions with exercises and sets.
+ * Uses a single embedded-select query instead of 3 sequential round-trips.
  */
 export async function getTodayWorkouts(): Promise<{
   success: boolean;
@@ -338,55 +314,37 @@ export async function getTodayWorkouts(): Promise<{
     const userId = await getUserId();
     const today = getTodayLocal();
 
-    const { data: sessions, error: sessError } = await supabase
+    // Single query: sessions → exercises → sets via foreign-key joins
+    const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select("*")
+      .select(`
+        *,
+        session_exercises (
+          *,
+          exercise_sets (*)
+        )
+      `)
       .eq("user_id", userId)
       .eq("workout_date", today)
       .order("created_at", { ascending: true });
 
-    if (sessError) throw sessError;
+    if (error) throw error;
     if (!sessions || sessions.length === 0) {
       return { success: true, data: [] };
     }
 
-    // Fetch exercises for all sessions
-    const sessionIds = sessions.map((s) => s.id);
-    const { data: exercises, error: exError } = await supabase
-      .from("session_exercises")
-      .select("*")
-      .in("session_id", sessionIds)
-      .order("sort_order", { ascending: true });
-
-    if (exError) throw exError;
-
-    // Fetch sets for all exercises
-    const exerciseIds = (exercises || []).map((e) => e.id);
-    let sets: any[] = [];
-    if (exerciseIds.length > 0) {
-      const { data: setsData, error: setsError } = await supabase
-        .from("exercise_sets")
-        .select("*")
-        .in("exercise_id", exerciseIds)
-        .order("set_number", { ascending: true });
-
-      if (setsError) throw setsError;
-      sets = setsData || [];
-    }
-
-    // Assemble the nested structure
-    const result: WorkoutSession[] = sessions.map((session) => {
-      const sessionExercises = (exercises || [])
-        .filter((e) => e.session_id === session.id)
-        .map((ex) => ({
+    // Normalise nested shape to match the WorkoutSession type
+    const result: WorkoutSession[] = sessions.map((session: any) => {
+      const exercises = (session.session_exercises || [])
+        .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((ex: any) => ({
           ...ex,
-          sets: sets.filter((s) => s.exercise_id === ex.id),
+          sets: (ex.exercise_sets || []).sort(
+            (a: any, b: any) => (a.set_number ?? 0) - (b.set_number ?? 0),
+          ),
         }));
 
-      return {
-        ...session,
-        exercises: sessionExercises,
-      };
+      return { ...session, exercises, session_exercises: undefined };
     });
 
     return { success: true, data: result };
@@ -403,43 +361,32 @@ export async function getWorkoutSession(
   sessionId: string,
 ): Promise<{ success: boolean; data?: WorkoutSession; error?: any }> {
   try {
-    const { data: session, error: sessError } = await supabase
+    const { data: session, error } = await supabase
       .from("workout_sessions")
-      .select("*")
+      .select(`
+        *,
+        session_exercises (
+          *,
+          exercise_sets (*)
+        )
+      `)
       .eq("id", sessionId)
       .single();
 
-    if (sessError) throw sessError;
+    if (error) throw error;
 
-    const { data: exercises, error: exError } = await supabase
-      .from("session_exercises")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("sort_order", { ascending: true });
-
-    if (exError) throw exError;
-
-    const exerciseIds = (exercises || []).map((e) => e.id);
-    let sets: any[] = [];
-    if (exerciseIds.length > 0) {
-      const { data: setsData, error: setsError } = await supabase
-        .from("exercise_sets")
-        .select("*")
-        .in("exercise_id", exerciseIds)
-        .order("set_number", { ascending: true });
-
-      if (setsError) throw setsError;
-      sets = setsData || [];
-    }
-
-    const sessionExercises = (exercises || []).map((ex) => ({
-      ...ex,
-      sets: sets.filter((s) => s.exercise_id === ex.id),
-    }));
+    const exercises = ((session as any).session_exercises || [])
+      .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((ex: any) => ({
+        ...ex,
+        sets: (ex.exercise_sets || []).sort(
+          (a: any, b: any) => (a.set_number ?? 0) - (b.set_number ?? 0),
+        ),
+      }));
 
     return {
       success: true,
-      data: { ...session, exercises: sessionExercises },
+      data: { ...session, exercises, session_exercises: undefined } as any,
     };
   } catch (error) {
     console.error("Error fetching workout session:", error);
@@ -456,48 +403,31 @@ export async function getWorkoutHistory(
   try {
     const userId = await getUserId();
 
-    const { data: sessions, error: sessError } = await supabase
+    // Single query: sessions with nested exercise → set counts
+    const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select("*")
+      .select(`
+        *,
+        session_exercises (
+          id,
+          exercise_sets ( id )
+        )
+      `)
       .eq("user_id", userId)
       .order("workout_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (sessError) throw sessError;
+    if (error) throw error;
     if (!sessions || sessions.length === 0) {
       return { success: true, data: [] };
     }
 
-    // Fetch exercise counts
-    const sessionIds = sessions.map((s) => s.id);
-    const { data: exercises, error: exError } = await supabase
-      .from("session_exercises")
-      .select("id, session_id")
-      .in("session_id", sessionIds);
-
-    if (exError) throw exError;
-
-    // Fetch set counts
-    const exerciseIds = (exercises || []).map((e) => e.id);
-    let sets: any[] = [];
-    if (exerciseIds.length > 0) {
-      const { data: setsData, error: setsError } = await supabase
-        .from("exercise_sets")
-        .select("id, exercise_id")
-        .in("exercise_id", exerciseIds);
-
-      if (setsError) throw setsError;
-      sets = setsData || [];
-    }
-
-    const result: WorkoutHistoryItem[] = sessions.map((session) => {
-      const sessionExercises = (exercises || []).filter(
-        (e) => e.session_id === session.id,
-      );
-      const sessionExerciseIds = sessionExercises.map((e) => e.id);
-      const sessionSets = sets.filter((s) =>
-        sessionExerciseIds.includes(s.exercise_id),
+    const result: WorkoutHistoryItem[] = sessions.map((session: any) => {
+      const exercises = session.session_exercises || [];
+      const totalSets = exercises.reduce(
+        (sum: number, ex: any) => sum + (ex.exercise_sets?.length || 0),
+        0,
       );
 
       return {
@@ -506,8 +436,8 @@ export async function getWorkoutHistory(
         workout_date: session.workout_date,
         duration_seconds: session.duration_seconds,
         created_at: session.created_at,
-        exercise_count: sessionExercises.length,
-        total_sets: sessionSets.length,
+        exercise_count: exercises.length,
+        total_sets: totalSets,
       };
     });
 
@@ -557,27 +487,18 @@ export async function getExerciseNames(): Promise<{
   try {
     const userId = await getUserId();
 
-    // Need to join through workout_sessions to filter by user
-    const { data: sessions, error: sessError } = await supabase
+    // Single query: join through workout_sessions via embedded select
+    const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select("id")
+      .select("session_exercises ( exercise_name )")
       .eq("user_id", userId);
-
-    if (sessError) throw sessError;
-    if (!sessions || sessions.length === 0) {
-      return { success: true, data: [] };
-    }
-
-    const sessionIds = sessions.map((s) => s.id);
-    const { data, error } = await supabase
-      .from("session_exercises")
-      .select("exercise_name")
-      .in("session_id", sessionIds)
-      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    const unique = [...new Set((data || []).map((d) => d.exercise_name))];
+    const names = (sessions || []).flatMap(
+      (s: any) => (s.session_exercises || []).map((e: any) => e.exercise_name),
+    );
+    const unique = [...new Set(names)];
     return { success: true, data: unique };
   } catch (error) {
     console.error("Error fetching exercise names:", error);
@@ -605,39 +526,36 @@ export async function getWeeklyWorkoutStats(): Promise<{
     monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     const weekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
 
-    const { data: sessions, error: sessError } = await supabase
+    // Single query: sessions with nested exercise → set IDs
+    const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select("id, duration_seconds")
+      .select(`
+        id,
+        duration_seconds,
+        session_exercises (
+          id,
+          exercise_sets ( id )
+        )
+      `)
       .eq("user_id", userId)
       .gte("workout_date", weekStart);
 
-    if (sessError) throw sessError;
+    if (error) throw error;
 
     const workoutCount = (sessions || []).length;
     const totalDuration = (sessions || []).reduce(
-      (sum, s) => sum + (s.duration_seconds || 0),
+      (sum: number, s: any) => sum + (s.duration_seconds || 0),
       0,
     );
-
-    // Count total sets
-    let totalSets = 0;
-    if (sessions && sessions.length > 0) {
-      const sessionIds = sessions.map((s) => s.id);
-      const { data: exercises } = await supabase
-        .from("session_exercises")
-        .select("id")
-        .in("session_id", sessionIds);
-
-      if (exercises && exercises.length > 0) {
-        const exerciseIds = exercises.map((e) => e.id);
-        const { count } = await supabase
-          .from("exercise_sets")
-          .select("id", { count: "exact", head: true })
-          .in("exercise_id", exerciseIds);
-
-        totalSets = count || 0;
-      }
-    }
+    const totalSets = (sessions || []).reduce(
+      (sum: number, s: any) =>
+        sum +
+        (s.session_exercises || []).reduce(
+          (eSum: number, ex: any) => eSum + (ex.exercise_sets?.length || 0),
+          0,
+        ),
+      0,
+    );
 
     return { success: true, workoutCount, totalSets, totalDuration };
   } catch (error) {

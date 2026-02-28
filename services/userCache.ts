@@ -10,6 +10,9 @@ import { supabase } from "@/constants/supabase";
 
 let cachedInternalUserId: string | null = null;
 
+/** In-flight resolution promise to avoid duplicate DB lookups */
+let resolvePromise: Promise<string> | null = null;
+
 /**
  * Resolve the internal user ID from the `users` table for the given auth_id
  * and store it in the module-level cache. Returns the internal ID.
@@ -42,4 +45,39 @@ export function getCachedUserId(): string | null {
  */
 export function clearCachedUserId(): void {
   cachedInternalUserId = null;
+  resolvePromise = null;
+}
+
+/**
+ * Shared getUserId() for all services.
+ *
+ * 1. Returns the cached internal ID instantly if available.
+ * 2. Falls back to getSession() (local, NO network call) to obtain the
+ *    auth_id, then resolves and caches the internal user ID.
+ * 3. De-duplicates concurrent fallback calls so the DB query runs at most once.
+ */
+export async function getUserId(): Promise<string> {
+  const cached = cachedInternalUserId;
+  if (cached) return cached;
+
+  // De-duplicate: if another call is already resolving, wait for it
+  if (resolvePromise) return resolvePromise;
+
+  resolvePromise = (async () => {
+    try {
+      // getSession() reads from local storage — no network round-trip
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const authId = session?.user?.id;
+      if (!authId) throw new Error("Not authenticated");
+
+      return await resolveAndCacheUserId(authId);
+    } finally {
+      resolvePromise = null;
+    }
+  })();
+
+  return resolvePromise;
 }

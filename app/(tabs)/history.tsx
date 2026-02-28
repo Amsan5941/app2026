@@ -971,12 +971,12 @@ export default function ProgressScreen() {
     async function loadWeights() {
       setLoadingWeights(true);
       try {
-        // only call getCurrentUserBioProfile if there's an auth user to avoid AuthSessionMissingError
+        // only call getCurrentUserBioProfile if there's an auth session (no network call)
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
         let bpRes: any = { success: false, profile: null };
-        if (user) {
+        if (session?.user) {
           try {
             bpRes = await getCurrentUserBioProfile();
           } catch (e) {
@@ -1175,16 +1175,16 @@ export default function ProgressScreen() {
       const blob = await resp.blob();
 
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Not authenticated");
 
       const userId = getCachedUserId();
       if (!userId) throw new Error("User ID not cached");
 
       const fileName = `${Date.now()}.jpg`;
       const up = await uploadProgressPhoto({
-        authUid: user.id,
+        authUid: session.user.id,
         userId: userId,
         fileName,
         blob,
