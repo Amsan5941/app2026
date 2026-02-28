@@ -11,16 +11,19 @@ Over time, as more user data is collected and the model improves,
 fewer requests will need to fall through to OpenAI.
 """
 
+import logging
 import os
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
 from io import BytesIO
 from typing import Optional
 
+import torch
+import torch.nn as nn
 from app.config import settings
 from app.models.food_model import CustomModelPrediction
+from PIL import Image
+from torchvision import models, transforms
+
+logger = logging.getLogger(__name__)
 
 # Food-101 classes (101 food categories)
 FOOD101_CLASSES = [
@@ -96,12 +99,12 @@ def load_model() -> Optional[FoodClassifier]:
 
     model_path = settings.custom_model_path
     if not os.path.exists(model_path):
-        print(f"[Custom Model] No model found at {model_path}. Custom model disabled.")
+        logger.info("No model found at %s — custom model disabled", model_path)
         _model_loaded = True
         _model = None
         return None
 
-    print(f"[Custom Model] Loading model from {model_path}...")
+    logger.info("Loading custom model from %s", model_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
@@ -114,7 +117,7 @@ def load_model() -> Optional[FoodClassifier]:
 
     _model = model
     _model_loaded = True
-    print(f"[Custom Model] Model loaded successfully ({num_classes} classes)")
+    logger.info("Custom model loaded successfully (%d classes)", num_classes)
     return model
 
 
@@ -164,8 +167,8 @@ async def hybrid_analyze(
     Returns:
         dict with "result" (AIRecognitionResult) and "source" info
     """
-    from app.services.openai_service import analyze_food_image
     from app.models.food_model import RecognitionSource
+    from app.services.openai_service import analyze_food_image
 
     custom_prediction = None
     used_source = RecognitionSource.openai
@@ -178,9 +181,10 @@ async def hybrid_analyze(
             # Custom model is confident — still use OpenAI but tell it what we detected
             # This gives us the best of both worlds: custom model speed + OpenAI nutrition data
             used_source = RecognitionSource.hybrid
-            print(
-                f"[Hybrid] Custom model detected: {custom_prediction.food_name} "
-                f"(confidence: {custom_prediction.confidence:.2f})"
+            logger.info(
+                "Hybrid: custom model detected %s (confidence=%.2f)",
+                custom_prediction.food_name,
+                custom_prediction.confidence,
             )
 
     # Step 2: Get full nutrition analysis from OpenAI

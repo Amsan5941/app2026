@@ -7,6 +7,7 @@ Endpoints:
   POST /api/v1/recognize/hybrid  → Photo → Custom model + OpenAI hybrid
 """
 
+import logging
 import uuid
 from datetime import date
 from typing import Optional
@@ -17,6 +18,8 @@ from app.models.food_model import (AIRecognitionResult, MealType,
 from app.services import openai_service, supabase_service
 from app.services.custom_model_service import hybrid_analyze
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,12 +37,12 @@ async def recognize_food_image(
 
     Optionally saves as a food log entry if user_id/auth_id and meal_type are provided.
     """
-    print(f"[DEBUG] Image recognition request - auth_id: {auth_id}, user_id: {user_id}, meal_type: {meal_type}, save_log: {save_log}")
+    logger.info("Image recognition request", extra={"meal_type": meal_type, "save_log": save_log})
     
     # Resolve user_id from auth_id if not provided directly
     if not user_id and auth_id:
         user_id = await supabase_service.get_user_id_from_auth(auth_id)
-        print(f"[DEBUG] Resolved user_id from auth_id: {user_id}")
+        logger.debug("Resolved user_id from auth_id")
 
     # Validate file type
     if image.content_type not in ["image/jpeg", "image/png", "image/webp"]:
@@ -57,9 +60,8 @@ async def recognize_food_image(
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
 
     # Optionally save food log (without image storage for cost savings)
-    print(f"[DEBUG] Save check - save_log: {save_log}, user_id: {user_id}, meal_type: {meal_type}")
     if save_log and user_id and meal_type:
-        print(f"[DEBUG] Attempting to save food log for user {user_id}")
+        logger.info("Saving food log", extra={"meal_type": meal_type})
         try:
             # Upload image to Supabase Storage (if enabled)
             image_url = None
@@ -74,12 +76,10 @@ async def recognize_food_image(
                 meal_type=meal_type.value,
                 logged_date=date.today(),
             )
-            print(f"[DEBUG] Successfully saved food log for user {user_id}")
+            logger.info("Food log saved successfully")
         except Exception as e:
             # Don't fail the recognition if saving fails — return results anyway
-            print(f"[ERROR] Failed to save food log: {e}")
-    else:
-        print(f"[DEBUG] Skipping save - condition not met")
+            logger.error("Failed to save food log", exc_info=e)
 
     return result
 
@@ -96,12 +96,12 @@ async def recognize_food_text(
     Describe your meal in text → AI estimates nutrition.
     Example: "2 scrambled eggs, 2 slices of toast with butter, glass of orange juice"
     """
-    print(f"[DEBUG] Text recognition request - auth_id: {auth_id}, user_id: {user_id}, meal_type: {meal_type}, save_log: {save_log}")
+    logger.info("Text recognition request", extra={"meal_type": meal_type, "save_log": save_log})
     
     # Resolve user_id from auth_id if not provided directly
     if not user_id and auth_id:
         user_id = await supabase_service.get_user_id_from_auth(auth_id)
-        print(f"[DEBUG] Resolved user_id from auth_id: {user_id}")
+        logger.debug("Resolved user_id from auth_id")
 
     if not description.strip():
         raise HTTPException(status_code=400, detail="Description cannot be empty")
@@ -112,9 +112,8 @@ async def recognize_food_text(
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
 
     # Optionally save
-    print(f"[DEBUG] Save check - save_log: {save_log}, user_id: {user_id}, meal_type: {meal_type}")
     if save_log and user_id and meal_type:
-        print(f"[DEBUG] Attempting to save food log for user {user_id}")
+        logger.info("Saving food log", extra={"meal_type": meal_type})
         try:
             await supabase_service.create_food_log(
                 user_id=user_id,
@@ -124,11 +123,9 @@ async def recognize_food_text(
                 logged_date=date.today(),
                 notes=f"Text entry: {description}",
             )
-            print(f"[DEBUG] Successfully saved food log for user {user_id}")
+            logger.info("Food log saved successfully")
         except Exception as e:
-            print(f"[ERROR] Failed to save food log: {e}")
-    else:
-        print(f"[DEBUG] Skipping save - condition not met")
+            logger.error("Failed to save food log", exc_info=e)
 
     return result
 
@@ -198,7 +195,7 @@ async def recognize_food_hybrid(
                         )
                     )
         except Exception as e:
-            print(f"Warning: Failed to save food log: {e}")
+            logger.warning("Failed to save food log from hybrid endpoint", exc_info=e)
 
     return {
         "recognition": ai_result,
