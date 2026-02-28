@@ -3,6 +3,7 @@ import { supabase } from "@/constants/supabase";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useSteps } from "@/hooks/useSteps";
+import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
 import {
@@ -16,8 +17,8 @@ import {
   getTodayWorkouts,
   getWeeklyWorkoutStats,
 } from "@/services/workoutTracking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
-import { useTheme } from "@/hooks/useTheme";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -124,25 +125,25 @@ function ProgressRing({
 
 function makeRingStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  container: { justifyContent: "center", alignItems: "center" },
-  inner: {
-    position: "absolute",
-    alignItems: "center",
-  },
-  pct: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: P.textPrimary,
-    letterSpacing: -1,
-  },
-  label: {
-    fontSize: 12,
-    color: P.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-});
+    container: { justifyContent: "center", alignItems: "center" },
+    inner: {
+      position: "absolute",
+      alignItems: "center",
+    },
+    pct: {
+      fontSize: 32,
+      fontWeight: "800",
+      color: P.textPrimary,
+      letterSpacing: -1,
+    },
+    label: {
+      fontSize: 12,
+      color: P.textMuted,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginTop: 2,
+    },
+  });
 }
 
 // ── Quick-Action Card ───────────────────────────────────────
@@ -177,42 +178,42 @@ function QuickAction({
 
 function makeQaStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
-  },
-  icon: { fontSize: 22 },
-  value: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: P.textPrimary,
-    marginBottom: 2,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: P.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  sub: {
-    fontSize: 10,
-    color: P.textMuted,
-    marginTop: 2,
-  },
-});
+    card: {
+      flex: 1,
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      alignItems: "center",
+      borderWidth: 1,
+    },
+    iconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: Spacing.sm,
+    },
+    icon: { fontSize: 22 },
+    value: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: P.textPrimary,
+      marginBottom: 2,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: P.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    sub: {
+      fontSize: 10,
+      color: P.textMuted,
+      marginTop: 2,
+    },
+  });
 }
 
 // ── Summary Stats (copied from history.tsx) ─────────────────
@@ -278,38 +279,38 @@ function SummaryStats({
 
 function makeSummaryStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  card: {
-    flex: 1,
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  icon: { fontSize: 20, marginBottom: 4 },
-  value: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  sub: {
-    fontSize: 11,
-    color: P.textSecondary,
-    marginTop: 1,
-  },
-  label: {
-    fontSize: 10,
-    color: P.textMuted,
-    marginTop: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-});
+    row: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginBottom: Spacing.xl,
+    },
+    card: {
+      flex: 1,
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.md,
+      alignItems: "center",
+      borderWidth: 1,
+    },
+    icon: { fontSize: 20, marginBottom: 4 },
+    value: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    sub: {
+      fontSize: 11,
+      color: P.textSecondary,
+      marginTop: 1,
+    },
+    label: {
+      fontSize: 10,
+      color: P.textMuted,
+      marginTop: 4,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+  });
 }
 
 // ── Home Screen ─────────────────────────────────────────────
@@ -347,6 +348,7 @@ export default function HomeScreen() {
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
   const [firstname, setFirstname] = useState("");
+  const [streakCount, setStreakCount] = useState<number>(0);
 
   // ── All-in-one parallel data loader ───────────────────────
   async function loadAllData(isInitial = false) {
@@ -359,6 +361,12 @@ export default function HomeScreen() {
         timeZone: "America/New_York",
       });
       if (isInitial) setEstDate(currentEst);
+      // update login streak (stored locally) on initial and subsequent loads
+      try {
+        await updateLoginStreak(currentEst);
+      } catch (err) {
+        // ignore
+      }
       // Fire ALL requests in parallel instead of sequentially
       const [
         nameResult,
@@ -447,6 +455,68 @@ export default function HomeScreen() {
       // ignore
     } finally {
       if (isInitial) setLoading(false);
+    }
+  }
+
+  // --- Streak helpers (persisted in AsyncStorage per-user) ----------------
+  function getStreakKey() {
+    return user ? `streak:${user.id}` : null;
+  }
+
+  function getYesterdayEst(dateStr?: string) {
+    const today = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    // compute yesterday in America/New_York by shifting one day back
+    const d = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  }
+
+  async function updateLoginStreak(currentEstDate?: string) {
+    if (!user) return;
+    const key = getStreakKey();
+    if (!key) return;
+    const today =
+      currentEstDate ??
+      new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+
+    try {
+      const raw = await AsyncStorage.getItem(key);
+      if (!raw) {
+        // first-time: start streak at 1
+        const payload = { count: 1, last: today };
+        await AsyncStorage.setItem(key, JSON.stringify(payload));
+        setStreakCount(1);
+        return;
+      }
+
+      const parsed = JSON.parse(raw || "{}");
+      const last = parsed.last as string | undefined;
+      const count = Number(parsed.count) || 0;
+
+      if (last === today) {
+        // already recorded today
+        setStreakCount(count);
+        return;
+      }
+
+      const yesterday = getYesterdayEst();
+      if (last === yesterday) {
+        // consecutive day: increment
+        const next = count + 1 || 1;
+        const payload = { count: next, last: today };
+        await AsyncStorage.setItem(key, JSON.stringify(payload));
+        setStreakCount(next);
+      } else {
+        // broke streak: reset to 1
+        const payload = { count: 1, last: today };
+        await AsyncStorage.setItem(key, JSON.stringify(payload));
+        setStreakCount(1);
+      }
+    } catch (err) {
+      // fallback: set zero or keep existing
+      // don't crash the app for storage errors
     }
   }
 
@@ -591,7 +661,7 @@ export default function HomeScreen() {
               )}
               <View style={styles.streakBadge}>
                 <Text style={styles.streakIcon}>🔥</Text>
-                <Text style={styles.streakCount}>0</Text>
+                <Text style={styles.streakCount}>{streakCount}</Text>
               </View>
             </View>
           </View>
@@ -877,264 +947,264 @@ export default function HomeScreen() {
 // ── Styles ────────────────────────────────────────────────────
 function makeHomeStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: Spacing.lg,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: P.textSecondary,
-    fontWeight: "600",
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-  },
+    safe: {
+      flex: 1,
+      backgroundColor: P.bg,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      gap: Spacing.lg,
+    },
+    loadingText: {
+      fontSize: 14,
+      color: P.textSecondary,
+      fontWeight: "600",
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.lg,
+    },
 
-  // Header
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  headerBadges: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: P.textPrimary,
-    letterSpacing: -0.5,
-  },
-  date: {
-    fontSize: 14,
-    color: P.textSecondary,
-    marginTop: 4,
-  },
-  weightBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: P.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: P.accent + "30",
-  },
-  weightBadgeIcon: {
-    fontSize: 20,
-  },
-  streakBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: P.warningMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radii.full,
-    gap: 4,
-  },
-  streakIcon: { fontSize: 18 },
-  streakCount: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: P.warning,
-  },
-  // Progress ring
-  ringSection: {
-    alignItems: "center",
-    marginBottom: Spacing["2xl"],
-  },
-  // Stats row
-  statsRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  // Goal card
-  goalCard: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  goalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: Spacing.sm,
-  },
-  goalIcon: { fontSize: 20 },
-  goalTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-  goalBody: {
-    fontSize: 14,
-    color: P.textSecondary,
-    lineHeight: 20,
-    marginBottom: Spacing.md,
-  },
-  goalProgress: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  goalBarTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: P.border,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  goalBarFill: {
-    height: "100%",
-    backgroundColor: P.accent,
-    borderRadius: 4,
-  },
-  goalPct: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: P.accent,
-  },
-  // Quote card
-  quoteCard: {
-    backgroundColor: P.accentMuted,
-    borderRadius: Radii.lg,
-    padding: Spacing.xl,
-    flexDirection: "row",
-    gap: Spacing.md,
-    alignItems: "flex-start",
-    borderWidth: 1,
-    borderColor: P.accent + "30",
-  },
-  quoteIcon: { fontSize: 20, marginTop: 2 },
-  quoteText: {
-    flex: 1,
-    fontSize: 14,
-    fontStyle: "italic",
-    color: P.accentLight,
-    lineHeight: 22,
-  },
-  legendRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  legendHeader: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: P.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
-    alignSelf: "center",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: Spacing.sm,
-  },
-  legendItemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  legendIcon: {
-    fontSize: 16,
-  },
-  legendLabel: {
-    fontSize: 12,
-    color: P.textSecondary,
-  },
-  legendPct: {
-    fontSize: 12,
-    marginLeft: 6,
-    color: P.textSecondary,
-    fontWeight: "700",
-  },
-  // Water intake tracker
-  waterCount: {
-    fontSize: 13,
-    color: "#38BDF8",
-    fontWeight: "700",
-    marginLeft: "auto",
-  },
-  waterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-    justifyContent: "center",
-  },
-  waterDrop: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  waterDropFilled: {
-    backgroundColor: "rgba(56, 189, 248, 0.15)",
-  },
-  waterDropEmpty: {
-    backgroundColor: P.bgCard,
-  },
-  waterButtons: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  waterBtnMinus: {
-    width: 44,
-    height: 40,
-    borderRadius: Radii.md,
-    backgroundColor: P.bgCard,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  waterBtnText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: P.textSecondary,
-  },
-  waterBtnPlus: {
-    flex: 1,
-    height: 40,
-    borderRadius: Radii.md,
-    backgroundColor: "rgba(56, 189, 248, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.20)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  waterBtnPlusText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#38BDF8",
-    letterSpacing: 0.3,
-  },
-});
+    // Header
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: Spacing.xl,
+    },
+    headerBadges: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+    },
+    greeting: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: P.textPrimary,
+      letterSpacing: -0.5,
+    },
+    date: {
+      fontSize: 14,
+      color: P.textSecondary,
+      marginTop: 4,
+    },
+    weightBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: P.accent + "30",
+    },
+    weightBadgeIcon: {
+      fontSize: 20,
+    },
+    streakBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: P.warningMuted,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: Radii.full,
+      gap: 4,
+    },
+    streakIcon: { fontSize: 18 },
+    streakCount: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: P.warning,
+    },
+    // Progress ring
+    ringSection: {
+      alignItems: "center",
+      marginBottom: Spacing["2xl"],
+    },
+    // Stats row
+    statsRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginBottom: Spacing.xl,
+    },
+    // Goal card
+    goalCard: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.xl,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    goalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: Spacing.sm,
+    },
+    goalIcon: { fontSize: 20 },
+    goalTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    goalBody: {
+      fontSize: 14,
+      color: P.textSecondary,
+      lineHeight: 20,
+      marginBottom: Spacing.md,
+    },
+    goalProgress: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.md,
+    },
+    goalBarTrack: {
+      flex: 1,
+      height: 8,
+      backgroundColor: P.border,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    goalBarFill: {
+      height: "100%",
+      backgroundColor: P.accent,
+      borderRadius: 4,
+    },
+    goalPct: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: P.accent,
+    },
+    // Quote card
+    quoteCard: {
+      backgroundColor: P.accentMuted,
+      borderRadius: Radii.lg,
+      padding: Spacing.xl,
+      flexDirection: "row",
+      gap: Spacing.md,
+      alignItems: "flex-start",
+      borderWidth: 1,
+      borderColor: P.accent + "30",
+    },
+    quoteIcon: { fontSize: 20, marginTop: 2 },
+    quoteText: {
+      flex: 1,
+      fontSize: 14,
+      fontStyle: "italic",
+      color: P.accentLight,
+      lineHeight: 22,
+    },
+    legendRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginTop: Spacing.md,
+      justifyContent: "center",
+      flexWrap: "wrap",
+    },
+    legendHeader: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: P.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      marginBottom: Spacing.sm,
+      marginTop: Spacing.md,
+      alignSelf: "center",
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: Spacing.sm,
+    },
+    legendItemRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: Spacing.sm,
+      marginBottom: Spacing.sm,
+    },
+    legendIcon: {
+      fontSize: 16,
+    },
+    legendLabel: {
+      fontSize: 12,
+      color: P.textSecondary,
+    },
+    legendPct: {
+      fontSize: 12,
+      marginLeft: 6,
+      color: P.textSecondary,
+      fontWeight: "700",
+    },
+    // Water intake tracker
+    waterCount: {
+      fontSize: 13,
+      color: "#38BDF8",
+      fontWeight: "700",
+      marginLeft: "auto",
+    },
+    waterRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+      justifyContent: "center",
+    },
+    waterDrop: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    waterDropFilled: {
+      backgroundColor: "rgba(56, 189, 248, 0.15)",
+    },
+    waterDropEmpty: {
+      backgroundColor: P.bgCard,
+    },
+    waterButtons: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginTop: Spacing.md,
+    },
+    waterBtnMinus: {
+      width: 44,
+      height: 40,
+      borderRadius: Radii.md,
+      backgroundColor: P.bgCard,
+      borderWidth: 1,
+      borderColor: P.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    waterBtnText: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: P.textSecondary,
+    },
+    waterBtnPlus: {
+      flex: 1,
+      height: 40,
+      borderRadius: Radii.md,
+      backgroundColor: "rgba(56, 189, 248, 0.12)",
+      borderWidth: 1,
+      borderColor: "rgba(56, 189, 248, 0.20)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    waterBtnPlusText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: "#38BDF8",
+      letterSpacing: 0.3,
+    },
+  });
 }
