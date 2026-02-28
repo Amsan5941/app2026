@@ -1,41 +1,20 @@
 import { supabase } from "@/constants/supabase";
-import { getCachedUserId } from "@/services/userCache";
+import { getCachedUserId, getUserId } from "@/services/userCache";
 
 // NOTE: signUp, login, and logout are handled by hooks/useAuth.tsx
 // This file contains additional utility functions for user profile management
 
-/**
- * Resolve the internal user_id, preferring the cache.
- */
-async function getUserId(): Promise<string> {
-  const cached = getCachedUserId();
-  if (cached) return cached;
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error("Not authenticated");
-
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_id", user.id)
-    .single();
-  if (userError || !userData) throw new Error("User profile not found");
-  return userData.id;
-}
+// getUserId() imported from userCache (shared, fast, cached)
 
 export async function getCurrentUserProfile() {
   try {
+    // Use getSession (local, fast) instead of getUser (network call)
     const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (error) throw error;
-
-    if (!user) return { success: false, user: null, profile: null };
+    if (!session?.user) return { success: false, user: null, profile: null };
+    const user = session.user;
 
     // Use cached internal ID when available to skip a query
     const cachedId = getCachedUserId();
@@ -78,19 +57,17 @@ export async function getCurrentUserProfile() {
 
 export async function updateUserProfile(firstname: string, lastname: string) {
   try {
+    // Use getSession (local, fast) instead of getUser (network call)
     const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (userError) throw userError;
-
-    if (!user) throw new Error("No user logged in");
+    if (!session?.user) throw new Error("No user logged in");
 
     const { error } = await supabase
       .from("users")
       .update({ firstname, lastname })
-      .eq("auth_id", user.id);
+      .eq("auth_id", session.user.id);
 
     if (error) throw error;
 

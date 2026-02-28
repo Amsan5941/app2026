@@ -1,5 +1,5 @@
 import { supabase } from "@/constants/supabase";
-import { getCachedUserId } from "@/services/userCache";
+import { getUserId } from "@/services/userCache";
 
 export type BioProfile = {
   id: string;
@@ -25,27 +25,7 @@ export type BioProfileUpdate = {
   goal?: string;
 };
 
-/**
- * Resolve the internal user_id, preferring the cache.
- */
-async function getUserId(): Promise<string> {
-  const cached = getCachedUserId();
-  if (cached) return cached;
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error("Not authenticated");
-
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_id", user.id)
-    .single();
-  if (userError || !userData) throw new Error("User profile not found");
-  return userData.id;
-}
+// getUserId() imported from userCache (shared, fast, cached)
 
 /**
  * Get the bio profile for the current user

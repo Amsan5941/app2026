@@ -118,10 +118,11 @@ export type DailySummary = {
 
 async function getAuthUserId(): Promise<string | null> {
   try {
+    // getSession() reads from local storage — no network round-trip
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user?.id ?? null;
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
   } catch {
     return null;
   }

@@ -1,5 +1,5 @@
 import { supabase } from "@/constants/supabase";
-import { getCachedUserId } from "@/services/userCache";
+import { getUserId } from "@/services/userCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SKIP_STORAGE_KEY = "@weight_skip_date";
@@ -67,27 +67,7 @@ export async function hasSkippedToday(): Promise<boolean> {
   }
 }
 
-/**
- * Resolve the internal user_id, preferring the cache.
- */
-async function getUserId(): Promise<string> {
-  const cached = getCachedUserId();
-  if (cached) return cached;
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) throw new Error("Not authenticated");
-
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_id", user.id)
-    .single();
-  if (userError || !userData) throw new Error("User profile not found");
-  return userData.id;
-}
+// getUserId() imported from userCache (shared, fast, cached)
 
 /**
  * Check if user has logged weight today
