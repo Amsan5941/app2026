@@ -1,7 +1,7 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -15,7 +15,16 @@ import LoginButton from "@/components/login-button";
 import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
+import {
+  initPostHog, identifyUser as posthogIdentify,
+  resetUser as posthogReset
+} from "@/services/analytics";
 import { initNotifications } from "@/services/notifications";
+import {
+  initSentry,
+  clearUser as sentryClear,
+  identifyUser as sentryIdentify,
+} from "@/services/sentry";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
 
@@ -23,11 +32,26 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+// ─── Initialise instrumentation once at module load ─────────────────────────
+initSentry();
+initPostHog().catch((e) => console.warn("PostHog init failed:", e));
+
 function NavigationContent() {
   const { session } = useAuth();
   const { palette: Palette } = useTheme();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [showWaterReminder, setShowWaterReminder] = useState(false);
+
+  // Identify / clear user in analytics + crash reporting on auth changes
+  useEffect(() => {
+    if (session?.user) {
+      sentryIdentify(session.user.id, session.user.email);
+      posthogIdentify(session.user.id, { email: session.user.email });
+    } else {
+      sentryClear();
+      posthogReset();
+    }
+  }, [session]);
 
   useEffect(() => {
     if (session) {
@@ -35,7 +59,7 @@ function NavigationContent() {
       checkWaterReminder();
       // Initialise push notifications (permissions + scheduled reminders)
       initNotifications().catch((e: unknown) =>
-        console.warn("Notification init failed:", e)
+        console.warn("Notification init failed:", e),
       );
     } else {
       setShowWeightPrompt(false);
@@ -52,7 +76,10 @@ function NavigationContent() {
       }
     };
 
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
     return () => subscription.remove();
   }, [session]);
 

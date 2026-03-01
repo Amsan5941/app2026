@@ -1,4 +1,5 @@
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
+import { estimateCalories } from "@/utils/calorieEstimation";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -20,8 +21,8 @@ import {
 } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
-import { useTheme, ThemeMode } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeMode, useTheme } from "@/hooks/useTheme";
 import {
   changeUserPassword,
   getCurrentUserProfile,
@@ -114,35 +115,14 @@ export default function ProfileScreen() {
     if (!age || !weight || !heightInInches || !sex || !goal || !activity)
       return null;
 
-    const heightCm = (heightInInches as number) * 2.54;
-    const weightKg = (weight as number) * 0.45359237;
-    let bmr: number;
-    if (sex.toLowerCase() === "male") {
-      bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-    } else if (sex.toLowerCase() === "female") {
-      bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
-    } else {
-      const male = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-      const female = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
-      bmr = (male + female) / 2;
-    }
-
-    const multiplier =
-      activity === "sedentary"
-        ? 1.2
-        : activity === "light"
-          ? 1.375
-          : activity === "moderate"
-            ? 1.55
-            : activity === "active"
-              ? 1.725
-              : 1.2;
-
-    let maintenance = Math.round(bmr * multiplier);
-    if (goal === "Cutting" || goal === "cutting") maintenance -= 500;
-    else if (goal === "Bulking" || goal === "bulking") maintenance += 500;
-    maintenance = Math.max(1200, maintenance);
-    return maintenance;
+    return estimateCalories({
+      age: age as number,
+      weight: weight as number,
+      heightInInches: heightInInches as number,
+      sex: sex.toLowerCase() as any,
+      goal: goal as any,
+      activityLevel: activity as any,
+    });
   }
 
   // auto-fill calorie in modal when eligible
@@ -563,11 +543,13 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <Text style={styles.label}>Appearance</Text>
             <View style={styles.themeRow}>
-              {([
-                { mode: "light" as ThemeMode, label: "☀️ Light" },
-                { mode: "dark" as ThemeMode, label: "🌙 Dark" },
-                { mode: "system" as ThemeMode, label: "📱 System" },
-              ] as { mode: ThemeMode; label: string }[]).map(({ mode, label }) => (
+              {(
+                [
+                  { mode: "light" as ThemeMode, label: "☀️ Light" },
+                  { mode: "dark" as ThemeMode, label: "🌙 Dark" },
+                  { mode: "system" as ThemeMode, label: "📱 System" },
+                ] as { mode: ThemeMode; label: string }[]
+              ).map(({ mode, label }) => (
                 <Pressable
                   key={mode}
                   style={[
@@ -810,182 +792,182 @@ export default function ProfileScreen() {
 }
 function makeProfileStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
-  scrollContent: {
-    padding: Spacing.lg,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: P.textPrimary,
-    marginBottom: Spacing.lg,
-  },
-  card: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  label: {
-    fontSize: 12,
-    color: P.textSecondary,
-    fontWeight: "600",
-    marginBottom: 6,
-  },
-  value: {
-    fontSize: 16,
-    color: P.textPrimary,
-  },
-  input: {
-    backgroundColor: P.bgInput,
-    color: P.textPrimary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: P.borderLight,
-    marginTop: Spacing.sm,
-  },
-  rowRight: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: Spacing.md,
-  },
-  btn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: Radii.md,
-    alignItems: "center",
-  },
-  btnText: {
-    color: P.white,
-    fontWeight: "700",
-  },
-  btnTextSecondary: {
-    color: P.textPrimary,
-    fontWeight: "700",
-  },
-  ghostBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-  },
-  ghostText: {
-    color: P.accent,
-    fontWeight: "700",
-  },
-  bioRow: {
-    marginTop: Spacing.sm,
-    gap: 6,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  bioItem: {
-    color: P.textPrimary,
-    fontSize: 14,
-    marginBottom: 4,
-    width: "48%",
-  },
-  inputLabel: {
-    fontSize: 12,
-    color: P.textSecondary,
-    marginBottom: 6,
-  },
-  optionRowSmall: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 6,
-  },
-  optionSmall: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: P.border,
-    backgroundColor: P.bgCard,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.lg,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 640,
-    backgroundColor: P.bgElevated,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: P.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: P.accent,
-  },
-  btnGradient: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: P.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  // ── Appearance toggle ─────────────────────
-  themeRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  themeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: "center",
-    backgroundColor: P.bgElevated,
-  },
-  themeBtnActive: {
-    borderColor: P.accent,
-    backgroundColor: P.accentMuted,
-  },
-  themeBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: P.textSecondary,
-  },
-  themeBtnTextActive: {
-    color: P.accent,
-    fontWeight: "700",
-  },
-});
+    safe: {
+      flex: 1,
+      backgroundColor: P.bg,
+    },
+    scrollContent: {
+      padding: Spacing.lg,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: P.textPrimary,
+      marginBottom: Spacing.lg,
+    },
+    card: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    label: {
+      fontSize: 12,
+      color: P.textSecondary,
+      fontWeight: "600",
+      marginBottom: 6,
+    },
+    value: {
+      fontSize: 16,
+      color: P.textPrimary,
+    },
+    input: {
+      backgroundColor: P.bgInput,
+      color: P.textPrimary,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: P.borderLight,
+      marginTop: Spacing.sm,
+    },
+    rowRight: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 12,
+      marginTop: Spacing.md,
+    },
+    btn: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: Radii.md,
+      alignItems: "center",
+    },
+    btnText: {
+      color: P.white,
+      fontWeight: "700",
+    },
+    btnTextSecondary: {
+      color: P.textPrimary,
+      fontWeight: "700",
+    },
+    ghostBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: P.border,
+      alignItems: "center",
+    },
+    ghostText: {
+      color: P.accent,
+      fontWeight: "700",
+    },
+    bioRow: {
+      marginTop: Spacing.sm,
+      gap: 6,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+    },
+    bioItem: {
+      color: P.textPrimary,
+      fontSize: 14,
+      marginBottom: 4,
+      width: "48%",
+    },
+    inputLabel: {
+      fontSize: 12,
+      color: P.textSecondary,
+      marginBottom: 6,
+    },
+    optionRowSmall: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: 6,
+    },
+    optionSmall: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: P.border,
+      backgroundColor: P.bgCard,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: Spacing.lg,
+    },
+    modalCard: {
+      width: "100%",
+      maxWidth: 640,
+      backgroundColor: P.bgElevated,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    profileHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.md,
+    },
+    avatar: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarText: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: P.accent,
+    },
+    btnGradient: {
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: Radii.md,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: P.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    // ── Appearance toggle ─────────────────────
+    themeRow: {
+      flexDirection: "row",
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    themeBtn: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: P.border,
+      alignItems: "center",
+      backgroundColor: P.bgElevated,
+    },
+    themeBtnActive: {
+      borderColor: P.accent,
+      backgroundColor: P.accentMuted,
+    },
+    themeBtnText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: P.textSecondary,
+    },
+    themeBtnTextActive: {
+      color: P.accent,
+      fontWeight: "700",
+    },
+  });
 }

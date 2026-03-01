@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "app2026",
+    "name": "FitTrack – Fitness & Nutrition",
     "slug": "app2026",
+    "description": "Your all-in-one fitness companion. Track workouts, log meals with AI-powered food recognition, monitor water intake, count steps, and reach your health goals — all in one beautifully designed app.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,13 +11,18 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.app2026.fittrack",
+      "buildNumber": "1",
       "infoPlist": {
         "NSMotionUsageDescription": "This app uses your device's motion sensors to track your daily steps.",
         "NSCameraUsageDescription": "This app needs camera access to let you take photos of your meals for nutrition tracking.",
-        "NSPhotoLibraryUsageDescription": "This app needs photo library access to let you select meal photos for nutrition tracking."
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to let you select meal photos for nutrition tracking.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "com.app2026.fittrack",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -40,6 +46,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "your-sentry-org",
+          "project": "fittrack"
+        }
+      ],
       [
         "expo-sensors",
         {

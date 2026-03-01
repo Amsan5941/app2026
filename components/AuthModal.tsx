@@ -1,18 +1,22 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
+import {
+    isValidEmail,
+    isValidPassword
+} from "@/utils/signupValidation";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type SignupStep = "account" | "bio" | "questions";
@@ -58,15 +62,7 @@ export default function AuthModal({
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  // Validation helpers
-  function isValidEmail(value: string) {
-    return value.includes("@");
-  }
-
-  function isValidPassword(value: string) {
-    // at least 8 chars and at least one non-alphanumeric (special) char
-    return value.length >= 8 && /[^A-Za-z0-9]/.test(value);
-  }
+  // Validation helpers (imported from @/utils/signupValidation)
 
   async function handleSubmit() {
     setErrorText(null);
