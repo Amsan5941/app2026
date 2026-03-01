@@ -1,7 +1,7 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,8 +12,8 @@ import "react-native-reanimated";
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import LoginButton from "@/components/login-button";
 import WaterReminderBanner from "@/components/WaterReminderBanner";
-import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import { initNotifications } from "@/services/notifications";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
@@ -33,7 +33,7 @@ function NavigationContent() {
       checkWeightLogging();
       checkWaterReminder();
       // Initialise push notifications (permissions + scheduled reminders)
-      initNotifications().catch((e) =>
+      initNotifications().catch((e: unknown) =>
         console.warn("Notification init failed:", e)
       );
     } else {
