@@ -14,6 +14,7 @@ import LoginButton from "@/components/login-button";
 import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { initNotifications } from "@/services/notifications";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
 
@@ -31,6 +32,10 @@ function NavigationContent() {
     if (session) {
       checkWeightLogging();
       checkWaterReminder();
+      // Initialise push notifications (permissions + scheduled reminders)
+      initNotifications().catch((e) =>
+        console.warn("Notification init failed:", e)
+      );
     } else {
       setShowWeightPrompt(false);
       setShowWaterReminder(false);

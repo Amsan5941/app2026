@@ -17,6 +17,12 @@ import { Platform } from "react-native";
 function getApiBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+  // In development, web always uses localhost (the env var is typically a
+  // LAN IP for physical mobile devices which browsers can't reliably reach).
+  if (__DEV__ && Platform.OS === "web") {
+    return "http://localhost:8000/api/v1";
+  }
+
   // If the env variable is set, always use it (works for both prod & dev)
   if (envUrl) {
     return envUrl;
@@ -33,9 +39,6 @@ function getApiBaseUrl(): string {
   }
 
   // Development mode - platform-specific localhost URLs
-  if (Platform.OS === "web") {
-    return "http://localhost:8000/api/v1";
-  }
   if (Platform.OS === "android") {
     // Android emulator uses 10.0.2.2 to access host machine's localhost
     return "http://10.0.2.2:8000/api/v1";
@@ -129,6 +132,19 @@ async function getAuthUserId(): Promise<string | null> {
   }
 }
 
+/** Fetch wrapper with a default timeout so requests never hang forever. */
+function fetchWithTimeout(
+  url: string,
+  options?: RequestInit,
+  timeoutMs: number = 8000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
 // ── Food Recognition ───────────────────────────────────────
 
 /**
@@ -170,13 +186,13 @@ export async function recognizeFoodImage(
   if (__DEV__) console.log("[FoodRecognition] Uploading image to:", `${API_BASE_URL}/recognize/image`);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/recognize/image`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/recognize/image`, {
       method: "POST",
       body: formData,
       headers: {
         Accept: "application/json",
       },
-    });
+    }, 30000); // image uploads get a longer timeout
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -215,13 +231,13 @@ export async function recognizeFoodText(
   formData.append("save_log", String(saveLog));
 
   try {
-    const response = await fetch(`${API_BASE_URL}/recognize/text`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/recognize/text`, {
       method: "POST",
       body: formData,
       headers: {
         Accept: "application/json",
       },
-    });
+    }, 15000);
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -258,7 +274,7 @@ export async function getFoodLogs(
   let url = `${API_BASE_URL}/food-logs/${authId}?limit=${limit}`;
   if (targetDate) url += `&target_date=${targetDate}`;
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) return [];
 
   const data = await response.json();
@@ -275,7 +291,7 @@ export async function getDailySummary(
   const authId = await getAuthUserId();
   if (!authId) return null;
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${API_BASE_URL}/food-logs/summary/${authId}?target_date=${targetDate}`
   );
 
@@ -289,7 +305,7 @@ export async function getDailySummary(
  * Delete a food log entry.
  */
 export async function deleteFoodLog(foodLogId: string): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/food-logs/${foodLogId}`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/food-logs/${foodLogId}`, {
     method: "DELETE",
   });
   return response.ok;
@@ -299,7 +315,7 @@ export async function deleteFoodLog(foodLogId: string): Promise<boolean> {
  * Get a single food log with all its items.
  */
 export async function getFoodLogDetail(foodLogId: string): Promise<FoodLog | null> {
-  const response = await fetch(`${API_BASE_URL}/food-logs/detail/${foodLogId}`);
+  const response = await fetchWithTimeout(`${API_BASE_URL}/food-logs/detail/${foodLogId}`);
   if (!response.ok) return null;
   const data = await response.json();
   return data.data ?? null;
