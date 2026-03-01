@@ -978,6 +978,233 @@ function makeEmptyStyles(P: typeof DarkPalette) {
 });
 }
 
+// ── Rest Timer Overlay ────────────────────────────────────
+const REST_PRESETS = [
+  { label: "60s", seconds: 60 },
+  { label: "90s", seconds: 90 },
+  { label: "2 min", seconds: 120 },
+];
+
+function RestTimerOverlay({
+  visible,
+  initialSeconds,
+  onDismiss,
+  onChangeDefault,
+}: {
+  visible: boolean;
+  initialSeconds: number;
+  onDismiss: () => void;
+  onChangeDefault: (s: number) => void;
+}) {
+  const { palette: Palette } = useTheme();
+  const restStyles = useMemo(() => makeRestTimerStyles(Palette), [Palette]);
+  const [remaining, setRemaining] = React.useState(initialSeconds);
+  const [total, setTotal] = React.useState(initialSeconds);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    setRemaining(initialSeconds);
+    setTotal(initialSeconds);
+    const id = setInterval(() => {
+      setRemaining((r) => {
+        if (r <= 1) {
+          clearInterval(id);
+          onDismiss();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [visible, initialSeconds]);
+
+  const handlePreset = (seconds: number) => {
+    onChangeDefault(seconds);
+    setTotal(seconds);
+    setRemaining(seconds);
+  };
+
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeStr =
+    mins > 0 ? `${mins}:${String(secs).padStart(2, "0")}` : `${secs}`;
+  const progress = total > 0 ? remaining / total : 0;
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={restStyles.overlay}>
+        <View style={restStyles.sheet}>
+          <View style={restStyles.handle} />
+          <Text style={restStyles.title}>Rest Timer</Text>
+
+          <View style={restStyles.countdownWrap}>
+            <View
+              style={[
+                restStyles.ring,
+                {
+                  borderColor: `rgba(124,92,252,${(0.25 + 0.75 * progress).toFixed(2)})`,
+                },
+              ]}
+            >
+              <Text style={restStyles.countdownText}>{timeStr}</Text>
+              <Text style={restStyles.countdownLabel}>remaining</Text>
+            </View>
+          </View>
+
+          <View style={restStyles.presetRow}>
+            {REST_PRESETS.map((p) => (
+              <Pressable
+                key={p.seconds}
+                style={[
+                  restStyles.presetBtn,
+                  total === p.seconds && restStyles.presetBtnActive,
+                ]}
+                onPress={() => handlePreset(p.seconds)}
+              >
+                <Text
+                  style={[
+                    restStyles.presetText,
+                    total === p.seconds && restStyles.presetTextActive,
+                  ]}
+                >
+                  {p.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={restStyles.actionRow}>
+            <Pressable
+              style={restStyles.addBtn}
+              onPress={() => setRemaining((r) => r + 30)}
+            >
+              <Text style={restStyles.addBtnText}>+30s</Text>
+            </Pressable>
+            <Pressable style={restStyles.skipBtn} onPress={onDismiss}>
+              <Text style={restStyles.skipText}>Skip</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function makeRestTimerStyles(P: typeof DarkPalette) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: P.overlay,
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: P.bgElevated,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: Spacing.xl,
+      paddingTop: Spacing.lg,
+      paddingBottom: Platform.OS === "ios" ? 44 : Spacing.xl,
+      alignItems: "center",
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: P.border,
+      marginBottom: Spacing.lg,
+    },
+    title: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: P.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      marginBottom: Spacing.xl,
+    },
+    countdownWrap: {
+      marginBottom: Spacing.xl,
+    },
+    ring: {
+      width: 160,
+      height: 160,
+      borderRadius: 80,
+      borderWidth: 6,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    countdownText: {
+      fontSize: 56,
+      fontWeight: "800",
+      color: P.textPrimary,
+      fontVariant: ["tabular-nums"],
+      lineHeight: 64,
+    },
+    countdownLabel: {
+      fontSize: 12,
+      color: P.textMuted,
+      fontWeight: "600",
+    },
+    presetRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginBottom: Spacing.xl,
+    },
+    presetBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: Radii.full,
+      backgroundColor: P.bgCard,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    presetBtnActive: {
+      backgroundColor: P.accentMuted,
+      borderColor: P.accent,
+    },
+    presetText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: P.textSecondary,
+    },
+    presetTextActive: {
+      color: P.accent,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      width: "100%",
+    },
+    addBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: Radii.md,
+      backgroundColor: P.bgCard,
+      borderWidth: 1,
+      borderColor: P.border,
+      alignItems: "center",
+    },
+    addBtnText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    skipBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: Radii.md,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+    },
+    skipText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.accent,
+    },
+  });
+}
+
 // ── Main Screen ─────────────────────────────────────────────
 export default function WorkoutScreen() {
   const { user } = useAuth();
@@ -990,6 +1217,8 @@ export default function WorkoutScreen() {
   const [addExerciseSessionId, setAddExerciseSessionId] = useState<string | null>(null);
   const [activeTimerSessionId, setActiveTimerSessionId] = useState<string | null>(null);
   const [exerciseToDelete, setExerciseToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [restTimerVisible, setRestTimerVisible] = useState(false);
+  const [restDefaultDuration, setRestDefaultDuration] = useState(60);
 
   const loadSessions = useCallback(async () => {
     if (!user) {
@@ -1053,6 +1282,7 @@ export default function WorkoutScreen() {
     const res = await addSetToExercise(exerciseId, setNumber, reps, weight);
     if (res.success) {
       await loadSessions();
+      setRestTimerVisible(true);
     } else {
       Alert.alert("Error", "Failed to add set.");
     }
@@ -1273,6 +1503,12 @@ export default function WorkoutScreen() {
           }
         }}
         onClose={() => setExerciseToDelete(null)}
+      />
+      <RestTimerOverlay
+        visible={restTimerVisible}
+        initialSeconds={restDefaultDuration}
+        onDismiss={() => setRestTimerVisible(false)}
+        onChangeDefault={(s) => setRestDefaultDuration(s)}
       />
     </SafeAreaView>
   );
