@@ -3,18 +3,18 @@ import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
-  deleteProgressPhoto,
-  getProgressPhotos,
-  uploadProgressPhoto,
+    deleteProgressPhoto,
+    getProgressPhotos,
+    uploadProgressPhoto,
 } from "@/services/progressPhotos";
 import { getCachedUserId } from "@/services/userCache";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
-  WorkoutHistoryItem,
-  WorkoutSession,
-  getWeeklyWorkoutStats,
-  getWorkoutHistory,
-  getWorkoutSession,
+    WorkoutHistoryItem,
+    WorkoutSession,
+    getWeeklyWorkoutStats,
+    getWorkoutHistory,
+    getWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -22,27 +22,27 @@ import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-  Defs,
-  Line,
-  LinearGradient,
-  Polyline,
-  Stop,
-  Circle as SvgCircle,
+    Defs,
+    Line,
+    LinearGradient,
+    Polyline,
+    Stop,
+    Circle as SvgCircle,
 } from "react-native-svg";
 
 // ── Types ───────────────────────────────────────────────────

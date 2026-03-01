@@ -11,40 +11,41 @@ import { supabase } from "@/constants/supabase";
 import { Platform } from "react-native";
 
 // ── Configuration ──────────────────────────────────────────
-// Get the appropriate API URL based on platform
+// Get the appropriate API URL based on platform.
+// In production EXPO_PUBLIC_BACKEND_URL **must** be set (e.g. in your .env or
+// EAS build secrets). In dev mode we fall back to localhost-style URLs.
 function getApiBaseUrl(): string {
-  // Production mode - use deployed backend
-  if (!__DEV__) {
-    return process.env.EXPO_PUBLIC_BACKEND_URL || "https://your-backend.railway.app/api/v1";
-  }
-
-  // Development mode - platform-specific URLs
-  // Web always uses localhost (can't access local network IPs from browser)
-  if (Platform.OS === "web") {
-    return "http://localhost:8000/api/v1";
-  }
-
-  // For mobile platforms, use env variable if set (for physical devices)
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+  // If the env variable is set, always use it (works for both prod & dev)
   if (envUrl) {
     return envUrl;
   }
 
-  // Fallback URLs for simulators/emulators when no env set
+  // Production without a configured URL → fail loudly instead of silently
+  if (!__DEV__) {
+    console.error(
+      "[FoodRecognition] EXPO_PUBLIC_BACKEND_URL is not set! " +
+        "Add it to your .env or EAS build secrets so production API calls work.",
+    );
+    // Return an obviously-broken URL so requests fail fast with a clear message
+    return "https://BACKEND_URL_NOT_CONFIGURED";
+  }
+
+  // Development mode - platform-specific localhost URLs
+  if (Platform.OS === "web") {
+    return "http://localhost:8000/api/v1";
+  }
   if (Platform.OS === "android") {
     // Android emulator uses 10.0.2.2 to access host machine's localhost
     return "http://10.0.2.2:8000/api/v1";
-  } else if (Platform.OS === "ios") {
-    // iOS simulator can use localhost
-    return "http://localhost:8000/api/v1";
   }
-  
-  // Default fallback
+  // iOS simulator / default
   return "http://localhost:8000/api/v1";
-  
-  // IMPORTANT: For physical devices, set EXPO_PUBLIC_BACKEND_URL in .env file
-  // with your computer's local IP address (e.g., http://192.168.1.100:8000/api/v1)
-  // Make sure your mobile device is on the same WiFi network as your computer!
+
+  // NOTE: For physical devices in dev, set EXPO_PUBLIC_BACKEND_URL in .env
+  // with your computer's local IP (e.g. http://192.168.1.100:8000/api/v1).
+  // The device must be on the same WiFi network as your computer.
 }
 
 const API_BASE_URL = getApiBaseUrl();

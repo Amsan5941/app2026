@@ -34,10 +34,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS - allow your Expo app to call the API
+# CORS – restrict to configured origins (set CORS_ORIGINS env var in production)
+_origins = (
+    ["*"]
+    if settings.debug
+    else [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
