@@ -4,34 +4,34 @@ import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import {
-  SessionExercise,
-  WorkoutSession,
-  addExerciseToSession,
-  addSetToExercise,
-  createWorkoutSession,
-  deleteExercise,
-  deleteSet,
-  deleteWorkoutSession,
-  getTodayWorkouts,
-  updateSetNumber,
-  updateWorkoutSession,
+    SessionExercise,
+    WorkoutSession,
+    addExerciseToSession,
+    addSetToExercise,
+    createWorkoutSession,
+    deleteExercise,
+    deleteSet,
+    deleteWorkoutSession,
+    getTodayWorkouts,
+    updateSetNumber,
+    updateWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
