@@ -1,6 +1,7 @@
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import {
   SessionExercise,
   WorkoutSession,
@@ -12,10 +13,9 @@ import {
   deleteWorkoutSession,
   getTodayWorkouts,
   updateSetNumber,
-  updateWorkoutSession
+  updateWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
-import { useTheme } from "@/hooks/useTheme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -92,10 +92,20 @@ function NewWorkoutModal({
             />
 
             <View style={modalStyles.quickTags}>
-              {["Push Day", "Pull Day", "Leg Day", "Upper Body", "Cardio", "Full Body"].map((tag) => (
+              {[
+                "Push Day",
+                "Pull Day",
+                "Leg Day",
+                "Upper Body",
+                "Cardio",
+                "Full Body",
+              ].map((tag) => (
                 <Pressable
                   key={tag}
-                  style={[modalStyles.tag, name === tag && modalStyles.tagActive]}
+                  style={[
+                    modalStyles.tag,
+                    name === tag && modalStyles.tagActive,
+                  ]}
                   onPress={() => setName(tag)}
                 >
                   <Text
@@ -141,102 +151,102 @@ function NewWorkoutModal({
 
 function makeModalStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: P.overlay,
-    justifyContent: "flex-end",
-  },
-  keyboardView: {
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: P.bgElevated,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: Spacing.xl,
-    paddingBottom: Platform.OS === "ios" ? 40 : Spacing.xl,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: P.border,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: P.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: P.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  input: {
-    backgroundColor: P.bgInput,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: P.border,
-    padding: Spacing.lg,
-    fontSize: 16,
-    color: P.textPrimary,
-    marginBottom: Spacing.lg,
-  },
-  quickTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  tag: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radii.full,
-    backgroundColor: P.bgCard,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  tagActive: {
-    backgroundColor: P.accentMuted,
-    borderColor: P.accent,
-  },
-  tagText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: P.textSecondary,
-  },
-  tagTextActive: {
-    color: P.accent,
-  },
-  btn: {
-    borderRadius: Radii.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.md,
-  },
-  btnDisabled: { opacity: 0.5 },
-  btnGradient: {
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnText: {
-    color: P.white,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  cancelBtn: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  cancelText: {
-    color: P.textMuted,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-});
+    overlay: {
+      flex: 1,
+      backgroundColor: P.overlay,
+      justifyContent: "flex-end",
+    },
+    keyboardView: {
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: P.bgElevated,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: Spacing.xl,
+      paddingBottom: Platform.OS === "ios" ? 40 : Spacing.xl,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: P.border,
+      alignSelf: "center",
+      marginBottom: Spacing.lg,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: P.textPrimary,
+      marginBottom: 4,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: P.textSecondary,
+      marginBottom: Spacing.xl,
+    },
+    input: {
+      backgroundColor: P.bgInput,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: P.border,
+      padding: Spacing.lg,
+      fontSize: 16,
+      color: P.textPrimary,
+      marginBottom: Spacing.lg,
+    },
+    quickTags: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.sm,
+      marginBottom: Spacing.xl,
+    },
+    tag: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: Radii.full,
+      backgroundColor: P.bgCard,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    tagActive: {
+      backgroundColor: P.accentMuted,
+      borderColor: P.accent,
+    },
+    tagText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: P.textSecondary,
+    },
+    tagTextActive: {
+      color: P.accent,
+    },
+    btn: {
+      borderRadius: Radii.lg,
+      overflow: "hidden",
+      marginBottom: Spacing.md,
+    },
+    btnDisabled: { opacity: 0.5 },
+    btnGradient: {
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    btnText: {
+      color: P.white,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    cancelBtn: {
+      alignItems: "center",
+      paddingVertical: 12,
+    },
+    cancelText: {
+      color: P.textMuted,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+  });
 }
 
 // ── Delete Exercise Modal ───────────────────────────────────
@@ -253,7 +263,10 @@ function DeleteExerciseModal({
 }) {
   const { palette: Palette } = useTheme();
   const modalStyles = useMemo(() => makeModalStyles(Palette), [Palette]);
-  const deleteModalStyles = useMemo(() => makeDeleteModalStyles(Palette), [Palette]);
+  const deleteModalStyles = useMemo(
+    () => makeDeleteModalStyles(Palette),
+    [Palette],
+  );
   if (!exercise) return null;
 
   return (
@@ -261,7 +274,7 @@ function DeleteExerciseModal({
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.sheet, deleteModalStyles.centeredSheet]}>
           <View style={modalStyles.handle} />
-          
+
           {/* Warning Icon */}
           <View style={deleteModalStyles.iconContainer}>
             <Text style={deleteModalStyles.icon}>⚠️</Text>
@@ -269,12 +282,15 @@ function DeleteExerciseModal({
 
           <Text style={modalStyles.title}>Delete Exercise</Text>
           <Text style={[modalStyles.subtitle, deleteModalStyles.message]}>
-            Remove "{exercise.name}" and all its sets? This action cannot be undone.
+            Remove "{exercise.name}" and all its sets? This action cannot be
+            undone.
           </Text>
 
           <Pressable style={deleteModalStyles.deleteBtn} onPress={onConfirm}>
             <View style={deleteModalStyles.deleteBtnInner}>
-              <Text style={deleteModalStyles.deleteBtnText}>Delete Exercise</Text>
+              <Text style={deleteModalStyles.deleteBtnText}>
+                Delete Exercise
+              </Text>
             </View>
           </Pressable>
 
@@ -289,40 +305,40 @@ function DeleteExerciseModal({
 
 function makeDeleteModalStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  centeredSheet: {
-    borderRadius: 24,
-    margin: Spacing.xl,
-    paddingTop: Spacing.xl,
-  },
-  iconContainer: {
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
-  icon: {
-    fontSize: 48,
-  },
-  message: {
-    textAlign: "center",
-    paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  deleteBtn: {
-    borderRadius: Radii.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.md,
-    backgroundColor: P.error,
-  },
-  deleteBtnInner: {
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteBtnText: {
-    color: P.white,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-});
+    centeredSheet: {
+      borderRadius: 24,
+      margin: Spacing.xl,
+      paddingTop: Spacing.xl,
+    },
+    iconContainer: {
+      alignSelf: "center",
+      marginBottom: Spacing.lg,
+    },
+    icon: {
+      fontSize: 48,
+    },
+    message: {
+      textAlign: "center",
+      paddingHorizontal: Spacing.sm,
+      marginBottom: Spacing.xl,
+    },
+    deleteBtn: {
+      borderRadius: Radii.lg,
+      overflow: "hidden",
+      marginBottom: Spacing.md,
+      backgroundColor: P.error,
+    },
+    deleteBtnInner: {
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    deleteBtnText: {
+      color: P.white,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+  });
 }
 
 // ── Add Exercise Modal ──────────────────────────────────────
@@ -369,24 +385,34 @@ function AddExerciseModal({
             />
 
             <View style={modalStyles.quickTags}>
-              {["Bench Press", "Squats", "Deadlifts", "Pull-ups", "OHP", "Rows", "Curls", "Lunges"].map(
-                (tag) => (
-                  <Pressable
-                    key={tag}
-                    style={[modalStyles.tag, name === tag && modalStyles.tagActive]}
-                    onPress={() => setName(tag)}
+              {[
+                "Bench Press",
+                "Squats",
+                "Deadlifts",
+                "Pull-ups",
+                "OHP",
+                "Rows",
+                "Curls",
+                "Lunges",
+              ].map((tag) => (
+                <Pressable
+                  key={tag}
+                  style={[
+                    modalStyles.tag,
+                    name === tag && modalStyles.tagActive,
+                  ]}
+                  onPress={() => setName(tag)}
+                >
+                  <Text
+                    style={[
+                      modalStyles.tagText,
+                      name === tag && modalStyles.tagTextActive,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        modalStyles.tagText,
-                        name === tag && modalStyles.tagTextActive,
-                      ]}
-                    >
-                      {tag}
-                    </Text>
-                  </Pressable>
-                ),
-              )}
+                    {tag}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
 
             <Pressable
@@ -464,39 +490,39 @@ function AddSetRow({
 
 function makeSetRowStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  addRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: P.bgInput,
-    borderRadius: Radii.sm,
-    borderWidth: 1,
-    borderColor: P.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Platform.OS === "ios" ? 10 : 8,
-    fontSize: 14,
-    color: P.textPrimary,
-    textAlign: "center",
-  },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Radii.sm,
-    backgroundColor: P.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addBtnText: {
-    color: P.white,
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 24,
-  },
-});
+    addRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: P.bgInput,
+      borderRadius: Radii.sm,
+      borderWidth: 1,
+      borderColor: P.border,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Platform.OS === "ios" ? 10 : 8,
+      fontSize: 14,
+      color: P.textPrimary,
+      textAlign: "center",
+    },
+    addBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: Radii.sm,
+      backgroundColor: P.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addBtnText: {
+      color: P.white,
+      fontSize: 22,
+      fontWeight: "700",
+      lineHeight: 24,
+    },
+  });
 }
 
 // ── Exercise Card ───────────────────────────────────────────
@@ -505,11 +531,13 @@ function ExerciseCard({
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
+  isLocked,
 }: {
   exercise: SessionExercise;
   onAddSet: (exerciseId: string, reps: number, weight: number | null) => void;
   onDeleteSet: (setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
+  isLocked?: boolean;
 }) {
   const { palette: Palette } = useTheme();
   const exStyles = useMemo(() => makeExStyles(Palette), [Palette]);
@@ -520,20 +548,21 @@ function ExerciseCard({
           <Text style={exStyles.icon}>🏋️</Text>
         </View>
         <Text style={exStyles.name}>{exercise.exercise_name}</Text>
-        <Pressable
-          style={exStyles.deleteBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={() => {
-            console.log("Delete button pressed for exercise:", exercise.exercise_name, "ID:", exercise.id);
-            if (!exercise.id) {
-              Alert.alert("Error", "Cannot delete exercise - invalid ID");
-              return;
-            }
-            onDeleteExercise(exercise.id!);
-          }}
-        >
-          <Text style={exStyles.deleteBtnText}>✕</Text>
-        </Pressable>
+        {!isLocked && (
+          <Pressable
+            style={exStyles.deleteBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={() => {
+              if (!exercise.id) {
+                Alert.alert("Error", "Cannot delete exercise - invalid ID");
+                return;
+              }
+              onDeleteExercise(exercise.id!);
+            }}
+          >
+            <Text style={exStyles.deleteBtnText}>✕</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Set Headers */}
@@ -556,105 +585,110 @@ function ExerciseCard({
           <Text style={[exStyles.setText, { flex: 1 }]}>
             {set.weight != null ? `${set.weight} lbs` : "BW"}
           </Text>
-          <Pressable
-            style={exStyles.setDeleteBtn}
-            onPress={() => onDeleteSet(set.id!)}
-          >
-            <Text style={exStyles.setDeleteText}>✕</Text>
-          </Pressable>
+          {!isLocked && (
+            <Pressable
+              style={exStyles.setDeleteBtn}
+              onPress={() => onDeleteSet(set.id!)}
+            >
+              <Text style={exStyles.setDeleteText}>✕</Text>
+            </Pressable>
+          )}
+          {isLocked && <View style={{ width: 30 }} />}
         </View>
       ))}
 
       {/* Add Set */}
-      <AddSetRow
-        onAdd={(reps, weight) => onAddSet(exercise.id!, reps, weight)}
-      />
+      {!isLocked && (
+        <AddSetRow
+          onAdd={(reps, weight) => onAddSet(exercise.id!, reps, weight)}
+        />
+      )}
     </View>
   );
 }
 
 function makeExStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  card: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: P.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.md,
-  },
-  icon: { fontSize: 18 },
-  name: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: P.errorMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-    borderWidth: 1,
-    borderColor: P.error + "40",
-  },
-  deleteBtnText: {
-    color: P.error,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  setHeader: {
-    flexDirection: "row",
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: P.divider,
-    marginBottom: Spacing.sm,
-  },
-  setHeaderText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: P.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  setRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: P.divider,
-  },
-  setText: {
-    fontSize: 14,
-    color: P.textPrimary,
-    fontWeight: "600",
-  },
-  setDeleteBtn: {
-    width: 30,
-    alignItems: "center",
-  },
-  setDeleteText: {
-    color: P.textMuted,
-    fontSize: 11,
-  },
-});
+    card: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: Spacing.md,
+    },
+    iconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: Spacing.md,
+    },
+    icon: { fontSize: 18 },
+    name: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    deleteBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: P.errorMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 10,
+      borderWidth: 1,
+      borderColor: P.error + "40",
+    },
+    deleteBtnText: {
+      color: P.error,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    setHeader: {
+      flexDirection: "row",
+      paddingBottom: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: P.divider,
+      marginBottom: Spacing.sm,
+    },
+    setHeaderText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: P.textMuted,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    setRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: P.divider,
+    },
+    setText: {
+      fontSize: 14,
+      color: P.textPrimary,
+      fontWeight: "600",
+    },
+    setDeleteBtn: {
+      width: 30,
+      alignItems: "center",
+    },
+    setDeleteText: {
+      color: P.textMuted,
+      fontSize: 11,
+    },
+  });
 }
 
 // ── Workout Session Card (collapsed / today view) ───────────
@@ -667,6 +701,7 @@ function WorkoutSessionCard({
   onDelete,
   timer,
   isActive,
+  isEnded,
   onStartTimer,
   onStopTimer,
 }: {
@@ -678,6 +713,7 @@ function WorkoutSessionCard({
   onDelete: (sessionId: string) => void;
   timer: any;
   isActive: boolean;
+  isEnded: boolean;
   onStartTimer: () => void;
   onStopTimer: () => void;
 }) {
@@ -699,39 +735,71 @@ function WorkoutSessionCard({
         <View style={sessionStyles.headerLeft}>
           <Text style={sessionStyles.name}>{session.name}</Text>
           <Text style={sessionStyles.meta}>
-            {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""} · {totalSets} set
+            {exerciseCount} exercise{exerciseCount !== 1 ? "s" : ""} ·{" "}
+            {totalSets} set
             {totalSets !== 1 ? "s" : ""}
           </Text>
         </View>
         <View style={sessionStyles.headerRight}>
-          {isActive && (
+          {isEnded ? (
+            <View
+              style={[sessionStyles.timerBadge, sessionStyles.timerBadgeDone]}
+            >
+              <Text
+                style={[sessionStyles.timerText, sessionStyles.timerTextDone]}
+              >
+                ✓ Done
+              </Text>
+            </View>
+          ) : isActive ? (
             <View style={sessionStyles.timerBadge}>
               <Text style={sessionStyles.timerText}>
                 {formatTime(timer.elapsedSeconds)}
               </Text>
             </View>
-          )}
+          ) : null}
           <Text style={sessionStyles.chevron}>{expanded ? "▾" : "▸"}</Text>
         </View>
       </Pressable>
 
       {expanded && (
         <View style={sessionStyles.body}>
-          {/* Timer controls */}
+          {/* Workout controls */}
           <View style={sessionStyles.timerRow}>
-            {!isActive ? (
+            {isEnded ? (
+              <View style={sessionStyles.completedBanner}>
+                <Text style={sessionStyles.completedIcon}>🎉</Text>
+                <View>
+                  <Text style={sessionStyles.completedTitle}>
+                    Workout Complete
+                  </Text>
+                  {(session.duration_seconds ?? 0) > 0 && (
+                    <Text style={sessionStyles.completedMeta}>
+                      Duration: {formatTime(session.duration_seconds!)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ) : !isActive ? (
               <Pressable style={sessionStyles.timerBtn} onPress={onStartTimer}>
                 <Text style={sessionStyles.timerBtnIcon}>▶</Text>
-                <Text style={sessionStyles.timerBtnText}>Start Timer</Text>
+                <Text style={sessionStyles.timerBtnText}>Start Workout</Text>
               </Pressable>
             ) : (
               <Pressable
                 style={[sessionStyles.timerBtn, sessionStyles.timerBtnStop]}
                 onPress={onStopTimer}
               >
-                <Text style={sessionStyles.timerBtnIcon}>⏹</Text>
-                <Text style={sessionStyles.timerBtnText}>
-                  Stop ({formatTime(timer.elapsedSeconds)})
+                <Text
+                  style={[
+                    sessionStyles.timerBtnIcon,
+                    { color: sessionStyles.timerBtnStopText.color },
+                  ]}
+                >
+                  ⏹
+                </Text>
+                <Text style={sessionStyles.timerBtnStopText}>
+                  End Workout ({formatTime(timer.elapsedSeconds)})
                 </Text>
               </Pressable>
             )}
@@ -745,56 +813,78 @@ function WorkoutSessionCard({
               onAddSet={onAddSet}
               onDeleteSet={onDeleteSet}
               onDeleteExercise={onDeleteExercise}
+              isLocked={isEnded}
             />
           ))}
 
-          {/* Add Exercise Button */}
-          <Pressable
-            style={sessionStyles.addExBtn}
-            onPress={() => onAddExercise(session.id!)}
-          >
-            <Text style={sessionStyles.addExIcon}>+</Text>
-            <Text style={sessionStyles.addExText}>Add Exercise</Text>
-          </Pressable>
+          {/* Add Exercise Button — hidden when ended */}
+          {!isEnded && (
+            <Pressable
+              style={sessionStyles.addExBtn}
+              onPress={() => onAddExercise(session.id!)}
+            >
+              <Text style={sessionStyles.addExIcon}>+</Text>
+              <Text style={sessionStyles.addExText}>Add Exercise</Text>
+            </Pressable>
+          )}
 
-          {/* Delete Session */}
-          <Pressable
-            style={sessionStyles.deleteSession}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => {
-              console.log("Delete workout button pressed for:", session.name, "ID:", session.id);
-              if (!session.id) {
-                Alert.alert("Error", "Cannot delete workout - invalid ID");
-                return;
-              }
-              
-              // For web, Alert.alert with buttons might not work properly, so provide a fallback
-              if (Platform.OS === 'web') {
-                if (window.confirm(`Delete "${session.name}" and all its exercises?`)) {
-                  console.log("Delete workout confirmed (web) for ID:", session.id);
-                  onDelete(session.id!);
-                }
-              } else {
-                Alert.alert(
-                  "Delete Workout",
-                  `Delete "${session.name}" and all its exercises?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: () => {
-                        console.log("Delete workout confirmed for ID:", session.id);
-                        onDelete(session.id!);
-                      },
-                    },
-                  ],
+          {/* Delete Session — hidden when ended — hidden when ended */}
+          {!isEnded && (
+            <Pressable
+              style={sessionStyles.deleteSession}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={() => {
+                console.log(
+                  "Delete workout button pressed for:",
+                  session.name,
+                  "ID:",
+                  session.id,
                 );
-              }
-            }}
-          >
-            <Text style={sessionStyles.deleteSessionText}>Delete Workout</Text>
-          </Pressable>
+                if (!session.id) {
+                  Alert.alert("Error", "Cannot delete workout - invalid ID");
+                  return;
+                }
+
+                // For web, Alert.alert with buttons might not work properly, so provide a fallback
+                if (Platform.OS === "web") {
+                  if (
+                    window.confirm(
+                      `Delete "${session.name}" and all its exercises?`,
+                    )
+                  ) {
+                    console.log(
+                      "Delete workout confirmed (web) for ID:",
+                      session.id,
+                    );
+                    onDelete(session.id!);
+                  }
+                } else {
+                  Alert.alert(
+                    "Delete Workout",
+                    `Delete "${session.name}" and all its exercises?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => {
+                          console.log(
+                            "Delete workout confirmed for ID:",
+                            session.id,
+                          );
+                          onDelete(session.id!);
+                        },
+                      },
+                    ],
+                  );
+                }
+              }}
+            >
+              <Text style={sessionStyles.deleteSessionText}>
+                Delete Workout
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
     </View>
@@ -803,113 +893,147 @@ function WorkoutSessionCard({
 
 function makeSessionStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  card: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-    marginBottom: Spacing.lg,
-    overflow: "hidden",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: Spacing.lg,
-  },
-  headerLeft: { flex: 1 },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  meta: {
-    fontSize: 12,
-    color: P.textSecondary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 16,
-    color: P.textMuted,
-  },
-  timerBadge: {
-    backgroundColor: P.accentMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-  },
-  timerText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: P.accent,
-    fontVariant: ["tabular-nums"],
-  },
-  body: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
-  timerRow: {
-    marginBottom: Spacing.lg,
-  },
-  timerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: P.accentMuted,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    gap: Spacing.sm,
-    borderWidth: 1,
-    borderColor: P.accent + "30",
-  },
-  timerBtnStop: {
-    backgroundColor: P.errorMuted,
-    borderColor: P.error + "30",
-  },
-  timerBtnIcon: { fontSize: 14, color: P.accent },
-  timerBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: P.accent,
-  },
-  addExBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radii.md,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: P.accent + "40",
-    borderStyle: "dashed",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  addExIcon: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: P.accent,
-  },
-  addExText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: P.accent,
-  },
-  deleteSession: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginTop: Spacing.md,
-  },
-  deleteSessionText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: P.error,
-  },
-});
+    card: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+      marginBottom: Spacing.lg,
+      overflow: "hidden",
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: Spacing.lg,
+    },
+    headerLeft: { flex: 1 },
+    headerRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+    },
+    name: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    meta: {
+      fontSize: 12,
+      color: P.textSecondary,
+      marginTop: 2,
+    },
+    chevron: {
+      fontSize: 16,
+      color: P.textMuted,
+    },
+    timerBadge: {
+      backgroundColor: P.accentMuted,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: Radii.full,
+    },
+    timerText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: P.accent,
+      fontVariant: ["tabular-nums"],
+    },
+    body: {
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.lg,
+    },
+    timerRow: {
+      marginBottom: Spacing.lg,
+    },
+    timerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: P.accentMuted,
+      borderRadius: Radii.md,
+      paddingVertical: 12,
+      gap: Spacing.sm,
+      borderWidth: 1,
+      borderColor: P.accent + "30",
+    },
+    timerBtnStop: {
+      backgroundColor: P.errorMuted,
+      borderColor: P.error + "30",
+    },
+    timerBtnIcon: { fontSize: 14, color: P.accent },
+    timerBtnText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: P.accent,
+    },
+    timerBtnStopText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: P.error,
+    },
+    timerBadgeDone: {
+      backgroundColor: P.successMuted,
+    },
+    timerTextDone: {
+      color: P.success,
+    },
+    completedBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.md,
+      backgroundColor: P.successMuted,
+      borderRadius: Radii.md,
+      paddingVertical: 14,
+      paddingHorizontal: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.success + "40",
+    },
+    completedIcon: { fontSize: 24 },
+    completedTitle: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: P.success,
+    },
+    completedMeta: {
+      fontSize: 12,
+      color: P.success,
+      fontWeight: "600",
+      marginTop: 2,
+    },
+    addExBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: Radii.md,
+      paddingVertical: 14,
+      borderWidth: 1.5,
+      borderColor: P.accent + "40",
+      borderStyle: "dashed",
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    addExIcon: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: P.accent,
+    },
+    addExText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: P.accent,
+    },
+    deleteSession: {
+      alignItems: "center",
+      paddingVertical: 12,
+      marginTop: Spacing.md,
+    },
+    deleteSessionText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: P.error,
+    },
+  });
 }
 
 // ── Empty State ─────────────────────────────────────────────
@@ -939,43 +1063,43 @@ function EmptyState({ onStart }: { onStart: () => void }) {
 
 function makeEmptyStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  container: {
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  icon: {
-    fontSize: 56,
-    marginBottom: Spacing.lg,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: P.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  body: {
-    fontSize: 14,
-    color: P.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 40,
-    marginBottom: Spacing["2xl"],
-  },
-  btn: {
-    borderRadius: Radii.lg,
-    overflow: "hidden",
-    width: 200,
-  },
-  btnGradient: {
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  btnText: {
-    color: P.white,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-});
+    container: {
+      alignItems: "center",
+      paddingVertical: 60,
+    },
+    icon: {
+      fontSize: 56,
+      marginBottom: Spacing.lg,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: P.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    body: {
+      fontSize: 14,
+      color: P.textSecondary,
+      textAlign: "center",
+      lineHeight: 20,
+      paddingHorizontal: 40,
+      marginBottom: Spacing["2xl"],
+    },
+    btn: {
+      borderRadius: Radii.lg,
+      overflow: "hidden",
+      width: 200,
+    },
+    btnGradient: {
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    btnText: {
+      color: P.white,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+  });
 }
 
 // ── Rest Timer Overlay ────────────────────────────────────
@@ -1214,9 +1338,19 @@ export default function WorkoutScreen() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewWorkout, setShowNewWorkout] = useState(false);
-  const [addExerciseSessionId, setAddExerciseSessionId] = useState<string | null>(null);
-  const [activeTimerSessionId, setActiveTimerSessionId] = useState<string | null>(null);
-  const [exerciseToDelete, setExerciseToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [addExerciseSessionId, setAddExerciseSessionId] = useState<
+    string | null
+  >(null);
+  const [activeTimerSessionId, setActiveTimerSessionId] = useState<
+    string | null
+  >(null);
+  const [exerciseToDelete, setExerciseToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [endedSessionIds, setEndedSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [restTimerVisible, setRestTimerVisible] = useState(false);
   const [restDefaultDuration, setRestDefaultDuration] = useState(60);
 
@@ -1252,7 +1386,11 @@ export default function WorkoutScreen() {
     if (!addExerciseSessionId) return;
     const session = sessions.find((s) => s.id === addExerciseSessionId);
     const sortOrder = session?.exercises?.length || 0;
-    const res = await addExerciseToSession(addExerciseSessionId, name, sortOrder);
+    const res = await addExerciseToSession(
+      addExerciseSessionId,
+      name,
+      sortOrder,
+    );
     setAddExerciseSessionId(null);
     if (res.success) {
       await loadSessions();
@@ -1272,8 +1410,10 @@ export default function WorkoutScreen() {
       for (const ex of session.exercises || []) {
         if (ex.id === exerciseId) {
           // Use max set_number + 1 instead of length + 1
-          const maxSetNumber = ex.sets.reduce((max, set) => 
-            Math.max(max, set.set_number), 0);
+          const maxSetNumber = ex.sets.reduce(
+            (max, set) => Math.max(max, set.set_number),
+            0,
+          );
           setNumber = maxSetNumber + 1;
         }
       }
@@ -1292,10 +1432,10 @@ export default function WorkoutScreen() {
     // Find which exercise this set belongs to and its set_number
     let exerciseId: string | undefined;
     let deletedSetNumber: number = 0;
-    
+
     for (const session of sessions) {
       for (const ex of session.exercises || []) {
-        const foundSet = ex.sets.find(s => s.id === setId);
+        const foundSet = ex.sets.find((s) => s.id === setId);
         if (foundSet) {
           exerciseId = ex.id;
           deletedSetNumber = foundSet.set_number;
@@ -1383,6 +1523,9 @@ export default function WorkoutScreen() {
     });
     timer.reset();
     setActiveTimerSessionId(null);
+    setEndedSessionIds((prev) => new Set(prev).add(sessionId));
+    // Reload so the card shows the saved duration_seconds
+    await loadSessions();
   };
 
   const todayFormatted = new Date().toLocaleDateString("en-US", {
@@ -1473,6 +1616,7 @@ export default function WorkoutScreen() {
               onDelete={handleDeleteSession}
               timer={timer}
               isActive={activeTimerSessionId === session.id}
+              isEnded={endedSessionIds.has(session.id!)}
               onStartTimer={() => handleStartTimer(session.id!)}
               onStopTimer={() => handleStopTimer(session.id!)}
             />
@@ -1517,74 +1661,74 @@ export default function WorkoutScreen() {
 // ── Styles ────────────────────────────────────────────────────
 function makeWorkoutStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: P.textPrimary,
-    letterSpacing: -0.5,
-  },
-  pageSub: {
-    fontSize: 14,
-    color: P.textSecondary,
-    marginTop: 4,
-  },
-  newBtn: {
-    borderRadius: Radii.full,
-    overflow: "hidden",
-  },
-  newBtnGradient: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  newBtnText: {
-    color: P.white,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  summaryRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.md,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: P.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginTop: 2,
-  },
-  loadingContainer: {
-    paddingVertical: 60,
-    alignItems: "center",
-  },
-});
+    safe: {
+      flex: 1,
+      backgroundColor: P.bg,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.lg,
+    },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: Spacing.xl,
+    },
+    pageTitle: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: P.textPrimary,
+      letterSpacing: -0.5,
+    },
+    pageSub: {
+      fontSize: 14,
+      color: P.textSecondary,
+      marginTop: 4,
+    },
+    newBtn: {
+      borderRadius: Radii.full,
+      overflow: "hidden",
+    },
+    newBtnGradient: {
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+    },
+    newBtnText: {
+      color: P.white,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    summaryRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginBottom: Spacing.xl,
+    },
+    summaryCard: {
+      flex: 1,
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      paddingVertical: Spacing.md,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    summaryValue: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    summaryLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: P.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+      marginTop: 2,
+    },
+    loadingContainer: {
+      paddingVertical: 60,
+      alignItems: "center",
+    },
+  });
 }
