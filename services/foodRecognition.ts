@@ -136,7 +136,7 @@ async function getAuthUserId(): Promise<string | null> {
 function fetchWithTimeout(
   url: string,
   options?: RequestInit,
-  timeoutMs: number = 8000,
+  timeoutMs: number = 5000,
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

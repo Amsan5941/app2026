@@ -1,3 +1,4 @@
+import { WorkoutSkeleton } from "@/components/SkeletonLoader";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
@@ -1599,9 +1600,7 @@ export default function WorkoutScreen() {
 
         {/* Content */}
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Palette.accent} />
-          </View>
+          <WorkoutSkeleton />
         ) : sessions.length === 0 ? (
           <EmptyState onStart={() => setShowNewWorkout(true)} />
         ) : (

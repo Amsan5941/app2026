@@ -1,7 +1,7 @@
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -10,6 +10,7 @@ import { AppState, AppStateStatus } from "react-native";
 import "react-native-reanimated";
 
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginButton from "@/components/login-button";
 import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -131,13 +132,15 @@ function NavThemeWrapper({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <AppThemeProvider>
-      <NavThemeWrapper>
-        <AuthProvider>
-          <NavigationContent />
-        </AuthProvider>
-        <StatusBar style="auto" />
-      </NavThemeWrapper>
-    </AppThemeProvider>
+    <ErrorBoundary>
+      <AppThemeProvider>
+        <NavThemeWrapper>
+          <AuthProvider>
+            <NavigationContent />
+          </AuthProvider>
+          <StatusBar style="auto" />
+        </NavThemeWrapper>
+      </AppThemeProvider>
+    </ErrorBoundary>
   );
 }
