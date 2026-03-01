@@ -28,7 +28,14 @@ class Settings(BaseSettings):
     # Server
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
-    debug: bool = Field(default=True)
+    debug: bool = Field(default=False)
+
+    # CORS – comma-separated allowed origins.
+    # In dev the default permits localhost; override via CORS_ORIGINS env var.
+    cors_origins: str = Field(
+        default="http://localhost:8081,http://localhost:19006,http://localhost:19000",
+        description="Comma-separated list of allowed CORS origins",
+    )
 
     model_config = {
         "env_file": ".env",
