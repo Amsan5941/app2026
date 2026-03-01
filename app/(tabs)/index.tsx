@@ -1,4 +1,5 @@
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
+import { DashboardSkeleton } from "@/components/SkeletonLoader";
 import { supabase } from "@/constants/supabase";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +22,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   AppStateStatus,
@@ -216,103 +216,6 @@ function makeQaStyles(P: typeof DarkPalette) {
   });
 }
 
-// ── Summary Stats (copied from history.tsx) ─────────────────
-function SummaryStats({
-  workoutsDone,
-  workoutsGoal,
-  totalSets,
-  totalDuration,
-}: {
-  workoutsDone?: number | null;
-  workoutsGoal?: number | null;
-  totalSets: number;
-  totalDuration: number;
-}) {
-  const { palette: Palette } = useTheme();
-  const summaryStyles = useMemo(() => makeSummaryStyles(Palette), [Palette]);
-  const workoutCount = workoutsDone ?? 0;
-  const avgDuration =
-    workoutCount > 0 ? Math.round(totalDuration / 60 / workoutCount) : 0;
-  const stats = [
-    {
-      label: "This Week",
-      value:
-        workoutsGoal != null
-          ? `${workoutsDone ?? 0}/${workoutsGoal}`
-          : String(workoutsDone ?? 0),
-      sub: "workouts",
-      icon: "🏋️",
-      color: Palette.accent,
-    },
-    {
-      label: "Avg Duration",
-      value: String(avgDuration),
-      sub: "min",
-      icon: "⏱",
-      color: Palette.info,
-    },
-    {
-      label: "Total Sets",
-      value: String(totalSets),
-      sub: "sets",
-      icon: "💪",
-      color: Palette.warning,
-    },
-  ];
-
-  return (
-    <View style={summaryStyles.row}>
-      {stats.map((s, i) => (
-        <View
-          key={i}
-          style={[summaryStyles.card, { borderColor: s.color + "25" }]}
-        >
-          <Text style={summaryStyles.icon}>{s.icon}</Text>
-          <Text style={summaryStyles.value}>{s.value}</Text>
-          <Text style={summaryStyles.sub}>{s.sub}</Text>
-          <Text style={summaryStyles.label}>{s.label}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function makeSummaryStyles(P: typeof DarkPalette) {
-  return StyleSheet.create({
-    row: {
-      flexDirection: "row",
-      gap: Spacing.md,
-      marginBottom: Spacing.xl,
-    },
-    card: {
-      flex: 1,
-      backgroundColor: P.bgCard,
-      borderRadius: Radii.lg,
-      padding: Spacing.md,
-      alignItems: "center",
-      borderWidth: 1,
-    },
-    icon: { fontSize: 20, marginBottom: 4 },
-    value: {
-      fontSize: 22,
-      fontWeight: "800",
-      color: P.textPrimary,
-    },
-    sub: {
-      fontSize: 11,
-      color: P.textSecondary,
-      marginTop: 1,
-    },
-    label: {
-      fontSize: 10,
-      color: P.textMuted,
-      marginTop: 4,
-      textTransform: "uppercase",
-      letterSpacing: 0.4,
-    },
-  });
-}
-
 // ── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -350,7 +253,27 @@ export default function HomeScreen() {
   const [firstname, setFirstname] = useState("");
   const [streakCount, setStreakCount] = useState<number>(0);
 
-  // ── All-in-one parallel data loader ───────────────────────
+  // ── Calorie / meal data loader (background — calls backend) ─
+  async function loadCalorieData() {
+    try {
+      const summary = await getDailySummary(
+        new Date().toISOString().slice(0, 10),
+      );
+      setConsumedCalories(summary?.total_calories ?? 0);
+      const meals = summary?.meals_by_type ?? {};
+      setMealsLogged({
+        breakfast: (meals.breakfast?.count ?? 0) > 0,
+        lunch: (meals.lunch?.count ?? 0) > 0,
+        dinner: (meals.dinner?.count ?? 0) > 0,
+      });
+    } catch {
+      // backend unavailable — leave calories at 0, non-fatal
+    }
+  }
+
+  // ── Fast Supabase-only data loader ────────────────────────
+  // getDailySummary (backend HTTP call) is intentionally excluded here and
+  // fired separately in the background so it never delays the initial render.
   async function loadAllData(isInitial = false) {
     if (!user) return;
     if (isInitial) setLoading(true);
@@ -367,13 +290,13 @@ export default function HomeScreen() {
       } catch (err) {
         // ignore
       }
-      // Fire ALL requests in parallel instead of sequentially
+      // Fire Supabase requests in parallel (these are all local-cache or direct DB
+      // calls — they resolve in ~200-500 ms even on a slow connection)
       const [
         nameResult,
         bioResult,
         statsResult,
         weightResult,
-        caloriesResult,
         workoutsResult,
         waterResult,
       ] = await Promise.allSettled([
@@ -385,18 +308,16 @@ export default function HomeScreen() {
         getCurrentUserBioProfile(),
         getWeeklyWorkoutStats(),
         hasLoggedWeightToday(),
-        getDailySummary(new Date().toISOString().slice(0, 10)),
         getTodayWorkouts(),
         getTodayWaterIntake(),
       ]);
-      // if backend tracks water by date, above getTodayWaterIntake should already return EST-aware count
       // ensure we keep estDate in sync with today in EST
       setEstDate(
         new Date().toLocaleDateString("en-CA", {
           timeZone: "America/New_York",
         }),
       );
-      // Apply all results at once (single render batch)
+      // Apply all Supabase results (single render batch)
       if (
         nameResult.status === "fulfilled" &&
         nameResult.value.data?.firstname
@@ -424,17 +345,6 @@ export default function HomeScreen() {
         setHasLoggedWeight(weightResult.value);
       }
 
-      if (caloriesResult.status === "fulfilled") {
-        const summary = caloriesResult.value;
-        setConsumedCalories(summary?.total_calories ?? 0);
-        const meals = summary?.meals_by_type ?? {};
-        setMealsLogged({
-          breakfast: (meals.breakfast?.count ?? 0) > 0,
-          lunch: (meals.lunch?.count ?? 0) > 0,
-          dinner: (meals.dinner?.count ?? 0) > 0,
-        });
-      }
-
       if (workoutsResult.status === "fulfilled") {
         const wres = workoutsResult.value;
         const has = Array.isArray(wres?.data)
@@ -454,7 +364,10 @@ export default function HomeScreen() {
     } catch (err) {
       // ignore
     } finally {
+      // Reveal the UI as soon as Supabase data is ready, then fetch
+      // calorie data from the backend in the background without blocking.
       if (isInitial) setLoading(false);
+      loadCalorieData();
     }
   }
 
@@ -629,10 +542,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       {loading && user ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Palette.accent} />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
-        </View>
+        <DashboardSkeleton />
       ) : (
         <ScrollView
           style={styles.scroll}
