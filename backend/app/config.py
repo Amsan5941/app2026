@@ -3,9 +3,10 @@ AI Diet Tracker - Configuration
 Loads environment variables and provides typed settings.
 """
 
-from pydantic_settings import BaseSettings
-from pydantic import Field
 from typing import Optional
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
