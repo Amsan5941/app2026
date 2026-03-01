@@ -1,4 +1,3 @@
-#!/bin/bash
 
 # AI Diet Tracker - Setup & Start Script
 
