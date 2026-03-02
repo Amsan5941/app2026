@@ -3,13 +3,19 @@ import {
   clearCachedUserId,
   resolveAndCacheUserId,
 } from "@/services/userCache";
+import type { AuthUser, AuthSession } from "@supabase/supabase-js";
+import type { AuthError } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-type User = any;
+/** Result returned by signUp / signIn. */
+type AuthResult = {
+  data: { user: AuthUser | null; session: AuthSession | null } | null;
+  error: AuthError | { message: string } | null;
+};
 
 type AuthContextValue = {
-  user: User | null;
-  session: any | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   /** Cached internal user ID from the `users` table (null until resolved) */
   internalUserId: string | null;
   signUp: (
@@ -17,8 +23,8 @@ type AuthContextValue = {
     password: string,
     firstname: string,
     lastname: string,
-  ) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
+  ) => Promise<AuthResult>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
 };
 
@@ -27,8 +33,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<any | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } = await supabase.auth.getSession();
         if (!mounted) return;
         setSession(currentSession);
-        const authUser = (currentSession as any)?.user ?? null;
+        const authUser = currentSession?.user ?? null;
         setUser(authUser);
         if (authUser?.id) {
           try {
@@ -61,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         setSession(newSession);
-        const authUser = (newSession as any)?.user ?? null;
+        const authUser = newSession?.user ?? null;
         setUser(authUser);
         if (authUser?.id) {
           try {
@@ -79,9 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       mounted = false;
-      try {
-        (listener as any)?.subscription?.unsubscribe();
-      } catch (e) {}
+      listener?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -90,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     firstname: string,
     lastname: string,
-  ) {
+  ): Promise<AuthResult> {
     try {
       // Step 1: Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -129,11 +133,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { data: authData, error: null };
     } catch (error) {
       console.error("Signup error:", error);
-      return { data: null, error };
+      return {
+        data: null,
+        error:
+          error instanceof Error
+            ? { message: error.message }
+            : { message: String(error) },
+      };
     }
   }
 
-  async function signIn(email: string, password: string) {
+  async function signIn(email: string, password: string): Promise<AuthResult> {
     return await supabase.auth.signInWithPassword({ email, password });
   }
 

@@ -52,15 +52,8 @@ type WeightEntry = {
   weight: number;
 };
 
-const WEIGHT_DATA: WeightEntry[] = [
-  { date: "Feb 7", weight: 185 },
-  { date: "Feb 8", weight: 184.5 },
-  { date: "Feb 9", weight: 184 },
-  { date: "Feb 10", weight: 183.5 },
-  { date: "Feb 11", weight: 184 },
-  { date: "Feb 12", weight: 183 },
-  { date: "Feb 13", weight: 182.5 },
-];
+/** Empty fallback — shown only when there is genuinely no weight data yet. */
+const EMPTY_WEIGHT_DATA: WeightEntry[] = [];
 
 // Helper to format recorded_date (YYYY-MM-DD) to 'Mon D' like 'Feb 7'
 function formatRecordedDate(dateStr: string) {
@@ -76,6 +69,21 @@ function formatRecordedDate(dateStr: string) {
 function WeightChart({ data }: { data: WeightEntry[] }) {
   const { palette: Palette } = useTheme();
   const chartStyles = useMemo(() => makeChartStyles(Palette), [Palette]);
+  // Must be declared before any early return (Rules of Hooks)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Need at least 2 points to draw a meaningful chart
+  if (data.length < 2) {
+    return (
+      <View style={chartStyles.card}>
+        <Text style={chartStyles.title}>Weight Trend</Text>
+        <Text style={{ color: Palette.textMuted, textAlign: "center", paddingVertical: 30 }}>
+          Log at least 2 days of weight to see your trend chart.
+        </Text>
+      </View>
+    );
+  }
+
   const width = 320;
   const height = 140;
   const paddingX = 10;
@@ -97,8 +105,6 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
   const endWeight = data[data.length - 1].weight;
   const diff = endWeight - startWeight;
   const isLoss = diff < 0;
-
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   function handlePointPress(index: number) {
     setSelectedIndex(selectedIndex === index ? null : index);
@@ -844,7 +850,7 @@ export default function ProgressScreen() {
   const bodyStyles = useMemo(() => makeBodyStyles(Palette), [Palette]);
   const styles = useMemo(() => makeProgressStyles(Palette), [Palette]);
   const [activeTab, setActiveTab] = useState("Overview");
-  const [weightData, setWeightData] = useState<WeightEntry[]>(WEIGHT_DATA);
+  const [weightData, setWeightData] = useState<WeightEntry[]>(EMPTY_WEIGHT_DATA);
   const [loadingWeights, setLoadingWeights] = useState(false);
   const [weightUnit, setWeightUnit] = useState<string>("lbs");
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -942,11 +948,11 @@ export default function ProgressScreen() {
           setWeightUnit(bpRes.profile.weight_unit ?? "lbs");
           setWeightData(arr);
         } else {
-          setWeightData(WEIGHT_DATA);
+          setWeightData(EMPTY_WEIGHT_DATA);
         }
       } catch (e) {
         console.error("Error loading weight data:", e);
-        setWeightData(WEIGHT_DATA);
+        setWeightData(EMPTY_WEIGHT_DATA);
       } finally {
         if (mounted) setLoadingWeights(false);
       }
