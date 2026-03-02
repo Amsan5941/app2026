@@ -3,8 +3,7 @@ import {
   clearCachedUserId,
   resolveAndCacheUserId,
 } from "@/services/userCache";
-import type { AuthUser, AuthSession } from "@supabase/supabase-js";
-import type { AuthError } from "@supabase/supabase-js";
+import type { AuthError, AuthSession, AuthUser } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 /** Result returned by signUp / signIn. */
