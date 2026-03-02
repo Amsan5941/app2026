@@ -3,32 +3,33 @@ import { estimateCalories } from "@/utils/calorieEstimation";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeMode, useTheme } from "@/hooks/useTheme";
 import {
-  changeUserPassword,
-  getCurrentUserProfile,
-  updateBioProfile,
-  updateUserProfile,
+    changeUserPassword,
+    getCurrentUserProfile,
+    updateBioProfile,
+    updateUserProfile,
 } from "@/services/auth";
+import { ensureBioProfile } from "@/services/bioProfile";
 import { Alert } from "react-native";
 
 export default function ProfileScreen() {
@@ -74,9 +75,14 @@ export default function ProfileScreen() {
       if (!mounted) return;
       if (res.success) {
         setProfile(res.profile ?? null);
-        setBioProfile(res.bioProfile ?? null);
-        // initialize fitness modal defaults
-        const bp = res.bioProfile ?? null;
+
+        // Guarantee a bio_profile row exists (safety net for users created
+        // before the trigger was updated, or if the trigger didn't fire).
+        let bp = res.bioProfile ?? null;
+        if (!bp) {
+          bp = await ensureBioProfile();
+        }
+        setBioProfile(bp);
         setFGoal(bp?.goal ?? "");
         setFActivityLevel(bp?.activity_level ?? "");
         setFWorkoutStyle(bp?.workout_style ?? "");
@@ -387,7 +393,23 @@ export default function ProfileScreen() {
                     )}
                   </>
                 ) : (
-                  <Text style={styles.value}>No bio profile found.</Text>
+                  <>
+                    <Text style={styles.value}>
+                      No bio profile yet — tap Edit to get started.
+                    </Text>
+                    <View style={styles.rowRight}>
+                      <Pressable
+                        style={styles.ghostBtn}
+                        onPress={() => {
+                          setBioEditing(true);
+                          setEditHeight("");
+                          setEditSex("");
+                        }}
+                      >
+                        <Text style={styles.ghostText}>Edit</Text>
+                      </Pressable>
+                    </View>
+                  </>
                 )}
               </View>
 
@@ -440,7 +462,27 @@ export default function ProfileScreen() {
                     </View>
                   </>
                 ) : (
-                  <Text style={styles.value}>No fitness information.</Text>
+                  <>
+                    <Text style={styles.value}>
+                      No fitness information yet — tap Edit to set up.
+                    </Text>
+                    <View style={styles.rowRight}>
+                      <Pressable
+                        style={styles.ghostBtn}
+                        onPress={() => {
+                          setFGoal("");
+                          setFActivityLevel("");
+                          setFWorkoutStyle("");
+                          setFWorkoutsPerWeek("");
+                          setFDailyCalorie("");
+                          setFAutoFilled(false);
+                          setShowFitnessModal(true);
+                        }}
+                      >
+                        <Text style={styles.ghostText}>Edit</Text>
+                      </Pressable>
+                    </View>
+                  </>
                 )}
               </View>
 

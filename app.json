@@ -47,13 +47,6 @@
     "plugins": [
       "expo-router",
       [
-        "@sentry/react-native/expo",
-        {
-          "organization": "your-sentry-org",
-          "project": "fittrack"
-        }
-      ],
-      [
         "expo-sensors",
         {
           "motionPermission": "This app uses your device's motion sensors to track your daily steps."

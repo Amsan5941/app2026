@@ -24,10 +24,11 @@ import {
     type WeeklySteps,
 } from "@/services/stepTracking";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 
 const DEFAULT_STEP_GOAL = 10000;
 const REFRESH_INTERVAL_MS = 30_000; // Refresh every 30 seconds
+const IS_WEB = Platform.OS === "web";
 
 export type StepsState = {
   /** Today's total step count */
@@ -57,6 +58,27 @@ export type StepsState = {
 };
 
 export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
+  // Pedometer is never available on web — return static defaults immediately
+  // to avoid unnecessary async calls (isPedometerAvailable, permissions, etc.)
+  if (IS_WEB) {
+    const noopRefresh = useCallback(async () => {}, []);
+    const noopPermission = useCallback(async () => false, []);
+    return {
+      todaySteps: 0,
+      todayStepsFormatted: "0",
+      goal: stepGoal,
+      progress: 0,
+      calories: 0,
+      distanceMiles: 0,
+      weeklySteps: [],
+      isAvailable: false,
+      hasPermission: false,
+      isLoading: false,
+      requestPermission: noopPermission,
+      refresh: noopRefresh,
+    };
+  }
+
   const [todaySteps, setTodaySteps] = useState(0);
   const [weeklySteps, setWeeklySteps] = useState<WeeklySteps>([]);
   const [isAvailable, setIsAvailable] = useState(false);

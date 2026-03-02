@@ -27,9 +27,10 @@ export function initSentry(): void {
 
   Sentry.init({
     dsn: SENTRY_DSN,
-    // Set to a lower value in production to reduce noise
-    tracesSampleRate: __DEV__ ? 1.0 : 0.2,
-    debug: __DEV__,
+    // Lower sample rate keeps dev fast; production cuts noise
+    tracesSampleRate: __DEV__ ? 0.1 : 0.2,
+    // Never enable debug — it floods the console with 20+ integration logs
+    debug: false,
     environment: __DEV__ ? "development" : "production",
   });
 

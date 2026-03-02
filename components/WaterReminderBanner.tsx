@@ -7,11 +7,14 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
     View,
 } from "react-native";
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
 interface WaterReminderBannerProps {
   visible: boolean;
@@ -41,14 +44,14 @@ export default function WaterReminderBanner({
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
           tension: 60,
           friction: 10,
         }),
         Animated.timing(opacity, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]).start();
 
@@ -69,12 +72,12 @@ export default function WaterReminderBanner({
       Animated.timing(translateY, {
         toValue: -200,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(opacity, {
         toValue: 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start(() => {
       setIsVisible(false);

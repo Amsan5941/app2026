@@ -105,10 +105,14 @@ export async function updateBioProfile(updates: {
   try {
     const userId = await getUserId();
 
+    // Use upsert so it works even if the row doesn't exist yet
+    // (e.g. users who signed up before the trigger created bio_profile).
     const { error } = await supabase
       .from("bio_profile")
-      .update(updates)
-      .eq("user_id", userId);
+      .upsert(
+        { user_id: userId, ...updates },
+        { onConflict: "user_id" },
+      );
 
     if (error) throw error;
     return { success: true };

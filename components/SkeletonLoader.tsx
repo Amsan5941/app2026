@@ -15,12 +15,15 @@ import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import React, { useEffect, useMemo, useRef } from "react";
 import {
-  Animated,
-  DimensionValue,
-  StyleSheet,
-  View,
-  ViewStyle,
+    Animated,
+    DimensionValue,
+    Platform,
+    StyleSheet,
+    View,
+    ViewStyle,
 } from "react-native";
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
 // ── Base shimmer bar ────────────────────────────────────────
 
@@ -46,12 +49,12 @@ export default function SkeletonLoader({
         Animated.timing(opacity, {
           toValue: 0.7,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(opacity, {
           toValue: 0.35,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );

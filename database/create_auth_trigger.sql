@@ -1,15 +1,24 @@
--- Solution: Use Database Trigger to Auto-Create User Profile
--- This ensures users table entry is created automatically when auth user is created
+-- Solution: Use Database Trigger to Auto-Create User Profile + Bio Profile
+-- This ensures users AND bio_profile entries are created automatically when auth user is created
 
 -- Step 1: Create a function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  new_user_id UUID;
 BEGIN
   -- Insert into users table with just the auth_id
   -- firstname/lastname will be updated by the app after
   INSERT INTO public.users (auth_id, firstname, lastname)
-  VALUES (NEW.id, '', '');
-  
+  VALUES (NEW.id, '', '')
+  RETURNING id INTO new_user_id;
+
+  -- Also create an empty bio_profile so the profile screen can
+  -- immediately update it instead of requiring a separate insert path.
+  INSERT INTO public.bio_profile (user_id)
+  VALUES (new_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
