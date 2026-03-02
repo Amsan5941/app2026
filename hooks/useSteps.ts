@@ -58,32 +58,13 @@ export type StepsState = {
 };
 
 export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
-  // Pedometer is never available on web — return static defaults immediately
-  // to avoid unnecessary async calls (isPedometerAvailable, permissions, etc.)
-  if (IS_WEB) {
-    const noopRefresh = useCallback(async () => {}, []);
-    const noopPermission = useCallback(async () => false, []);
-    return {
-      todaySteps: 0,
-      todayStepsFormatted: "0",
-      goal: stepGoal,
-      progress: 0,
-      calories: 0,
-      distanceMiles: 0,
-      weeklySteps: [],
-      isAvailable: false,
-      hasPermission: false,
-      isLoading: false,
-      requestPermission: noopPermission,
-      refresh: noopRefresh,
-    };
-  }
-
+  // All hooks must be called unconditionally (Rules of Hooks).
+  // IS_WEB guards are placed *inside* callbacks/effects, not around them.
   const [todaySteps, setTodaySteps] = useState(0);
   const [weeklySteps, setWeeklySteps] = useState<WeeklySteps>([]);
   const [isAvailable, setIsAvailable] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!IS_WEB); // web is instantly "done"
 
   // Track the step count at subscription start so we can add live updates
   const baseStepsRef = useRef(0);
@@ -91,6 +72,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
   const subscriptionRef = useRef<{ remove: () => void } | null>(null);
 
   const loadSteps = useCallback(async () => {
+    if (IS_WEB) return;
     try {
       const steps = await getTodaySteps();
       baseStepsRef.current = steps;
@@ -102,6 +84,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
   }, []);
 
   const loadWeeklySteps = useCallback(async () => {
+    if (IS_WEB) return;
     try {
       const data = await getWeeklySteps(7);
       setWeeklySteps(data);
@@ -111,12 +94,14 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (IS_WEB) return;
     setIsLoading(true);
     await Promise.all([loadSteps(), loadWeeklySteps()]);
     setIsLoading(false);
   }, [loadSteps, loadWeeklySteps]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
+    if (IS_WEB) return false;
     const granted = await requestPedometerPermissions();
     setHasPermission(granted);
     if (granted) {
@@ -127,6 +112,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
   }, [refresh]);
 
   const startLiveTracking = useCallback(() => {
+    if (IS_WEB) return;
     // Clean up any existing subscription
     subscriptionRef.current?.remove();
 
@@ -139,6 +125,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
 
   // Initialize on mount
   useEffect(() => {
+    if (IS_WEB) return; // pedometer never available on web
     let mounted = true;
 
     async function init() {
@@ -182,7 +169,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
 
   // Periodic refresh to keep data fresh
   useEffect(() => {
-    if (!hasPermission) return;
+    if (IS_WEB || !hasPermission) return;
 
     const interval = setInterval(() => {
       loadSteps();
@@ -193,6 +180,7 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
 
   // Refresh when app comes to foreground
   useEffect(() => {
+    if (IS_WEB) return;
     const handleAppState = (nextState: AppStateStatus) => {
       if (nextState === "active" && hasPermission) {
         refresh();
