@@ -10,7 +10,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.app2026.fittrack",
       "buildNumber": "1",
       "infoPlist": {
@@ -75,6 +75,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "EXPO_PUBLIC_SUPABASE_URL": "https://spifuhesobaxrywbxnga.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_ZmpM72K9c_5vsXB5w4SNZw_6Z8eOERP",
+      "EXPO_PUBLIC_SENTRY_DSN": "https://35dff7af469226284025ffc66bfc6d1d@o4510971849080832.ingest.us.sentry.io/4510971852947456",
+      "EXPO_PUBLIC_POSTHOG_API_KEY": "phc_kuKBNgijdg5ciKylFRcW0n9Mbi6jiUdF28Aqy4aQVrI",
+      "router": {},
+      "eas": {
+        "projectId": "a43ef4b7-348d-4ac2-8111-a5914da8ee5e"
+      }
     }
   }
 }
