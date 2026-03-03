@@ -1,0 +1,13 @@
+# Backend .dockerignore
+__pycache__
+*.pyc
+*.pyo
+.git
+.env
+venv
+.venv
+logs
+models
+datasets
+*.pth
+*.pt
