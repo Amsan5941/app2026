@@ -8,16 +8,13 @@ and image storage via Supabase.
 from datetime import date
 from typing import Optional
 
-from supabase import create_client, Client
-
 from app.config import settings
-from app.models.food_model import (
-    FoodLogCreate,
-    FoodLogResponse,
-    FoodItemResponse,
-    AIRecognitionResult,
-    DatasetSample,
-)
+from app.models.food_model import (AIRecognitionResult, DatasetSample,
+                                   FoodItemResponse, FoodLogCreate,
+                                   FoodLogResponse, FoodLogUpdate,
+                                   MacroTargetsUpdate)
+
+from supabase import Client, create_client
 
 _client: Optional[Client] = None
 
@@ -155,19 +152,46 @@ async def create_food_log(
     return food_log
 
 
-async def get_food_logs(user_id: str, target_date: Optional[date] = None, limit: int = 50) -> list[dict]:
+async def get_food_logs(
+    user_id: str,
+    target_date: Optional[date] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+) -> dict:
     """
-    Get food logs for a user, optionally filtered by date.
+    Get food logs for a user with cursor-based pagination.
+
+    Args:
+        user_id: Internal user ID
+        target_date: Optional date filter
+        limit: Page size (default 20)
+        cursor: ISO timestamp cursor (created_at of last item from previous page)
+
+    Returns:
+        Dict with 'items', 'next_cursor', and 'has_more'
     """
     client = get_client()
+    # Fetch one extra to detect if more pages exist
+    fetch_limit = limit + 1
     query = client.table("food_logs").select("*").eq("user_id", user_id)
 
     if target_date:
         query = query.eq("logged_date", target_date.isoformat())
 
-    query = query.order("created_at", desc=True).limit(limit)
+    if cursor:
+        query = query.lt("created_at", cursor)
+
+    query = query.order("created_at", desc=True).limit(fetch_limit)
     result = query.execute()
-    return result.data
+    items = result.data
+
+    has_more = len(items) > limit
+    if has_more:
+        items = items[:limit]
+
+    next_cursor = items[-1]["created_at"] if items and has_more else None
+
+    return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
 
 
 async def get_food_log_with_items(food_log_id: str) -> Optional[dict]:
@@ -232,6 +256,91 @@ async def delete_food_log(food_log_id: str) -> bool:
     client = get_client()
     result = client.table("food_logs").delete().eq("id", food_log_id).execute()
     return len(result.data) > 0
+
+
+async def update_food_log(food_log_id: str, update: FoodLogUpdate) -> Optional[dict]:
+    """
+    Update a food log's nutrition values.
+    Stores original AI values in original_* columns on first edit.
+    Validates user ownership.
+    """
+    client = get_client()
+
+    # Fetch existing log
+    existing = client.table("food_logs").select("*").eq("id", food_log_id).execute()
+    if not existing.data:
+        return None
+
+    log = existing.data[0]
+
+    # Validate ownership
+    if log["user_id"] != update.user_id:
+        # Try resolving auth_id
+        resolved = await get_user_id_from_auth(update.user_id)
+        if not resolved or log["user_id"] != resolved:
+            return None
+
+    # Build update data
+    update_data: dict = {"edited": True}
+
+    # On first edit, save original AI values
+    if not log.get("edited"):
+        update_data["original_calories"] = log.get("total_calories")
+        update_data["original_protein"] = log.get("total_protein")
+        update_data["original_carbs"] = log.get("total_carbs")
+        update_data["original_fat"] = log.get("total_fat")
+
+    if update.total_calories is not None:
+        update_data["total_calories"] = update.total_calories
+    if update.total_protein is not None:
+        update_data["total_protein"] = update.total_protein
+    if update.total_carbs is not None:
+        update_data["total_carbs"] = update.total_carbs
+    if update.total_fat is not None:
+        update_data["total_fat"] = update.total_fat
+    if update.notes is not None:
+        update_data["notes"] = update.notes
+
+    result = client.table("food_logs").update(update_data).eq("id", food_log_id).execute()
+    return result.data[0] if result.data else None
+
+
+async def update_macro_targets(user_id: str, targets: MacroTargetsUpdate) -> Optional[dict]:
+    """Update macro targets for a user's bio_profile."""
+    client = get_client()
+
+    update_data: dict = {}
+    if targets.protein_target is not None:
+        update_data["protein_target"] = targets.protein_target
+    if targets.carbs_target is not None:
+        update_data["carbs_target"] = targets.carbs_target
+    if targets.fat_target is not None:
+        update_data["fat_target"] = targets.fat_target
+    if targets.calorie_goal is not None:
+        update_data["calorie_goal"] = targets.calorie_goal
+
+    if not update_data:
+        return None
+
+    result = (
+        client.table("bio_profile")
+        .update(update_data)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+async def get_macro_targets(user_id: str) -> Optional[dict]:
+    """Get macro targets from bio_profile for a user."""
+    client = get_client()
+    result = (
+        client.table("bio_profile")
+        .select("calorie_goal, protein_target, carbs_target, fat_target")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
 
 # ── Dataset Collection ────────────────────────────────────

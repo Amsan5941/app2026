@@ -3,18 +3,21 @@ Food Logs API Routes
 
 Endpoints:
   POST   /api/v1/food-logs              → Create manual food log
-  GET    /api/v1/food-logs/{user_id}     → Get user's food logs
+  GET    /api/v1/food-logs/{user_id}     → Get user's food logs (paginated)
   GET    /api/v1/food-logs/detail/{id}   → Get single log with items
   GET    /api/v1/food-logs/summary/{user_id} → Daily summary
+  PUT    /api/v1/food-logs/{food_log_id} → Update a food log
   DELETE /api/v1/food-logs/{id}          → Delete a food log
 """
 
 from datetime import date
 from typing import Optional
 
-from app.models.food_model import FoodLogResponse, ManualFoodEntry
-from app.services import supabase_service
+from app.models.food_model import (FoodLogResponse, FoodLogUpdate,
+                                   ManualFoodEntry)
 from fastapi import APIRouter, HTTPException, Query
+
+from app.services import supabase_service
 
 router = APIRouter()
 
@@ -64,13 +67,20 @@ async def create_manual_food_log(entry: ManualFoodEntry):
 async def get_user_food_logs(
     user_id: str,
     target_date: Optional[date] = Query(None, description="Filter by date (YYYY-MM-DD)"),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(20, ge=1, le=100),
+    cursor: Optional[str] = Query(None, description="Pagination cursor (created_at ISO timestamp)"),
 ):
-    """Get food logs for a user. Accepts internal user_id or auth_id."""
+    """Get food logs for a user with cursor-based pagination. Accepts internal user_id or auth_id."""
     try:
         resolved_id = await _resolve_user_id(user_id)
-        logs = await supabase_service.get_food_logs(resolved_id, target_date, limit)
-        return {"success": True, "data": logs, "count": len(logs)}
+        result = await supabase_service.get_food_logs(resolved_id, target_date, limit, cursor)
+        return {
+            "success": True,
+            "data": result["items"],
+            "count": len(result["items"]),
+            "next_cursor": result["next_cursor"],
+            "has_more": result["has_more"],
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -112,3 +122,20 @@ async def delete_food_log(food_log_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Food log not found")
     return {"success": True, "message": "Food log deleted"}
+
+
+@router.put("/food-logs/{food_log_id}")
+async def update_food_log(food_log_id: str, update: FoodLogUpdate):
+    """
+    Update a food log's nutrition values.
+    Validates user ownership, stores original AI values, and marks as edited.
+    """
+    try:
+        result = await supabase_service.update_food_log(food_log_id, update)
+        if not result:
+            raise HTTPException(status_code=404, detail="Food log not found")
+        return {"success": True, "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update food log: {str(e)}")

@@ -2,11 +2,11 @@
 Pydantic models for Food Recognition and Diet Tracking.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import date
 from enum import Enum
+from typing import Optional
 
+from pydantic import BaseModel, Field
 
 # ── Enums ──────────────────────────────────────────────────
 
@@ -22,6 +22,7 @@ class RecognitionSource(str, Enum):
     custom_model = "custom_model"
     hybrid = "hybrid"
     manual = "manual"
+    barcode = "barcode"
 
 
 # ── Food Items ─────────────────────────────────────────────
@@ -155,3 +156,26 @@ class TrainingStatus(BaseModel):
     accuracy: Optional[float] = None
     loss: Optional[float] = None
     message: Optional[str] = None
+
+
+# ── Food Log Update ───────────────────────────────────────
+
+class FoodLogUpdate(BaseModel):
+    """Update a food log's nutrition values. Stores original AI values separately."""
+    user_id: str = Field(..., description="User ID for ownership validation")
+    total_calories: Optional[float] = Field(None, ge=0)
+    total_protein: Optional[float] = Field(None, ge=0)
+    total_carbs: Optional[float] = Field(None, ge=0)
+    total_fat: Optional[float] = Field(None, ge=0)
+    serving_size: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ── Macro Targets ─────────────────────────────────────────
+
+class MacroTargetsUpdate(BaseModel):
+    """Update daily macro targets for a user."""
+    protein_target: Optional[float] = Field(None, ge=0)
+    carbs_target: Optional[float] = Field(None, ge=0)
+    fat_target: Optional[float] = Field(None, ge=0)
+    calorie_goal: Optional[float] = Field(None, ge=0)

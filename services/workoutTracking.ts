@@ -317,13 +317,15 @@ export async function getTodayWorkouts(): Promise<{
     // Single query: sessions → exercises → sets via foreign-key joins
     const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select(`
+      .select(
+        `
         *,
         session_exercises (
           *,
           exercise_sets (*)
         )
-      `)
+      `,
+      )
       .eq("user_id", userId)
       .eq("workout_date", today)
       .order("created_at", { ascending: true });
@@ -363,13 +365,15 @@ export async function getWorkoutSession(
   try {
     const { data: session, error } = await supabase
       .from("workout_sessions")
-      .select(`
+      .select(
+        `
         *,
         session_exercises (
           *,
           exercise_sets (*)
         )
-      `)
+      `,
+      )
       .eq("id", sessionId)
       .single();
 
@@ -395,35 +399,57 @@ export async function getWorkoutSession(
 }
 
 /**
- * Get workout history (list of past sessions) for the current user
+ * Get workout history (list of past sessions) for the current user.
+ * Supports cursor-based pagination.
  */
 export async function getWorkoutHistory(
-  limit: number = 30,
-): Promise<{ success: boolean; data?: WorkoutHistoryItem[]; error?: any }> {
+  limit: number = 20,
+  cursor?: string | null,
+): Promise<{
+  success: boolean;
+  data?: WorkoutHistoryItem[];
+  has_more?: boolean;
+  next_cursor?: string | null;
+  error?: any;
+}> {
   try {
     const userId = await getUserId();
 
-    // Single query: sessions with nested exercise → set counts
-    const { data: sessions, error } = await supabase
+    // Build query with cursor-based pagination
+    let query = supabase
       .from("workout_sessions")
-      .select(`
+      .select(
+        `
         *,
         session_exercises (
           id,
           exercise_sets ( id )
         )
-      `)
-      .eq("user_id", userId)
+      `,
+      )
+      .eq("user_id", userId);
+
+    if (cursor) {
+      query = query.lt("created_at", cursor);
+    }
+
+    // Fetch one extra to detect if more pages exist
+    query = query
       .order("workout_date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit + 1);
+
+    const { data: sessions, error } = await query;
 
     if (error) throw error;
     if (!sessions || sessions.length === 0) {
-      return { success: true, data: [] };
+      return { success: true, data: [], has_more: false, next_cursor: null };
     }
 
-    const result: WorkoutHistoryItem[] = sessions.map((session: any) => {
+    const hasMore = sessions.length > limit;
+    const pageItems = hasMore ? sessions.slice(0, limit) : sessions;
+
+    const result: WorkoutHistoryItem[] = pageItems.map((session: any) => {
       const exercises = session.session_exercises || [];
       const totalSets = exercises.reduce(
         (sum: number, ex: any) => sum + (ex.exercise_sets?.length || 0),
@@ -441,7 +467,17 @@ export async function getWorkoutHistory(
       };
     });
 
-    return { success: true, data: result };
+    const nextCursor =
+      hasMore && result.length > 0
+        ? result[result.length - 1].created_at
+        : null;
+
+    return {
+      success: true,
+      data: result,
+      has_more: hasMore,
+      next_cursor: nextCursor,
+    };
   } catch (error) {
     console.error("Error fetching workout history:", error);
     return { success: false, error };
@@ -495,8 +531,8 @@ export async function getExerciseNames(): Promise<{
 
     if (error) throw error;
 
-    const names = (sessions || []).flatMap(
-      (s: any) => (s.session_exercises || []).map((e: any) => e.exercise_name),
+    const names = (sessions || []).flatMap((s: any) =>
+      (s.session_exercises || []).map((e: any) => e.exercise_name),
     );
     const unique = [...new Set(names)];
     return { success: true, data: unique };
@@ -529,14 +565,16 @@ export async function getWeeklyWorkoutStats(): Promise<{
     // Single query: sessions with nested exercise → set IDs
     const { data: sessions, error } = await supabase
       .from("workout_sessions")
-      .select(`
+      .select(
+        `
         id,
         duration_seconds,
         session_exercises (
           id,
           exercise_sets ( id )
         )
-      `)
+      `,
+      )
       .eq("user_id", userId)
       .gte("workout_date", weekStart);
 

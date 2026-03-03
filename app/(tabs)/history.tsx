@@ -21,7 +21,13 @@ import { formatTime } from "@/utils/formatTime";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -34,7 +40,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
@@ -77,7 +83,13 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
     return (
       <View style={chartStyles.card}>
         <Text style={chartStyles.title}>Weight Trend</Text>
-        <Text style={{ color: Palette.textMuted, textAlign: "center", paddingVertical: 30 }}>
+        <Text
+          style={{
+            color: Palette.textMuted,
+            textAlign: "center",
+            paddingVertical: 30,
+          }}
+        >
           Log at least 2 days of weight to see your trend chart.
         </Text>
       </View>
@@ -275,108 +287,108 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
 
 function makeChartStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  card: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: Spacing.sm,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: P.textMuted,
-    marginTop: 2,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-  },
-  badgeLoss: { backgroundColor: P.successMuted },
-  badgeGain: { backgroundColor: P.warningMuted },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  badgeLossText: { color: P.success },
-  badgeGainText: { color: P.warning },
-  currentWeight: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: Spacing.md,
-    gap: 4,
-  },
-  weightValue: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  weightUnit: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: P.textSecondary,
-  },
-  dateRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: Spacing.sm,
-    paddingHorizontal: 4,
-  },
-  dateLabel: {
-    fontSize: 10,
-    color: P.textMuted,
-  },
-  tooltip: {
-    position: "absolute",
-    backgroundColor: P.bgElevated,
-    borderRadius: Radii.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: P.accent + "40",
-    alignItems: "center",
-    minWidth: 88,
-    shadowColor: P.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 10,
-  },
-  tooltipWeight: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  tooltipDate: {
-    fontSize: 10,
-    color: P.textMuted,
-    marginTop: 1,
-  },
-  tooltipArrow: {
-    position: "absolute",
-    bottom: -5,
-    width: 10,
-    height: 10,
-    backgroundColor: P.bgElevated,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: P.accent + "40",
-    transform: [{ rotate: "45deg" }],
-  },
-});
+    card: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.xl,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: Spacing.sm,
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    subtitle: {
+      fontSize: 12,
+      color: P.textMuted,
+      marginTop: 2,
+    },
+    badge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: Radii.full,
+    },
+    badgeLoss: { backgroundColor: P.successMuted },
+    badgeGain: { backgroundColor: P.warningMuted },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    badgeLossText: { color: P.success },
+    badgeGainText: { color: P.warning },
+    currentWeight: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      marginBottom: Spacing.md,
+      gap: 4,
+    },
+    weightValue: {
+      fontSize: 36,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    weightUnit: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: P.textSecondary,
+    },
+    dateRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: Spacing.sm,
+      paddingHorizontal: 4,
+    },
+    dateLabel: {
+      fontSize: 10,
+      color: P.textMuted,
+    },
+    tooltip: {
+      position: "absolute",
+      backgroundColor: P.bgElevated,
+      borderRadius: Radii.sm,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: P.accent + "40",
+      alignItems: "center",
+      minWidth: 88,
+      shadowColor: P.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 6,
+      zIndex: 10,
+    },
+    tooltipWeight: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    tooltipDate: {
+      fontSize: 10,
+      color: P.textMuted,
+      marginTop: 1,
+    },
+    tooltipArrow: {
+      position: "absolute",
+      bottom: -5,
+      width: 10,
+      height: 10,
+      backgroundColor: P.bgElevated,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: P.accent + "40",
+      transform: [{ rotate: "45deg" }],
+    },
+  });
 }
 
 // ── Workout History Card ────────────────────────────────────
@@ -590,198 +602,198 @@ function WorkoutDetailModal({
 
 function makeDetailStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: P.overlay,
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: P.bgElevated,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: Spacing.xl,
-    paddingBottom: Platform.OS === "ios" ? 40 : Spacing.xl,
-    maxHeight: "85%",
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: P.border,
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: Spacing.lg,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: P.textPrimary,
-  },
-  date: {
-    fontSize: 13,
-    color: P.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: P.bgCard,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeBtnText: {
-    color: P.textSecondary,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  durationBadge: {
-    backgroundColor: P.accentMuted,
-    borderRadius: Radii.md,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-    alignSelf: "flex-start",
-  },
-  durationText: {
-    color: P.accent,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  exerciseCard: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  exerciseHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  exIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: P.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.sm,
-  },
-  exerciseName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-  setCount: {
-    fontSize: 12,
-    color: P.textSecondary,
-    fontWeight: "600",
-  },
-  setHeaderRow: {
-    flexDirection: "row",
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: P.divider,
-    marginBottom: Spacing.sm,
-  },
-  setHeaderText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: P.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  setRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: P.divider,
-  },
-  setText: {
-    fontSize: 14,
-    color: P.textPrimary,
-    fontWeight: "600",
-  },
-});
+    overlay: {
+      flex: 1,
+      backgroundColor: P.overlay,
+      justifyContent: "flex-end",
+    },
+    sheet: {
+      backgroundColor: P.bgElevated,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: Spacing.xl,
+      paddingBottom: Platform.OS === "ios" ? 40 : Spacing.xl,
+      maxHeight: "85%",
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: P.border,
+      alignSelf: "center",
+      marginBottom: Spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: Spacing.lg,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: P.textPrimary,
+    },
+    date: {
+      fontSize: 13,
+      color: P.textSecondary,
+      marginTop: 2,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: P.bgCard,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    closeBtnText: {
+      color: P.textSecondary,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    durationBadge: {
+      backgroundColor: P.accentMuted,
+      borderRadius: Radii.md,
+      paddingVertical: 10,
+      paddingHorizontal: Spacing.lg,
+      marginBottom: Spacing.lg,
+      alignSelf: "flex-start",
+    },
+    durationText: {
+      color: P.accent,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    exerciseCard: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    exerciseHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: Spacing.md,
+    },
+    exIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: Spacing.sm,
+    },
+    exerciseName: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    setCount: {
+      fontSize: 12,
+      color: P.textSecondary,
+      fontWeight: "600",
+    },
+    setHeaderRow: {
+      flexDirection: "row",
+      paddingBottom: Spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: P.divider,
+      marginBottom: Spacing.sm,
+    },
+    setHeaderText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: P.textMuted,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    setRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: P.divider,
+    },
+    setText: {
+      fontSize: 14,
+      color: P.textPrimary,
+      fontWeight: "600",
+    },
+  });
 }
 
 function makeWkStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  dateCol: {
-    alignItems: "center",
-    width: 46,
-  },
-  day: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: P.accent,
-    textTransform: "uppercase",
-  },
-  monthDay: {
-    fontSize: 12,
-    color: P.textSecondary,
-    marginTop: 2,
-  },
-  divider: {
-    width: 1,
-    height: 36,
-    backgroundColor: P.border,
-    marginHorizontal: Spacing.md,
-  },
-  iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: P.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.md,
-  },
-  icon: { fontSize: 20 },
-  info: { flex: 1 },
-  type: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-    gap: 6,
-  },
-  meta: {
-    fontSize: 12,
-    color: P.textSecondary,
-  },
-  metaDot: {
-    color: P.textMuted,
-    fontSize: 10,
-  },
-  chevron: {
-    fontSize: 14,
-    color: P.textMuted,
-    marginLeft: Spacing.sm,
-  },
-});
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    dateCol: {
+      alignItems: "center",
+      width: 46,
+    },
+    day: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: P.accent,
+      textTransform: "uppercase",
+    },
+    monthDay: {
+      fontSize: 12,
+      color: P.textSecondary,
+      marginTop: 2,
+    },
+    divider: {
+      width: 1,
+      height: 36,
+      backgroundColor: P.border,
+      marginHorizontal: Spacing.md,
+    },
+    iconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: P.accentMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: Spacing.md,
+    },
+    icon: { fontSize: 20 },
+    info: { flex: 1 },
+    type: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 4,
+      gap: 6,
+    },
+    meta: {
+      fontSize: 12,
+      color: P.textSecondary,
+    },
+    metaDot: {
+      color: P.textMuted,
+      fontSize: 10,
+    },
+    chevron: {
+      fontSize: 14,
+      color: P.textMuted,
+      marginLeft: Spacing.sm,
+    },
+  });
 }
 
 // ── Tab Selector ────────────────────────────────────────────
@@ -815,33 +827,33 @@ function TabSelector({
 
 function makeTabStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.md,
-    padding: 3,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: Radii.sm,
-    alignItems: "center",
-  },
-  tabActive: {
-    backgroundColor: P.accent,
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: P.textMuted,
-  },
-  textActive: {
-    color: P.white,
-  },
-});
+    row: {
+      flexDirection: "row",
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.md,
+      padding: 3,
+      marginBottom: Spacing.xl,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: Radii.sm,
+      alignItems: "center",
+    },
+    tabActive: {
+      backgroundColor: P.accent,
+    },
+    text: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: P.textMuted,
+    },
+    textActive: {
+      color: P.white,
+    },
+  });
 }
 
 // ── Main Screen ─────────────────────────────────────────────
@@ -850,7 +862,8 @@ export default function ProgressScreen() {
   const bodyStyles = useMemo(() => makeBodyStyles(Palette), [Palette]);
   const styles = useMemo(() => makeProgressStyles(Palette), [Palette]);
   const [activeTab, setActiveTab] = useState("Overview");
-  const [weightData, setWeightData] = useState<WeightEntry[]>(EMPTY_WEIGHT_DATA);
+  const [weightData, setWeightData] =
+    useState<WeightEntry[]>(EMPTY_WEIGHT_DATA);
   const [loadingWeights, setLoadingWeights] = useState(false);
   const [weightUnit, setWeightUnit] = useState<string>("lbs");
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -860,6 +873,10 @@ export default function ProgressScreen() {
     [],
   );
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  const [loadingMoreWorkouts, setLoadingMoreWorkouts] = useState(false);
+  const [workoutCursor, setWorkoutCursor] = useState<string | null>(null);
+  const [hasMoreWorkouts, setHasMoreWorkouts] = useState(false);
+  const workoutFetchRef = useRef(false);
   const [weeklyStats, setWeeklyStats] = useState({
     workoutCount: 0,
     totalSets: 0,
@@ -1007,35 +1024,67 @@ export default function ProgressScreen() {
     };
   }, []);
 
-  // Load workout history when tab focuses or activeTab changes
-  const loadWorkouts = useCallback(async () => {
-    setLoadingWorkouts(true);
-    try {
-      const [histRes, statsRes] = await Promise.all([
-        getWorkoutHistory(30),
-        getWeeklyWorkoutStats(),
-      ]);
-      if (histRes.success) {
-        setWorkoutHistory(histRes.data || []);
+  // Load workout history with pagination
+  const loadWorkouts = useCallback(
+    async (reset = true) => {
+      if (workoutFetchRef.current) return;
+      workoutFetchRef.current = true;
+
+      if (reset) {
+        setLoadingWorkouts(true);
+      } else {
+        setLoadingMoreWorkouts(true);
       }
-      if (statsRes.success) {
-        setWeeklyStats({
-          workoutCount: statsRes.workoutCount || 0,
-          totalSets: statsRes.totalSets || 0,
-          totalDuration: statsRes.totalDuration || 0,
-        });
+
+      try {
+        const cursorToUse = reset ? null : workoutCursor;
+        const [histRes, statsRes] = await Promise.all([
+          getWorkoutHistory(20, cursorToUse),
+          reset ? getWeeklyWorkoutStats() : Promise.resolve(null),
+        ]);
+
+        if (histRes.success) {
+          const newItems = histRes.data || [];
+          if (reset) {
+            setWorkoutHistory(newItems);
+          } else {
+            setWorkoutHistory((prev) => {
+              const existingIds = new Set(prev.map((w) => w.id));
+              const unique = newItems.filter((w) => !existingIds.has(w.id));
+              return [...prev, ...unique];
+            });
+          }
+          setHasMoreWorkouts(histRes.has_more ?? false);
+          setWorkoutCursor(histRes.next_cursor ?? null);
+        }
+        if (statsRes && statsRes.success) {
+          setWeeklyStats({
+            workoutCount: statsRes.workoutCount || 0,
+            totalSets: statsRes.totalSets || 0,
+            totalDuration: statsRes.totalDuration || 0,
+          });
+        }
+      } catch (e) {
+        console.error("Error loading workouts:", e);
+      } finally {
+        setLoadingWorkouts(false);
+        setLoadingMoreWorkouts(false);
+        workoutFetchRef.current = false;
       }
-    } catch (e) {
-      console.error("Error loading workouts:", e);
-    } finally {
-      setLoadingWorkouts(false);
-    }
-  }, []);
+    },
+    [workoutCursor],
+  );
+
+  const loadMoreWorkouts = useCallback(() => {
+    if (!hasMoreWorkouts || loadingMoreWorkouts || workoutFetchRef.current)
+      return;
+    loadWorkouts(false);
+  }, [hasMoreWorkouts, loadingMoreWorkouts, loadWorkouts]);
 
   useFocusEffect(
     useCallback(() => {
-      loadWorkouts();
-    }, [loadWorkouts]),
+      loadWorkouts(true);
+    }, []),
   );
 
   const handleOpenDetail = (sessionId: string) => {
@@ -1215,14 +1264,40 @@ export default function ProgressScreen() {
                 <ActivityIndicator color={Palette.accent} />
               </View>
             ) : workoutHistory.length > 0 ? (
-              workoutHistory.map((w) => (
-                <View key={w.id} style={{ marginBottom: Spacing.md }}>
-                  <WorkoutCard
-                    item={w}
-                    onPress={() => handleOpenDetail(w.id)}
-                  />
-                </View>
-              ))
+              <>
+                {workoutHistory.map((w) => (
+                  <View key={w.id} style={{ marginBottom: Spacing.md }}>
+                    <WorkoutCard
+                      item={w}
+                      onPress={() => handleOpenDetail(w.id)}
+                    />
+                  </View>
+                ))}
+                {hasMoreWorkouts && (
+                  <Pressable
+                    onPress={loadMoreWorkouts}
+                    style={{
+                      paddingVertical: 16,
+                      alignItems: "center",
+                      marginBottom: Spacing.md,
+                    }}
+                  >
+                    {loadingMoreWorkouts ? (
+                      <ActivityIndicator color={Palette.accent} />
+                    ) : (
+                      <Text
+                        style={{
+                          color: Palette.accent,
+                          fontWeight: "700",
+                          fontSize: 14,
+                        }}
+                      >
+                        Load More
+                      </Text>
+                    )}
+                  </Pressable>
+                )}
+              </>
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>🏋️</Text>
@@ -1397,81 +1472,81 @@ export default function ProgressScreen() {
 
 function makeBodyStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  infoCard: {
-    backgroundColor: P.bgCard,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: P.border,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-  },
-  infoDivider: {
-    height: 1,
-    backgroundColor: P.divider,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: P.textSecondary,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: P.textPrimary,
-  },
-});
+    infoCard: {
+      backgroundColor: P.bgCard,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: P.border,
+    },
+    infoRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: Spacing.md,
+    },
+    infoDivider: {
+      height: 1,
+      backgroundColor: P.divider,
+    },
+    infoLabel: {
+      fontSize: 14,
+      color: P.textSecondary,
+    },
+    infoValue: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: P.textPrimary,
+    },
+  });
 }
 
 function makeProgressStyles(P: typeof DarkPalette) {
   return StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: P.textPrimary,
-    letterSpacing: -0.5,
-  },
-  pageSub: {
-    fontSize: 14,
-    color: P.textSecondary,
-    marginTop: 4,
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: P.textPrimary,
-    marginBottom: Spacing.md,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: Spacing.md,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: P.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  emptyBody: {
-    fontSize: 14,
-    color: P.textSecondary,
-    textAlign: "center",
-  },
-});
+    safe: {
+      flex: 1,
+      backgroundColor: P.bg,
+    },
+    scrollContent: {
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.lg,
+    },
+    pageTitle: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: P.textPrimary,
+      letterSpacing: -0.5,
+    },
+    pageSub: {
+      fontSize: 14,
+      color: P.textSecondary,
+      marginTop: 4,
+      marginBottom: Spacing.xl,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: P.textPrimary,
+      marginBottom: Spacing.md,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: 40,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: Spacing.md,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: P.textPrimary,
+      marginBottom: Spacing.sm,
+    },
+    emptyBody: {
+      fontSize: 14,
+      color: P.textSecondary,
+      textAlign: "center",
+    },
+  });
 }

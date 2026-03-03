@@ -5,7 +5,8 @@ AI Diet Tracker - FastAPI Application Entry Point
 import logging
 import os
 
-from app.api import food_logs, food_recognition, nutrition
+from app.api import (barcode, food_logs, food_recognition, nutrition,
+                     user_profile)
 from app.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +53,8 @@ app.add_middleware(
 app.include_router(food_recognition.router, prefix="/api/v1", tags=["Food Recognition"])
 app.include_router(nutrition.router, prefix="/api/v1", tags=["Nutrition"])
 app.include_router(food_logs.router, prefix="/api/v1", tags=["Food Logs"])
+app.include_router(barcode.router, prefix="/api/v1", tags=["Barcode"])
+app.include_router(user_profile.router, prefix="/api/v1", tags=["User Profile"])
 
 
 @app.get("/")
