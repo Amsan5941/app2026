@@ -1,0 +1,10 @@
+# Frontend .dockerignore — keeps the build context small
+node_modules
+.expo
+dist
+.git
+.env
+*.log
+android
+ios
+backend

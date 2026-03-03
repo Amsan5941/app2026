@@ -1,0 +1,73 @@
+# ============================================================
+# GrindApp – Docker Compose (local development)
+#
+# Prerequisites:
+#   1. Copy .env.example       → .env          (frontend vars)
+#   2. Copy backend/.env.example → backend/.env (backend vars)
+#   3. Fill in all API keys in both files
+#   4. Run: docker compose up --build
+#
+# Services:
+#   backend  → FastAPI on  http://localhost:8000
+#   frontend → Expo web on http://localhost:8081
+# ============================================================
+
+services:
+  # ── FastAPI Backend ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: grindapp_backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Force non-interactive / production-safe defaults
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      DEBUG: "true"
+      # Allow requests from the Expo dev server and the browser
+      CORS_ORIGINS: "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Hot-reload: mount source so uvicorn --reload picks up changes
+      - ./backend:/app
+      # Keep model/log dirs persistent between restarts
+      - grindapp_models:/app/models
+      - grindapp_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # torch import can be slow on first start
+    restart: unless-stopped
+
+  # ── Expo Web Frontend ──────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grindapp_frontend
+    env_file:
+      - .env
+    environment:
+      # Tell the browser where to reach the API.
+      # localhost:8000 works because the browser runs on your PC,
+      # not inside Docker — it accesses the backend via the published port.
+      EXPO_PUBLIC_BACKEND_URL: "http://localhost:8000/api/v1"
+    ports:
+      - "8081:8081"
+    volumes:
+      # Mount source for hot-reload (node_modules stays in the image)
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  grindapp_models:
+  grindapp_logs:
