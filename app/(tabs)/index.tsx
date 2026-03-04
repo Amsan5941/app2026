@@ -8,35 +8,36 @@ import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
 import {
-  DAILY_WATER_GOAL,
-  getTodayWaterIntake,
-  logWaterGlass,
-  removeWaterGlass,
+    DAILY_WATER_GOAL,
+    getTodayWaterIntake,
+    logWaterGlass,
+    removeWaterGlass,
 } from "@/services/waterTracking";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 import {
-  getTodayWorkouts,
-  getWeeklyWorkoutStats,
+    getTodayWorkouts,
+    getWeeklyWorkoutStats,
 } from "@/services/workoutTracking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
-  AppState,
-  AppStateStatus,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Alert,
+    Animated,
+    AppState,
+    AppStateStatus,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-  Circle,
-  Defs,
-  Stop,
-  LinearGradient as SvgGradient,
+    Circle,
+    Defs,
+    Stop,
+    LinearGradient as SvgGradient,
 } from "react-native-svg";
 
 // ── Motivational quotes ─────────────────────────────────────
@@ -153,17 +154,27 @@ function QuickAction({
   value,
   sub,
   accentColor = DarkPalette.accent,
+  onPress,
 }: {
   icon: string;
   label: string;
   value: string;
   sub?: string;
   accentColor?: string;
+  onPress?: () => void;
 }) {
   const { palette: Palette } = useTheme();
   const qaStyles = useMemo(() => makeQaStyles(Palette), [Palette]);
   return (
-    <View style={[qaStyles.card, { borderColor: accentColor + "25" }]}>
+    <Pressable
+      style={({ pressed }) => [
+        qaStyles.card,
+        { borderColor: accentColor + "25" },
+        onPress && pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+      ]}
+      onPress={onPress}
+      disabled={!onPress}
+    >
       <View
         style={[qaStyles.iconWrap, { backgroundColor: accentColor + "18" }]}
       >
@@ -172,7 +183,10 @@ function QuickAction({
       <Text style={qaStyles.value}>{value}</Text>
       <Text style={qaStyles.label}>{label}</Text>
       {sub ? <Text style={qaStyles.sub}>{sub}</Text> : null}
-    </View>
+      {onPress && (
+        <Text style={[qaStyles.sub, { color: accentColor, marginTop: 4 }]}>tap →</Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -252,6 +266,23 @@ export default function HomeScreen() {
   );
   const [firstname, setFirstname] = useState("");
   const [streakCount, setStreakCount] = useState<number>(0);
+  const [consumedProtein, setConsumedProtein] = useState(0);
+  const [consumedCarbs, setConsumedCarbs] = useState(0);
+  const [consumedFat, setConsumedFat] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Fade in when loading resolves
+  useEffect(() => {
+    if (!loading) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: Platform.OS !== "web",
+      }).start();
+    } else {
+      fadeAnim.setValue(0);
+    }
+  }, [loading]);
 
   // ── Calorie / meal data loader (background — calls backend) ─
   async function loadCalorieData() {
@@ -260,6 +291,9 @@ export default function HomeScreen() {
         new Date().toISOString().slice(0, 10),
       );
       setConsumedCalories(summary?.total_calories ?? 0);
+      setConsumedProtein(summary?.total_protein ?? 0);
+      setConsumedCarbs(summary?.total_carbs ?? 0);
+      setConsumedFat(summary?.total_fat ?? 0);
       const meals = summary?.meals_by_type ?? {};
       setMealsLogged({
         breakfast: (meals.breakfast?.count ?? 0) > 0,
@@ -541,8 +575,8 @@ export default function HomeScreen() {
       {loading && user ? (
         <DashboardSkeleton />
       ) : (
-        <ScrollView
-          style={styles.scroll}
+        <Animated.ScrollView
+          style={[styles.scroll, { opacity: fadeAnim }]}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -599,78 +633,35 @@ export default function HomeScreen() {
               })()}
             />
             <Text style={styles.legendHeader}>Daily Tasks</Text>
-            <View style={styles.legendRow}>
-              {(() => {
-                const items = [
-                  {
-                    key: "workout",
-                    icon: "🔥",
-                    done: hasWorkoutToday,
-                    pct: 20,
-                    label: "Workout",
-                  },
-                  {
-                    key: "water",
-                    icon: "💧",
-                    done: waterIntake >= DAILY_WATER_GOAL,
-                    pct: 10,
-                    label: "Water",
-                  },
-                  {
-                    key: "breakfast",
-                    icon: "🍳",
-                    done: mealsLogged.breakfast,
-                    pct: 20,
-                    label: "Breakfast",
-                  },
-                  {
-                    key: "lunch",
-                    icon: "🥗",
-                    done: mealsLogged.lunch,
-                    pct: 20,
-                    label: "Lunch",
-                  },
-                  {
-                    key: "dinner",
-                    icon: "🍽️",
-                    done: mealsLogged.dinner,
-                    pct: 20,
-                    label: "Dinner",
-                  },
-                  {
-                    key: "weight",
-                    icon: "⚖️",
-                    done: hasLoggedWeight,
-                    pct: 10,
-                    label: "Log Weight",
-                  },
-                ];
-
-                return items.map((it) => (
-                  <View key={it.key} style={styles.legendItemRow}>
-                    <Text
-                      style={[
-                        styles.legendIcon,
-                        it.done
-                          ? { color: Palette.success }
-                          : { color: Palette.textMuted },
-                      ]}
-                    >
-                      {it.done ? "✅" : "○"}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.legendLabel,
-                        it.done
-                          ? { color: Palette.textPrimary }
-                          : { color: Palette.textSecondary },
-                      ]}
-                    >
-                      {it.icon} {it.label}
-                    </Text>
-                  </View>
-                ));
-              })()}
+            <View style={styles.legendGrid}>
+              {([
+                { key: "workout", icon: "🔥", done: hasWorkoutToday, label: "Workout" },
+                { key: "water", icon: "💧", done: waterIntake >= DAILY_WATER_GOAL, label: "Water" },
+                { key: "breakfast", icon: "🍳", done: mealsLogged.breakfast, label: "Breakfast" },
+                { key: "lunch", icon: "🥗", done: mealsLogged.lunch, label: "Lunch" },
+                { key: "dinner", icon: "🍽️", done: mealsLogged.dinner, label: "Dinner" },
+                { key: "weight", icon: "⚖️", done: hasLoggedWeight, label: "Log Weight" },
+              ] as const).map((it) => (
+                <View
+                  key={it.key}
+                  style={[
+                    styles.taskChip,
+                    it.done ? styles.taskChipDone : styles.taskChipPending,
+                  ]}
+                >
+                  <Text style={styles.taskChipIcon}>
+                    {it.done ? "✓" : it.icon}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.taskChipLabel,
+                      { color: it.done ? Palette.success : Palette.textSecondary },
+                    ]}
+                  >
+                    {it.label}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -682,6 +673,7 @@ export default function HomeScreen() {
               value={workoutsValue}
               sub="this week"
               accentColor={Palette.accent}
+              onPress={() => router.push("/(tabs)/workout")}
             />
             <QuickAction
               icon="🔥"
@@ -689,6 +681,7 @@ export default function HomeScreen() {
               value={Math.round(consumedCalories).toString()}
               sub="eaten today"
               accentColor={Palette.warning}
+              onPress={() => router.push("/(tabs)/explore")}
             />
             <QuickAction
               icon="👣"
@@ -829,6 +822,47 @@ export default function HomeScreen() {
             )}
           </View>
 
+          {/* ── Macro Breakdown ───────────────── */}
+          {(consumedProtein > 0 || consumedCarbs > 0 || consumedFat > 0) && (
+            <View style={styles.goalCard}>
+              <View style={styles.goalHeader}>
+                <Text style={styles.goalIcon}>📊</Text>
+                <Text style={styles.goalTitle}>Macros Today</Text>
+              </View>
+              {([
+                { label: "Protein", value: consumedProtein, color: Palette.accent },
+                { label: "Carbs", value: consumedCarbs, color: Palette.warning },
+                { label: "Fat", value: consumedFat, color: Palette.success },
+              ] as const).map((m) => {
+                const total = (consumedProtein + consumedCarbs + consumedFat) || 1;
+                const pct = (m.value / total) * 100;
+                return (
+                  <View key={m.label} style={{ marginBottom: Spacing.sm }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                      <Text style={{ fontSize: 13, color: Palette.textSecondary, fontWeight: "600" }}>
+                        {m.label}
+                      </Text>
+                      <Text style={{ fontSize: 13, color: m.color, fontWeight: "700" }}>
+                        {Math.round(m.value)}g
+                      </Text>
+                    </View>
+                    <View style={styles.goalBarTrack}>
+                      <View
+                        style={[
+                          styles.goalBarFill,
+                          { width: `${Math.round(pct)}%` as any, backgroundColor: m.color },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+              <Text style={{ fontSize: 11, color: Palette.textMuted, marginTop: Spacing.xs }}>
+                {Math.round(consumedProtein + consumedCarbs + consumedFat)}g total · tap Calories card for full log
+              </Text>
+            </View>
+          )}
+
           {/* ── Motivational Quote ─────────────── */}
           <View style={styles.quoteCard}>
             <Text style={styles.quoteIcon}>💬</Text>
@@ -836,7 +870,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={{ height: 30 }} />
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       {/* ── Weight Prompt Modal (manual trigger after skip) ── */}
@@ -1112,6 +1146,39 @@ function makeHomeStyles(P: typeof DarkPalette) {
       fontWeight: "700",
       color: "#38BDF8",
       letterSpacing: 0.3,
+    },
+    // ── Task chips (Daily Tasks redesign) ────────────────────
+    legendGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.sm,
+      marginTop: Spacing.md,
+      justifyContent: "center",
+    },
+    taskChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 7,
+      borderRadius: Radii.full,
+      borderWidth: 1,
+    },
+    taskChipDone: {
+      backgroundColor: P.successMuted,
+      borderColor: P.success + "50",
+    },
+    taskChipPending: {
+      backgroundColor: P.bgCard,
+      borderColor: P.border,
+    },
+    taskChipIcon: {
+      fontSize: 13,
+      color: P.textPrimary,
+    },
+    taskChipLabel: {
+      fontSize: 12,
+      fontWeight: "600" as const,
     },
   });
 }
