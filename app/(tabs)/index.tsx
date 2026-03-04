@@ -3,41 +3,43 @@ import { DashboardSkeleton } from "@/components/SkeletonLoader";
 import { supabase } from "@/constants/supabase";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
+import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useSteps } from "@/hooks/useSteps";
 import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import { getDailySummary } from "@/services/foodRecognition";
 import {
-    DAILY_WATER_GOAL,
-    getTodayWaterIntake,
-    logWaterGlass,
-    removeWaterGlass,
+  DAILY_WATER_GOAL,
+  getTodayWaterIntake,
+  logWaterGlass,
+  removeWaterGlass,
 } from "@/services/waterTracking";
 import { hasLoggedWeightToday } from "@/services/weightTracking";
 import {
-    getTodayWorkouts,
-    getWeeklyWorkoutStats,
+  getTodayWorkouts,
+  getWeeklyWorkoutStats,
 } from "@/services/workoutTracking";
+import { log } from "@/utils/log";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    AppState,
-    AppStateStatus,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Animated,
+  AppState,
+  AppStateStatus,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-    Circle,
-    Defs,
-    Stop,
-    LinearGradient as SvgGradient,
+  Circle,
+  Defs,
+  Stop,
+  LinearGradient as SvgGradient,
 } from "react-native-svg";
 
 // ── Motivational quotes ─────────────────────────────────────
@@ -184,7 +186,9 @@ function QuickAction({
       <Text style={qaStyles.label}>{label}</Text>
       {sub ? <Text style={qaStyles.sub}>{sub}</Text> : null}
       {onPress && (
-        <Text style={[qaStyles.sub, { color: accentColor, marginTop: 4 }]}>tap →</Text>
+        <Text style={[qaStyles.sub, { color: accentColor, marginTop: 4 }]}>
+          tap →
+        </Text>
       )}
     </Pressable>
   );
@@ -232,11 +236,13 @@ function makeQaStyles(P: typeof DarkPalette) {
 
 // ── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const styles = useMemo(() => makeHomeStyles(Palette), [Palette]);
   const steps = useSteps();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { timedOut } = useLoadingGuard("HomeScreen", loading);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(false);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
@@ -261,6 +267,16 @@ export default function HomeScreen() {
   const [congratsShownDate, setCongratsShownDate] = useState<string | null>(
     null,
   );
+  // Hydrate the congrats-shown date from AsyncStorage so the popup doesn't
+  // re-fire every time the user logs in when they've already hit the goal.
+  useEffect(() => {
+    if (!user) return;
+    AsyncStorage.getItem(`waterCongrats:${user.id}`)
+      .then((stored) => {
+        if (stored) setCongratsShownDate(stored);
+      })
+      .catch(() => {});
+  }, [user?.id]);
   const [quote] = useState(
     () => QUOTES[Math.floor(Math.random() * QUOTES.length)],
   );
@@ -309,8 +325,10 @@ export default function HomeScreen() {
   // getDailySummary (backend HTTP call) is intentionally excluded here and
   // fired separately in the background so it never delays the initial render.
   async function loadAllData(isInitial = false) {
-    if (!user) return;
+    if (!user || !authReady) return;
     if (isInitial) setLoading(true);
+    setLoadError(null);
+    log.time("home:loadAllData");
 
     try {
       // ensure estDate is current when loading initially
@@ -393,11 +411,13 @@ export default function HomeScreen() {
         setWaterIntake(waterResult.value);
       }
     } catch (err) {
-      // ignore
+      log.error("HomeScreen", "loadAllData failed: " + String(err));
+      setLoadError("Could not load dashboard data.");
     } finally {
       // Reveal the UI as soon as Supabase data is ready, then fetch
       // calorie data from the backend in the background without blocking.
       if (isInitial) setLoading(false);
+      log.timeEnd("home:loadAllData");
       loadCalorieData();
     }
   }
@@ -466,6 +486,7 @@ export default function HomeScreen() {
 
   // ── Initial load when user signs in ───────────────────────
   useEffect(() => {
+    if (!authReady) return;
     if (!user) {
       setFirstname("");
       setBioProfile(null);
@@ -479,7 +500,7 @@ export default function HomeScreen() {
       return;
     }
     loadAllData(true);
-  }, [user]);
+  }, [user, authReady]);
 
   // ── Refresh on screen focus ───────────────────────────────
   useFocusEffect(
@@ -515,6 +536,8 @@ export default function HomeScreen() {
         setWaterIntake(0);
         // allow the congrats popup to show again on the new day
         setCongratsShownDate(null);
+        if (user)
+          AsyncStorage.removeItem(`waterCongrats:${user.id}`).catch(() => {});
         if (user) loadAllData(false);
       }
     };
@@ -557,8 +580,13 @@ export default function HomeScreen() {
         [{ text: "Awesome" }],
       );
       setCongratsShownDate(estDate);
+      if (user) {
+        AsyncStorage.setItem(`waterCongrats:${user.id}`, estDate).catch(
+          () => {},
+        );
+      }
     }
-  }, [waterIntake, estDate, congratsShownDate]);
+  }, [waterIntake, estDate, congratsShownDate, user]);
 
   const displayName = firstname || "Athlete";
 
@@ -572,8 +600,39 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      {loading && user ? (
+      {loading && user && !timedOut ? (
         <DashboardSkeleton />
+      ) : (timedOut || loadError) && user ? (
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <Text
+            style={{
+              color: Palette.textSecondary,
+              fontSize: 15,
+              marginBottom: 12,
+              textAlign: "center",
+            }}
+          >
+            {loadError || "Loading is taking too long."}
+          </Text>
+          <Pressable
+            onPress={() => loadAllData(true)}
+            style={{
+              backgroundColor: Palette.accent,
+              paddingHorizontal: 24,
+              paddingVertical: 10,
+              borderRadius: Radii.md,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
+          </Pressable>
+        </View>
       ) : (
         <Animated.ScrollView
           style={[styles.scroll, { opacity: fadeAnim }]}
@@ -634,14 +693,46 @@ export default function HomeScreen() {
             />
             <Text style={styles.legendHeader}>Daily Tasks</Text>
             <View style={styles.legendGrid}>
-              {([
-                { key: "workout", icon: "🔥", done: hasWorkoutToday, label: "Workout" },
-                { key: "water", icon: "💧", done: waterIntake >= DAILY_WATER_GOAL, label: "Water" },
-                { key: "breakfast", icon: "🍳", done: mealsLogged.breakfast, label: "Breakfast" },
-                { key: "lunch", icon: "🥗", done: mealsLogged.lunch, label: "Lunch" },
-                { key: "dinner", icon: "🍽️", done: mealsLogged.dinner, label: "Dinner" },
-                { key: "weight", icon: "⚖️", done: hasLoggedWeight, label: "Log Weight" },
-              ] as const).map((it) => (
+              {(
+                [
+                  {
+                    key: "workout",
+                    icon: "🔥",
+                    done: hasWorkoutToday,
+                    label: "Workout",
+                  },
+                  {
+                    key: "water",
+                    icon: "💧",
+                    done: waterIntake >= DAILY_WATER_GOAL,
+                    label: "Water",
+                  },
+                  {
+                    key: "breakfast",
+                    icon: "🍳",
+                    done: mealsLogged.breakfast,
+                    label: "Breakfast",
+                  },
+                  {
+                    key: "lunch",
+                    icon: "🥗",
+                    done: mealsLogged.lunch,
+                    label: "Lunch",
+                  },
+                  {
+                    key: "dinner",
+                    icon: "🍽️",
+                    done: mealsLogged.dinner,
+                    label: "Dinner",
+                  },
+                  {
+                    key: "weight",
+                    icon: "⚖️",
+                    done: hasLoggedWeight,
+                    label: "Log Weight",
+                  },
+                ] as const
+              ).map((it) => (
                 <View
                   key={it.key}
                   style={[
@@ -655,7 +746,11 @@ export default function HomeScreen() {
                   <Text
                     style={[
                       styles.taskChipLabel,
-                      { color: it.done ? Palette.success : Palette.textSecondary },
+                      {
+                        color: it.done
+                          ? Palette.success
+                          : Palette.textSecondary,
+                      },
                     ]}
                   >
                     {it.label}
@@ -829,20 +924,49 @@ export default function HomeScreen() {
                 <Text style={styles.goalIcon}>📊</Text>
                 <Text style={styles.goalTitle}>Macros Today</Text>
               </View>
-              {([
-                { label: "Protein", value: consumedProtein, color: Palette.accent },
-                { label: "Carbs", value: consumedCarbs, color: Palette.warning },
-                { label: "Fat", value: consumedFat, color: Palette.success },
-              ] as const).map((m) => {
-                const total = (consumedProtein + consumedCarbs + consumedFat) || 1;
+              {(
+                [
+                  {
+                    label: "Protein",
+                    value: consumedProtein,
+                    color: Palette.accent,
+                  },
+                  {
+                    label: "Carbs",
+                    value: consumedCarbs,
+                    color: Palette.warning,
+                  },
+                  { label: "Fat", value: consumedFat, color: Palette.success },
+                ] as const
+              ).map((m) => {
+                const total =
+                  consumedProtein + consumedCarbs + consumedFat || 1;
                 const pct = (m.value / total) * 100;
                 return (
                   <View key={m.label} style={{ marginBottom: Spacing.sm }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                      <Text style={{ fontSize: 13, color: Palette.textSecondary, fontWeight: "600" }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: Palette.textSecondary,
+                          fontWeight: "600",
+                        }}
+                      >
                         {m.label}
                       </Text>
-                      <Text style={{ fontSize: 13, color: m.color, fontWeight: "700" }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: m.color,
+                          fontWeight: "700",
+                        }}
+                      >
                         {Math.round(m.value)}g
                       </Text>
                     </View>
@@ -850,15 +974,25 @@ export default function HomeScreen() {
                       <View
                         style={[
                           styles.goalBarFill,
-                          { width: `${Math.round(pct)}%` as any, backgroundColor: m.color },
+                          {
+                            width: `${Math.round(pct)}%` as any,
+                            backgroundColor: m.color,
+                          },
                         ]}
                       />
                     </View>
                   </View>
                 );
               })}
-              <Text style={{ fontSize: 11, color: Palette.textMuted, marginTop: Spacing.xs }}>
-                {Math.round(consumedProtein + consumedCarbs + consumedFat)}g total · tap Calories card for full log
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: Palette.textMuted,
+                  marginTop: Spacing.xs,
+                }}
+              >
+                {Math.round(consumedProtein + consumedCarbs + consumedFat)}g
+                total · tap Calories card for full log
               </Text>
             </View>
           )}

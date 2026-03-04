@@ -1,8 +1,7 @@
 import { supabase } from "@/constants/supabase";
-import {
-  clearCachedUserId,
-  resolveAndCacheUserId,
-} from "@/services/userCache";
+import { clearQueryCache } from "@/services/db";
+import { clearCachedUserId, resolveAndCacheUserId } from "@/services/userCache";
+import { log } from "@/utils/log";
 import type { AuthError, AuthSession, AuthUser } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -15,6 +14,8 @@ type AuthResult = {
 type AuthContextValue = {
   user: AuthUser | null;
   session: AuthSession | null;
+  /** True once the initial session check has completed (even if no user). */
+  authReady: boolean;
   /** Cached internal user ID from the `users` table (null until resolved) */
   internalUserId: string | null;
   signUp: (
@@ -34,10 +35,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    log.time("auth:hydration");
 
     async function init() {
       try {
@@ -53,11 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const id = await resolveAndCacheUserId(authUser.id);
             if (mounted) setInternalUserId(id);
           } catch (e) {
-            console.warn("Failed to resolve internal user ID:", e);
+            log.warn(
+              "Auth",
+              "Failed to resolve internal user ID during init: " + String(e),
+            );
           }
         }
       } catch (e) {
-        // ignore
+        log.error("Auth", "getSession failed: " + String(e));
+      } finally {
+        if (mounted) {
+          setAuthReady(true);
+          log.timeEnd("auth:hydration");
+        }
       }
     }
 
@@ -65,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
+        log.info("Auth", `onAuthStateChange: ${_event}`);
         setSession(newSession);
         const authUser = newSession?.user ?? null;
         setUser(authUser);
@@ -73,7 +85,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const id = await resolveAndCacheUserId(authUser.id);
             setInternalUserId(id);
           } catch (e) {
-            console.warn("Failed to resolve internal user ID:", e);
+            log.warn(
+              "Auth",
+              "Failed to resolve internal user ID: " + String(e),
+            );
           }
         } else {
           clearCachedUserId();
@@ -148,12 +163,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   async function signOut() {
     clearCachedUserId();
+    clearQueryCache();
     setInternalUserId(null);
     await supabase.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, internalUserId, signUp, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        authReady,
+        internalUserId,
+        signUp,
+        signIn,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

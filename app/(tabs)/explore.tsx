@@ -1,6 +1,8 @@
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
+import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useTheme } from "@/hooks/useTheme";
+import { log } from "@/utils/log";
 
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
@@ -2767,7 +2769,7 @@ function makeAddFoodModalStyles(P: typeof DarkPalette) {
 
 // ── Main Nutrition Screen ───────────────────────────────────
 export default function NutritionScreen() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const styles = useMemo(() => makeNutritionStyles(Palette), [Palette]);
   const [addMealType, setAddMealType] = useState<MealType>("breakfast");
@@ -2775,6 +2777,8 @@ export default function NutritionScreen() {
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [todayLogs, setTodayLogs] = useState<FoodLog[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { timedOut } = useLoadingGuard("NutritionScreen", refreshing);
   const [selectedLog, setSelectedLog] = useState<FoodLog | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingLog, setEditingLog] = useState<FoodLog | null>(null);
@@ -2788,7 +2792,7 @@ export default function NutritionScreen() {
 
   // Load macro targets live from bio_profile (Supabase direct – no backend needed)
   const loadGoals = useCallback(async () => {
-    if (!user) return;
+    if (!user || !authReady) return;
     try {
       const result = await getCurrentUserBioProfile();
       if (result.success && result.profile) {
@@ -2799,9 +2803,9 @@ export default function NutritionScreen() {
         if (p.fat_target) setFatGoal(p.fat_target);
       }
     } catch (e) {
-      console.log("Could not load macro targets from bio_profile:", e);
+      log.warn("NutritionScreen", "Could not load macro targets: " + String(e));
     }
-  }, [user]);
+  }, [user, authReady]);
 
   useEffect(() => {
     loadGoals();
@@ -2809,6 +2813,8 @@ export default function NutritionScreen() {
 
   const loadData = useCallback(async () => {
     setRefreshing(true);
+    setLoadError(null);
+    log.time("explore:loadData");
     try {
       const today = todayISO();
       const [summaryData, logsResult] = await Promise.all([
@@ -2818,15 +2824,20 @@ export default function NutritionScreen() {
       setSummary(summaryData);
       setTodayLogs(logsResult.data);
     } catch (e) {
-      console.error("Failed to load nutrition data:", e);
+      log.error(
+        "NutritionScreen",
+        "Failed to load nutrition data: " + String(e),
+      );
+      setLoadError("Could not load nutrition data.");
     } finally {
       setRefreshing(false);
+      log.timeEnd("explore:loadData");
     }
   }, []);
 
   useEffect(() => {
-    if (user) loadData();
-  }, [user, loadData]);
+    if (user && authReady) loadData();
+  }, [user, authReady, loadData]);
 
   // ── Refresh on screen focus (keeps water + calorie goal in sync) ──
   useFocusEffect(

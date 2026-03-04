@@ -3,37 +3,38 @@ import { estimateCalories } from "@/utils/calorieEstimation";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
+  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeMode, useTheme } from "@/hooks/useTheme";
 import {
-    changeUserPassword,
-    getCurrentUserProfile,
-    updateBioProfile,
-    updateUserProfile,
+  changeUserPassword,
+  getCurrentUserProfile,
+  updateBioProfile,
+  updateUserProfile,
 } from "@/services/auth";
 import { ensureBioProfile } from "@/services/bioProfile";
+import { log } from "@/utils/log";
 import { Alert } from "react-native";
 
 export default function ProfileScreen() {
-  const { user, signOut, signIn } = useAuth();
+  const { user, authReady, signOut, signIn } = useAuth();
   const { palette: P, themeMode, setThemeMode } = useTheme();
   // Shadow the static import so every inline Palette.xxx in JSX becomes reactive
   const Palette = P;
@@ -68,44 +69,60 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    if (!authReady) return;
     let mounted = true;
     async function load() {
-      setLoading(true);
-      const res = await getCurrentUserProfile();
-      if (!mounted) return;
-      if (res.success) {
-        setProfile(res.profile ?? null);
-
-        // Guarantee a bio_profile row exists (safety net for users created
-        // before the trigger was updated, or if the trigger didn't fire).
-        let bp = res.bioProfile ?? null;
-        if (!bp) {
-          bp = await ensureBioProfile();
-        }
-        setBioProfile(bp);
-        setFGoal(bp?.goal ?? "");
-        setFActivityLevel(bp?.activity_level ?? "");
-        setFWorkoutStyle(bp?.workout_style ?? "");
-        setFWorkoutsPerWeek(
-          bp?.workouts_per_week ? String(bp.workouts_per_week) : "",
-        );
-        setFDailyCalorie(bp?.calorie_goal ? String(bp.calorie_goal) : "");
-        setFirstname(res.profile?.firstname ?? "");
-        setLastname(res.profile?.lastname ?? "");
-      } else {
-        // clear when there's no authenticated user
+      if (!user) {
         setProfile(null);
         setBioProfile(null);
         setFirstname("");
         setLastname("");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      setLoading(true);
+      log.time("profile:load");
+      try {
+        const res = await getCurrentUserProfile();
+        if (!mounted) return;
+        if (res.success) {
+          setProfile(res.profile ?? null);
+
+          // Guarantee a bio_profile row exists (safety net for users created
+          // before the trigger was updated, or if the trigger didn't fire).
+          let bp = res.bioProfile ?? null;
+          if (!bp) {
+            bp = await ensureBioProfile();
+          }
+          setBioProfile(bp);
+          setFGoal(bp?.goal ?? "");
+          setFActivityLevel(bp?.activity_level ?? "");
+          setFWorkoutStyle(bp?.workout_style ?? "");
+          setFWorkoutsPerWeek(
+            bp?.workouts_per_week ? String(bp.workouts_per_week) : "",
+          );
+          setFDailyCalorie(bp?.calorie_goal ? String(bp.calorie_goal) : "");
+          setFirstname(res.profile?.firstname ?? "");
+          setLastname(res.profile?.lastname ?? "");
+        } else {
+          // clear when there's no authenticated user
+          setProfile(null);
+          setBioProfile(null);
+          setFirstname("");
+          setLastname("");
+        }
+      } catch (e) {
+        log.error("ProfileScreen", "load failed: " + String(e));
+      } finally {
+        if (mounted) setLoading(false);
+        log.timeEnd("profile:load");
+      }
     }
     load();
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [user, authReady]);
 
   // Estimate calories for fitness modal (Mifflin-St Jeor)
   function estimateCaloriesForModal(): number | null {

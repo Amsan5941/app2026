@@ -38,23 +38,25 @@ initSentry();
 initPostHog().catch((e) => console.warn("PostHog init failed:", e));
 
 function NavigationContent() {
-  const { session } = useAuth();
+  const { session, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [showWaterReminder, setShowWaterReminder] = useState(false);
 
   // Identify / clear user in analytics + crash reporting on auth changes
   useEffect(() => {
+    if (!authReady) return;
     if (session?.user) {
       sentryIdentify(session.user.id, session.user.email);
-      posthogIdentify(session.user.id, { email: session.user.email });
+      posthogIdentify(session.user.id, { email: session.user.email ?? null });
     } else {
       sentryClear();
       posthogReset();
     }
-  }, [session]);
+  }, [session, authReady]);
 
   useEffect(() => {
+    if (!authReady) return;
     if (session) {
       checkWeightLogging();
       checkWaterReminder();
@@ -66,7 +68,7 @@ function NavigationContent() {
       setShowWeightPrompt(false);
       setShowWaterReminder(false);
     }
-  }, [session]);
+  }, [session, authReady]);
 
   // Re-check when app comes to foreground
   useEffect(() => {

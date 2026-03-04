@@ -1,55 +1,58 @@
 import SummaryStats from "@/components/SummaryStats";
 import { supabase } from "@/constants/supabase";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
+import { useAuth } from "@/hooks/useAuth";
+import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useTheme } from "@/hooks/useTheme";
 import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
-    deleteProgressPhoto,
-    getProgressPhotos,
-    uploadProgressPhoto,
+  deleteProgressPhoto,
+  getProgressPhotos,
+  uploadProgressPhoto,
 } from "@/services/progressPhotos";
 import { getCachedUserId } from "@/services/userCache";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
-    WorkoutHistoryItem,
-    WorkoutSession,
-    getWeeklyWorkoutStats,
-    getWorkoutHistory,
-    getWorkoutSession,
+  WorkoutHistoryItem,
+  WorkoutSession,
+  getWeeklyWorkoutStats,
+  getWorkoutHistory,
+  getWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
+import { log } from "@/utils/log";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "expo-router";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, {
-    Defs,
-    Line,
-    LinearGradient,
-    Polyline,
-    Stop,
-    Circle as SvgCircle,
+  Defs,
+  Line,
+  LinearGradient,
+  Polyline,
+  Stop,
+  Circle as SvgCircle,
 } from "react-native-svg";
 
 // ── Types ───────────────────────────────────────────────────
@@ -469,13 +472,19 @@ function WorkoutDetailModal({
     }
     let mounted = true;
     setLoading(true);
-    getWorkoutSession(sessionId).then((res) => {
-      if (!mounted) return;
-      if (res.success && res.data) {
-        setSession(res.data);
-      }
-      setLoading(false);
-    });
+    getWorkoutSession(sessionId)
+      .then((res) => {
+        if (!mounted) return;
+        if (res.success && res.data) {
+          setSession(res.data);
+        }
+      })
+      .catch((e) => {
+        log.error("WorkoutDetailModal", "Failed to load session: " + String(e));
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
     return () => {
       mounted = false;
     };
@@ -858,6 +867,7 @@ function makeTabStyles(P: typeof DarkPalette) {
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function ProgressScreen() {
+  const { user, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const bodyStyles = useMemo(() => makeBodyStyles(Palette), [Palette]);
   const styles = useMemo(() => makeProgressStyles(Palette), [Palette]);
@@ -867,6 +877,8 @@ export default function ProgressScreen() {
   const [loadingWeights, setLoadingWeights] = useState(false);
   const [weightUnit, setWeightUnit] = useState<string>("lbs");
   const [bioProfile, setBioProfile] = useState<any | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { timedOut } = useLoadingGuard("ProgressScreen", loadingWeights);
 
   // Workout state
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>(
@@ -894,9 +906,12 @@ export default function ProgressScreen() {
   const [viewerVisible, setViewerVisible] = useState(false);
 
   useEffect(() => {
+    if (!authReady) return;
     let mounted = true;
     async function loadWeights() {
       setLoadingWeights(true);
+      setLoadError(null);
+      log.time("history:loadWeights");
       try {
         // only call getCurrentUserBioProfile if there's an auth session (no network call)
         const {
@@ -968,10 +983,12 @@ export default function ProgressScreen() {
           setWeightData(EMPTY_WEIGHT_DATA);
         }
       } catch (e) {
-        console.error("Error loading weight data:", e);
+        log.error("ProgressScreen", "Error loading weight data: " + String(e));
+        setLoadError("Could not load weight data.");
         setWeightData(EMPTY_WEIGHT_DATA);
       } finally {
         if (mounted) setLoadingWeights(false);
+        log.timeEnd("history:loadWeights");
       }
     }
     loadWeights();
@@ -1022,7 +1039,7 @@ export default function ProgressScreen() {
         if (channel) supabase.removeChannel(channel);
       } catch (e) {}
     };
-  }, []);
+  }, [authReady, user?.id]);
 
   // Load workout history with pagination
   const loadWorkouts = useCallback(
@@ -1081,10 +1098,17 @@ export default function ProgressScreen() {
     loadWorkouts(false);
   }, [hasMoreWorkouts, loadingMoreWorkouts, loadWorkouts]);
 
+  // ── Initial load when auth hydrates (useFocusEffect alone won't fire
+  // if the screen is already focused when authReady transitions false→true)
+  useEffect(() => {
+    if (authReady && user) loadWorkouts(true);
+  }, [authReady, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Reload workout list every time the tab gains focus ─────
   useFocusEffect(
     useCallback(() => {
       loadWorkouts(true);
-    }, []),
+    }, [loadWorkouts]),
   );
 
   const handleOpenDetail = (sessionId: string) => {

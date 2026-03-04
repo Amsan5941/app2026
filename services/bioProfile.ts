@@ -1,4 +1,5 @@
 import { supabase } from "@/constants/supabase";
+import { cachedQuery, invalidateQuery } from "@/services/db";
 import { getUserId } from "@/services/userCache";
 
 export type BioProfile = {
@@ -45,26 +46,29 @@ export type BioProfileUpdate = {
 // getUserId() imported from userCache (shared, fast, cached)
 
 /**
- * Get the bio profile for the current user
+ * Get the bio profile for the current user.
+ * Result is cached for 10 s to avoid redundant Supabase calls across tabs.
  */
 export async function getCurrentUserBioProfile() {
-  try {
-    const userId = await getUserId();
+  return cachedQuery("bioProfile", async () => {
+    try {
+      const userId = await getUserId();
 
-    // Get bio profile
-    const { data: bioProfile, error: bioError } = await supabase
-      .from("bio_profile")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
+      // Get bio profile
+      const { data: bioProfile, error: bioError } = await supabase
+        .from("bio_profile")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
 
-    if (bioError) throw bioError;
+      if (bioError) throw bioError;
 
-    return { success: true, profile: bioProfile as BioProfile };
-  } catch (error) {
-    console.error("Get bio profile error:", error);
-    return { success: false, error };
-  }
+      return { success: true, profile: bioProfile as BioProfile };
+    } catch (error) {
+      console.error("Get bio profile error:", error);
+      return { success: false, error } as { success: false; error: unknown };
+    }
+  });
 }
 
 /**
@@ -80,6 +84,9 @@ export async function updateBioProfile(updates: BioProfileUpdate) {
       .upsert({ user_id: userId, ...updates }, { onConflict: "user_id" });
 
     if (upsertError) throw upsertError;
+
+    // Bust the cached read so the next getCurrentUserBioProfile() refetches
+    invalidateQuery("bioProfile");
 
     return { success: true };
   } catch (error) {

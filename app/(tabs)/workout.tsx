@@ -2,36 +2,38 @@ import { WorkoutSkeleton } from "@/components/SkeletonLoader";
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useWorkoutTimer } from "@/hooks/use-workout-timer";
 import { useAuth } from "@/hooks/useAuth";
+import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useTheme } from "@/hooks/useTheme";
 import {
-    SessionExercise,
-    WorkoutSession,
-    addExerciseToSession,
-    addSetToExercise,
-    createWorkoutSession,
-    deleteExercise,
-    deleteSet,
-    deleteWorkoutSession,
-    getTodayWorkouts,
-    updateSetNumber,
-    updateWorkoutSession,
+  SessionExercise,
+  WorkoutSession,
+  addExerciseToSession,
+  addSetToExercise,
+  createWorkoutSession,
+  deleteExercise,
+  deleteSet,
+  deleteWorkoutSession,
+  getTodayWorkouts,
+  updateSetNumber,
+  updateWorkoutSession,
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
+import { log } from "@/utils/log";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -1332,12 +1334,14 @@ function makeRestTimerStyles(P: typeof DarkPalette) {
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function WorkoutScreen() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const styles = useMemo(() => makeWorkoutStyles(Palette), [Palette]);
   const timer = useWorkoutTimer();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { timedOut } = useLoadingGuard("WorkoutScreen", loading);
   const [showNewWorkout, setShowNewWorkout] = useState(false);
   const [addExerciseSessionId, setAddExerciseSessionId] = useState<
     string | null
@@ -1356,18 +1360,35 @@ export default function WorkoutScreen() {
   const [restDefaultDuration, setRestDefaultDuration] = useState(60);
 
   const loadSessions = useCallback(async () => {
-    if (!user) {
+    if (!user || !authReady) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    const res = await getTodayWorkouts();
-    if (res.success) {
-      setSessions(res.data || []);
+    setLoadError(null);
+    log.time("workout:loadSessions");
+    try {
+      const res = await getTodayWorkouts();
+      if (res.success) {
+        setSessions(res.data || []);
+      } else {
+        setLoadError("Failed to load workouts.");
+      }
+    } catch (e) {
+      log.error("WorkoutScreen", "loadSessions failed: " + String(e));
+      setLoadError("Network error — could not load workouts.");
+    } finally {
+      setLoading(false);
+      log.timeEnd("workout:loadSessions");
     }
-    setLoading(false);
-  }, [user]);
+  }, [user, authReady]);
 
+  // ── Initial load when auth hydrates (handles already-focused screen) ──────
+  useEffect(() => {
+    if (authReady && user) loadSessions();
+  }, [authReady, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Reload every time the tab gains focus ─────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       loadSessions();
@@ -1599,8 +1620,32 @@ export default function WorkoutScreen() {
         )}
 
         {/* Content */}
-        {loading ? (
+        {loading && !timedOut ? (
           <WorkoutSkeleton />
+        ) : loadError || timedOut ? (
+          <View style={{ alignItems: "center", paddingVertical: 40 }}>
+            <Text
+              style={{
+                color: Palette.textSecondary,
+                fontSize: 15,
+                marginBottom: 12,
+                textAlign: "center",
+              }}
+            >
+              {loadError || "Loading is taking too long."}
+            </Text>
+            <Pressable
+              onPress={loadSessions}
+              style={{
+                backgroundColor: Palette.accent,
+                paddingHorizontal: 24,
+                paddingVertical: 10,
+                borderRadius: Radii.md,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
+            </Pressable>
+          </View>
         ) : sessions.length === 0 ? (
           <EmptyState onStart={() => setShowNewWorkout(true)} />
         ) : (
