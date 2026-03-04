@@ -16,6 +16,9 @@ export type BioProfile = {
   workout_style: string | null;
   workouts_per_week: number | null;
   calorie_goal: number | null;
+  protein_target: number | null;
+  carbs_target: number | null;
+  fat_target: number | null;
   workout_counter: number | null;
   created_at: string;
   updated_at: string;
@@ -34,6 +37,9 @@ export type BioProfileUpdate = {
   workout_style?: string | null;
   workouts_per_week?: number | null;
   calorie_goal?: number | null;
+  protein_target?: number | null;
+  carbs_target?: number | null;
+  fat_target?: number | null;
 };
 
 // getUserId() imported from userCache (shared, fast, cached)
@@ -71,10 +77,7 @@ export async function updateBioProfile(updates: BioProfileUpdate) {
     // Use upsert so it works even if the row doesn't exist yet
     const { error: upsertError } = await supabase
       .from("bio_profile")
-      .upsert(
-        { user_id: userId, ...updates },
-        { onConflict: "user_id" },
-      );
+      .upsert({ user_id: userId, ...updates }, { onConflict: "user_id" });
 
     if (upsertError) throw upsertError;
 

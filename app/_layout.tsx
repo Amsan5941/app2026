@@ -16,8 +16,9 @@ import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import {
-  initPostHog, identifyUser as posthogIdentify,
-  resetUser as posthogReset
+  initPostHog,
+  identifyUser as posthogIdentify,
+  resetUser as posthogReset,
 } from "@/services/analytics";
 import { initNotifications } from "@/services/notifications";
 import {
@@ -118,7 +119,7 @@ function NavigationContent() {
           name="(tabs)"
           options={{
             headerShown: true,
-            title: "GrindApp",
+            title: "ForgeFit",
             headerTitleStyle: {
               fontWeight: "800",
               fontSize: 20,

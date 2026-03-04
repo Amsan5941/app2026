@@ -1,6 +1,8 @@
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+
+import { getCurrentUserBioProfile } from "@/services/bioProfile";
 import {
   AIFoodItem,
   AIRecognitionResult,
@@ -12,16 +14,16 @@ import {
   deleteFoodLog,
   getDailySummary,
   getFoodLogs,
-  getMacroTargets,
   logBarcodeFood,
   lookupBarcode,
   recognizeFoodImage,
   recognizeFoodText,
-  updateFoodLog
+  updateFoodLog,
 } from "@/services/foodRecognition";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -32,6 +34,8 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  AppStateStatus,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -844,104 +848,6 @@ function makeMealStyles(P: typeof DarkPalette) {
       fontWeight: "600",
       color: P.textPrimary,
       maxWidth: 200,
-    },
-  });
-}
-
-// ── Water Tracker ───────────────────────────────────────────
-function WaterTracker({
-  glasses,
-  goal,
-  onAdd,
-}: {
-  glasses: number;
-  goal: number;
-  onAdd: () => void;
-}) {
-  const { palette: Palette } = useTheme();
-  const waterStyles = useMemo(() => makeWaterStyles(Palette), [Palette]);
-  return (
-    <View style={waterStyles.card}>
-      <View style={waterStyles.row}>
-        <Text style={waterStyles.icon}>💧</Text>
-        <View style={waterStyles.info}>
-          <Text style={waterStyles.title}>Water Intake</Text>
-          <Text style={waterStyles.sub}>
-            {glasses} / {goal} glasses
-          </Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            waterStyles.addBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={onAdd}
-        >
-          <Text style={waterStyles.addText}>+1</Text>
-        </Pressable>
-      </View>
-      <View style={waterStyles.glassRow}>
-        {Array.from({ length: goal }).map((_, i) => (
-          <View
-            key={i}
-            style={[waterStyles.glass, i < glasses && waterStyles.glassFilled]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function makeWaterStyles(P: typeof DarkPalette) {
-  return StyleSheet.create({
-    card: {
-      backgroundColor: P.bgCard,
-      borderRadius: Radii.lg,
-      padding: Spacing.lg,
-      marginBottom: Spacing.lg,
-      borderWidth: 1,
-      borderColor: P.border,
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    icon: { fontSize: 26, marginRight: Spacing.md },
-    info: { flex: 1 },
-    title: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: P.textPrimary,
-    },
-    sub: {
-      fontSize: 13,
-      color: P.textSecondary,
-      marginTop: 2,
-    },
-    addBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: Radii.sm,
-      backgroundColor: P.info + "20",
-    },
-    addText: {
-      color: P.info,
-      fontWeight: "700",
-      fontSize: 14,
-    },
-    glassRow: {
-      flexDirection: "row",
-      gap: 6,
-      marginTop: Spacing.md,
-    },
-    glass: {
-      flex: 1,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: P.border,
-    },
-    glassFilled: {
-      backgroundColor: P.info,
     },
   });
 }
@@ -2864,7 +2770,6 @@ export default function NutritionScreen() {
   const { user } = useAuth();
   const { palette: Palette } = useTheme();
   const styles = useMemo(() => makeNutritionStyles(Palette), [Palette]);
-  const [waterGlasses, setWaterGlasses] = useState(0);
   const [addMealType, setAddMealType] = useState<MealType>("breakfast");
   const [showAddModal, setShowAddModal] = useState(false);
   const [summary, setSummary] = useState<DailySummary | null>(null);
@@ -2881,23 +2786,26 @@ export default function NutritionScreen() {
   const [carbsGoal, setCarbsGoal] = useState(250);
   const [fatGoal, setFatGoal] = useState(70);
 
-  // Load macro targets from backend
-  useEffect(() => {
+  // Load macro targets live from bio_profile (Supabase direct – no backend needed)
+  const loadGoals = useCallback(async () => {
     if (!user) return;
-    (async () => {
-      try {
-        const targets = await getMacroTargets();
-        if (targets) {
-          if (targets.calorie_goal) setCalorieGoal(targets.calorie_goal);
-          if (targets.protein_target) setProteinGoal(targets.protein_target);
-          if (targets.carbs_target) setCarbsGoal(targets.carbs_target);
-          if (targets.fat_target) setFatGoal(targets.fat_target);
-        }
-      } catch (e) {
-        console.log("Could not load macro targets, using defaults:", e);
+    try {
+      const result = await getCurrentUserBioProfile();
+      if (result.success && result.profile) {
+        const p = result.profile;
+        if (p.calorie_goal) setCalorieGoal(p.calorie_goal);
+        if (p.protein_target) setProteinGoal(p.protein_target);
+        if (p.carbs_target) setCarbsGoal(p.carbs_target);
+        if (p.fat_target) setFatGoal(p.fat_target);
       }
-    })();
+    } catch (e) {
+      console.log("Could not load macro targets from bio_profile:", e);
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
 
   const loadData = useCallback(async () => {
     setRefreshing(true);
@@ -2918,6 +2826,30 @@ export default function NutritionScreen() {
 
   useEffect(() => {
     if (user) loadData();
+  }, [user, loadData]);
+
+  // ── Refresh on screen focus (keeps water + calorie goal in sync) ──
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadData();
+        loadGoals();
+      }
+    }, [user, loadData, loadGoals]),
+  );
+
+  // ── Refresh when app comes to foreground ──────────────────
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === "active" && user) {
+        loadData();
+      }
+    };
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
+    return () => subscription.remove();
   }, [user, loadData]);
 
   const handleAddMeal = (type: MealType) => {
@@ -3106,13 +3038,6 @@ export default function NutritionScreen() {
             onAdd={() => handleAddMeal(meal.type)}
           />
         ))}
-
-        {/* Water */}
-        <WaterTracker
-          glasses={waterGlasses}
-          goal={8}
-          onAdd={() => setWaterGlasses((g) => Math.min(g + 1, 8))}
-        />
 
         {/* Recent log entries with delete */}
         {todayLogs.length > 0 && (
