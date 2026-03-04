@@ -1526,6 +1526,14 @@ export default function WorkoutScreen() {
   };
 
   const handleStartTimer = (sessionId: string) => {
+    // Block restarting a session that has already been ended
+    const session = sessions.find((s) => s.id === sessionId);
+    if (
+      session &&
+      (endedSessionIds.has(sessionId) || session.duration_seconds != null)
+    ) {
+      return;
+    }
     if (activeTimerSessionId && activeTimerSessionId !== sessionId) {
       // Stop previous timer and save duration
       timer.stop();
@@ -1660,7 +1668,10 @@ export default function WorkoutScreen() {
               onDelete={handleDeleteSession}
               timer={timer}
               isActive={activeTimerSessionId === session.id}
-              isEnded={endedSessionIds.has(session.id!)}
+              isEnded={
+                endedSessionIds.has(session.id!) ||
+                session.duration_seconds != null
+              }
               onStartTimer={() => handleStartTimer(session.id!)}
               onStopTimer={() => handleStopTimer(session.id!)}
             />
