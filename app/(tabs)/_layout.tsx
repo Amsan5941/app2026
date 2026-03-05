@@ -1,13 +1,19 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useTheme } from "@/hooks/useTheme";
 
+/** Compact breakpoint – iPads in any orientation hit this. */
+const TABLET_MIN_WIDTH = 768;
+
 export default function TabLayout() {
   const { palette: P } = useTheme();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= TABLET_MIN_WIDTH;
+
   return (
     <Tabs
       screenOptions={{
@@ -19,12 +25,12 @@ export default function TabLayout() {
           backgroundColor: P.bgCard,
           borderTopColor: P.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
+          height: Platform.OS === "ios" ? (isTablet ? 68 : 88) : 64,
           paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          paddingBottom: Platform.OS === "ios" ? (isTablet ? 12 : 28) : 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: isTablet ? 13 : 11,
           fontWeight: "600",
           letterSpacing: 0.3,
         },

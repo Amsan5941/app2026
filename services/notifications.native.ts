@@ -26,17 +26,23 @@ const WORKOUT_CHANNEL_ID = "workout-reminders";
 /**
  * Configure notification handler (call once at app startup).
  * Sets how notifications behave when app is in the foreground.
+ * Wrapped defensively to handle devices where notification APIs may
+ * throw (iPad compatibility mode, simulator edge-cases, etc.).
  */
 export function configureNotifications() {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.warn("[Notifications] setNotificationHandler failed:", e);
+  }
 
   // Android notification channels
   if (Platform.OS === "android") {
@@ -45,13 +51,17 @@ export function configureNotifications() {
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 100],
       lightColor: "#38BDF8",
-    });
+    }).catch((e) =>
+      console.warn("[Notifications] Failed to create water channel:", e),
+    );
     Notifications.setNotificationChannelAsync(WORKOUT_CHANNEL_ID, {
       name: "Workout Reminders",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 200, 100, 200],
       lightColor: "#A78BFA",
-    });
+    }).catch((e) =>
+      console.warn("[Notifications] Failed to create workout channel:", e),
+    );
   }
 }
 
@@ -211,13 +221,29 @@ export async function cancelAllReminders(): Promise<void> {
 /**
  * Full init: configure handler, request permission, schedule reminders.
  * Call once at app startup after the user is authenticated.
+ *
+ * Wrapped defensively — native notification APIs can throw on certain
+ * devices / OS combinations (e.g. iPad compatibility mode).
  */
 export async function initNotifications(): Promise<void> {
-  configureNotifications();
-  await registerForPushNotifications();
+  try {
+    configureNotifications();
+  } catch (e) {
+    console.warn("[Notifications] configureNotifications failed:", e);
+  }
 
-  const enabled = await areNotificationsEnabled();
-  if (enabled) {
-    await scheduleAllReminders();
+  try {
+    await registerForPushNotifications();
+  } catch (e) {
+    console.warn("[Notifications] registerForPushNotifications failed:", e);
+  }
+
+  try {
+    const enabled = await areNotificationsEnabled();
+    if (enabled) {
+      await scheduleAllReminders();
+    }
+  } catch (e) {
+    console.warn("[Notifications] scheduleAllReminders failed:", e);
   }
 }

@@ -1,9 +1,12 @@
 /**
  * ErrorBoundary — catches unhandled JS exceptions in the React tree
  * and shows a friendly fallback screen instead of a white crash.
+ *
+ * Also reports errors to Sentry when available.
  */
 
 import { DarkPalette, Radii, Spacing } from "@/constants/theme";
+import { captureException } from "@/services/sentry";
 import React, { Component, ErrorInfo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -27,8 +30,13 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Log to console (and optionally to a crash-reporting service)
+    // Log to console and to crash-reporting service
     console.error("[ErrorBoundary] Uncaught error:", error, info.componentStack);
+    try {
+      captureException(error);
+    } catch {
+      // Sentry may not be initialised yet — swallow
+    }
   }
 
   handleRetry = () => {
