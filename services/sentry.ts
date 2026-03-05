@@ -25,16 +25,19 @@ export function initSentry(): void {
     return;
   }
 
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    // Lower sample rate keeps dev fast; production cuts noise
-    tracesSampleRate: __DEV__ ? 0.1 : 0.2,
-    // Never enable debug — it floods the console with 20+ integration logs
-    debug: false,
-    environment: __DEV__ ? "development" : "production",
-  });
-
-  _initialized = true;
+  try {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      // Lower sample rate keeps dev fast; production cuts noise
+      tracesSampleRate: __DEV__ ? 0.1 : 0.2,
+      // Never enable debug — it floods the console with 20+ integration logs
+      debug: false,
+      environment: __DEV__ ? "development" : "production",
+    });
+    _initialized = true;
+  } catch (e) {
+    console.warn("[Sentry] init() failed — crash reporting disabled:", e);
+  }
 }
 
 /**

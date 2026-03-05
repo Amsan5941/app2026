@@ -1,11 +1,11 @@
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import "react-native-reanimated";
 
@@ -16,15 +16,15 @@ import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import {
-  initPostHog,
-  identifyUser as posthogIdentify,
-  resetUser as posthogReset,
+    initPostHog,
+    identifyUser as posthogIdentify,
+    resetUser as posthogReset,
 } from "@/services/analytics";
 import { initNotifications } from "@/services/notifications";
 import {
-  initSentry,
-  clearUser as sentryClear,
-  identifyUser as sentryIdentify,
+    initSentry,
+    clearUser as sentryClear,
+    identifyUser as sentryIdentify,
 } from "@/services/sentry";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
@@ -33,15 +33,47 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-// ─── Initialise instrumentation once at module load ─────────────────────────
-initSentry();
-initPostHog().catch((e) => console.warn("PostHog init failed:", e));
+// ─── Set up a global error handler to prevent native bridge errors ──────────
+// from crashing the app with an unrecoverable SIGSEGV / SIGABRT.
+if (typeof ErrorUtils !== "undefined") {
+  const originalHandler = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    console.error("[GlobalErrorHandler]", isFatal ? "FATAL:" : "ERROR:", error);
+    // Delegate to the original handler but guard against re‑throw
+    try {
+      originalHandler?.(error, isFatal);
+    } catch {
+      // swallow – we already logged
+    }
+  });
+}
+
+// ─── Instrumentation is now initialised inside useEffect (see below) ────────
+// This prevents native TurboModule calls at module‑load time which crash
+// on certain devices (iPad + iPadOS 26.x) before the bridge is ready.
 
 function NavigationContent() {
   const { session, authReady } = useAuth();
   const { palette: Palette } = useTheme();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [showWaterReminder, setShowWaterReminder] = useState(false);
+  const instrumentationInitRef = useRef(false);
+
+  // ─── Deferred instrumentation init ──────────────────────────────────
+  // Runs once after the first render so native TurboModules are fully
+  // bootstrapped before we call into them.
+  useEffect(() => {
+    if (instrumentationInitRef.current) return;
+    instrumentationInitRef.current = true;
+
+    try {
+      initSentry();
+    } catch (e) {
+      console.warn("Sentry init failed:", e);
+    }
+
+    initPostHog().catch((e) => console.warn("PostHog init failed:", e));
+  }, []);
 
   // Identify / clear user in analytics + crash reporting on auth changes
   useEffect(() => {
@@ -61,6 +93,7 @@ function NavigationContent() {
       checkWeightLogging();
       checkWaterReminder();
       // Initialise push notifications (permissions + scheduled reminders)
+      // Wrapped in a try-catch to prevent native module failures from crashing
       initNotifications().catch((e: unknown) =>
         console.warn("Notification init failed:", e),
       );
