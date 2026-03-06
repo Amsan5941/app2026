@@ -22,7 +22,6 @@
     },
     "android": {
       "package": "com.app2026.fittrack",
-      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
