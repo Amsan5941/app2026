@@ -11,6 +11,10 @@
  * 3. Notification init is fully defensive
  * 4. iPad tablet support is enabled in app.json
  * 5. No native module calls happen at module-load time in _layout
+ * 6. react-native-reanimated is NOT imported as a bare side-effect
+ * 7. expo-constants is lazily loaded in supabase.ts
+ * 8. expo-haptics calls are guarded with try-catch
+ * 9. Sentry / PostHog use lazy require() instead of top-level import
  */
 
 import * as fs from "fs";
@@ -32,15 +36,25 @@ describe("app.json iPad support", () => {
   });
 });
 
-// ─── 2. Sentry service: init is wrapped in try-catch ───────────────────────
+// ─── 2. Sentry service: lazy require + init is wrapped in try-catch ────────
 describe("Sentry service safety", () => {
   const src = fs.readFileSync(
     path.join(ROOT, "services", "sentry.ts"),
     "utf-8",
   );
 
+  it("does NOT have a top-level import of @sentry/react-native", () => {
+    // A top-level import triggers TurboModule registration at module-load time
+    expect(src).not.toMatch(
+      /^import\s.*from\s+["']@sentry\/react-native["']/m,
+    );
+  });
+
+  it("uses lazy require() for @sentry/react-native", () => {
+    expect(src).toMatch(/require\(["']@sentry\/react-native["']\)/);
+  });
+
   it("wraps Sentry.init() in a try-catch block", () => {
-    // The init function body should contain try { ... Sentry.init ... } catch
     const initFnMatch = src.match(
       /export function initSentry\(\)[\s\S]*?^}/m,
     );
@@ -52,7 +66,6 @@ describe("Sentry service safety", () => {
   });
 
   it("does not call Sentry.init at module level", () => {
-    // Sentry.init should only appear inside the initSentry function
     const lines = src.split("\n");
     const moduleLevel = lines.filter(
       (line) =>
@@ -72,11 +85,33 @@ describe("Root layout startup safety", () => {
     "utf-8",
   );
 
+  it("does NOT have a bare side-effect import of react-native-reanimated", () => {
+    // A bare `import "react-native-reanimated"` triggers TurboModule setup
+    // at module-evaluation time.  It should be a guarded require() instead.
+    expect(src).not.toMatch(
+      /^import\s+["']react-native-reanimated["']\s*;/m,
+    );
+  });
+
+  it("uses a guarded require() for react-native-reanimated", () => {
+    expect(src).toMatch(/require\(["']react-native-reanimated["']\)/);
+    // The require must be inside a try block
+    const reqIdx = src.indexOf('require("react-native-reanimated")');
+    const precedingChunk = src.slice(Math.max(0, reqIdx - 200), reqIdx);
+    expect(precedingChunk).toMatch(/try\s*\{/);
+  });
+
+  it("wraps ErrorUtils.setGlobalHandler in a try-catch", () => {
+    // Find the ErrorUtils block and verify it's inside a try-catch
+    const euIdx = src.indexOf("ErrorUtils.setGlobalHandler");
+    expect(euIdx).toBeGreaterThan(-1);
+    const precedingChunk = src.slice(Math.max(0, euIdx - 300), euIdx);
+    expect(precedingChunk).toMatch(/try\s*\{/);
+  });
+
   it("does NOT call initSentry() at module level", () => {
-    // Module level = outside any function body, before the first function/const declaration
-    // Look for bare initSentry() calls that aren't inside a function
     const lines = src.split("\n");
-    const moduleScope = [];
+    const moduleScope: string[] = [];
     let insideFunction = false;
     let braceDepth = 0;
 
@@ -102,7 +137,6 @@ describe("Root layout startup safety", () => {
     }
 
     const moduleScopeCode = moduleScope.join("\n");
-    // initSentry() and initPostHog() should NOT appear at module scope
     expect(moduleScopeCode).not.toMatch(/initSentry\(\)/);
     expect(moduleScopeCode).not.toMatch(/initPostHog\(\)/);
   });
@@ -163,5 +197,53 @@ describe("Tab layout iPad responsiveness", () => {
 
   it("detects tablet form factor", () => {
     expect(src).toMatch(/isTablet|TABLET/i);
+  });
+});
+
+// ─── 6. PostHog analytics: lazy require ────────────────────────────────────
+describe("PostHog analytics safety", () => {
+  const src = fs.readFileSync(
+    path.join(ROOT, "services", "analytics.ts"),
+    "utf-8",
+  );
+
+  it("does NOT have a top-level import of posthog-react-native", () => {
+    expect(src).not.toMatch(
+      /^import\s.*from\s+["']posthog-react-native["']/m,
+    );
+  });
+
+  it("uses lazy require() for posthog-react-native", () => {
+    expect(src).toMatch(/require\(["']posthog-react-native["']\)/);
+  });
+});
+
+// ─── 7. Supabase: guarded expo-constants access ───────────────────────────
+describe("Supabase constants safety", () => {
+  const src = fs.readFileSync(
+    path.join(ROOT, "constants", "supabase.ts"),
+    "utf-8",
+  );
+
+  it("does NOT have a top-level import of expo-constants", () => {
+    expect(src).not.toMatch(
+      /^import\s.*from\s+["']expo-constants["']/m,
+    );
+  });
+
+  it("uses lazy require() for expo-constants", () => {
+    expect(src).toMatch(/require\(["']expo-constants["']\)/);
+  });
+});
+
+// ─── 8. Haptic tab: guarded haptic calls ──────────────────────────────────
+describe("Haptic tab safety", () => {
+  const src = fs.readFileSync(
+    path.join(ROOT, "components", "haptic-tab.tsx"),
+    "utf-8",
+  );
+
+  it("wraps Haptics.impactAsync in try-catch", () => {
+    expect(src).toMatch(/try\s*\{[\s\S]*?Haptics\.impactAsync/);
   });
 });

@@ -7,7 +7,16 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
-import "react-native-reanimated";
+// NOTE: react-native-reanimated is loaded via a guarded require() below
+// instead of a top-level side-effect import.  On certain iPad / iPadOS
+// combinations the Reanimated TurboModule throws an ObjC exception during
+// its synchronous install phase that React Native cannot convert to a JS
+// error — resulting in an unrecoverable SIGSEGV / SIGABRT on launch.
+try {
+  require("react-native-reanimated");
+} catch (e) {
+  console.warn("[Startup] react-native-reanimated setup failed:", e);
+}
 
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -35,17 +44,24 @@ export const unstable_settings = {
 
 // ─── Set up a global error handler to prevent native bridge errors ──────────
 // from crashing the app with an unrecoverable SIGSEGV / SIGABRT.
-if (typeof ErrorUtils !== "undefined") {
-  const originalHandler = ErrorUtils.getGlobalHandler();
-  ErrorUtils.setGlobalHandler((error, isFatal) => {
-    console.error("[GlobalErrorHandler]", isFatal ? "FATAL:" : "ERROR:", error);
-    // Delegate to the original handler but guard against re‑throw
-    try {
-      originalHandler?.(error, isFatal);
-    } catch {
-      // swallow – we already logged
-    }
-  });
+// Entire block is wrapped in try-catch because accessing ErrorUtils can itself
+// trigger TurboModule interactions before the bridge is fully ready.
+try {
+  if (typeof ErrorUtils !== "undefined") {
+    const originalHandler = ErrorUtils.getGlobalHandler();
+    ErrorUtils.setGlobalHandler((error, isFatal) => {
+      console.error("[GlobalErrorHandler]", isFatal ? "FATAL:" : "ERROR:", error);
+      // Delegate to the original handler but guard against re‑throw
+      try {
+        originalHandler?.(error, isFatal);
+      } catch {
+        // swallow – we already logged
+      }
+    });
+  }
+} catch {
+  // ErrorUtils setup is best-effort — swallow any failure so the app
+  // can still proceed to render.
 }
 
 // ─── Instrumentation is now initialised inside useEffect (see below) ────────

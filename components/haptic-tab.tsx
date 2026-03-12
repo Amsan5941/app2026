@@ -9,7 +9,12 @@ export function HapticTab(props: BottomTabBarButtonProps) {
       onPressIn={(ev) => {
         if (process.env.EXPO_OS === 'ios') {
           // Add a soft haptic feedback when pressing down on the tabs.
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Guard against expo-haptics TurboModule failures (iPad launch edge-case).
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          } catch {
+            // Non-critical — swallow silently.
+          }
         }
         props.onPressIn?.(ev);
       }}

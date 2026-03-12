@@ -129,31 +129,37 @@ export function useSteps(stepGoal: number = DEFAULT_STEP_GOAL): StepsState {
     let mounted = true;
 
     async function init() {
-      const available = await isPedometerAvailable();
-      if (!mounted) return;
-      setIsAvailable(available);
+      try {
+        const available = await isPedometerAvailable();
+        if (!mounted) return;
+        setIsAvailable(available);
 
-      if (!available) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Check existing permissions first
-      let permitted = await getPedometerPermissions();
-
-      if (!permitted) {
-        // Auto-request on first load
-        permitted = await requestPedometerPermissions();
-      }
-
-      if (!mounted) return;
-      setHasPermission(permitted);
-
-      if (permitted) {
-        await Promise.all([loadSteps(), loadWeeklySteps()]);
-        if (mounted) {
-          startLiveTracking();
+        if (!available) {
+          setIsLoading(false);
+          return;
         }
+
+        // Check existing permissions first
+        let permitted = await getPedometerPermissions();
+
+        if (!permitted) {
+          // Auto-request on first load
+          permitted = await requestPedometerPermissions();
+        }
+
+        if (!mounted) return;
+        setHasPermission(permitted);
+
+        if (permitted) {
+          await Promise.all([loadSteps(), loadWeeklySteps()]);
+          if (mounted) {
+            startLiveTracking();
+          }
+        }
+      } catch (e) {
+        // Pedometer TurboModule can throw on iPad / certain OS combos.
+        // Non-fatal — step tracking is simply unavailable.
+        console.warn("[useSteps] init failed:", e);
       }
 
       if (mounted) setIsLoading(false);

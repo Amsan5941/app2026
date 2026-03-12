@@ -4,14 +4,30 @@
  * Provides a thin abstraction so the rest of the app never imports
  * posthog-react-native directly. Set your API key via the env var
  * EXPO_PUBLIC_POSTHOG_API_KEY.
+ *
+ * ⚠️  The posthog-react-native import is **lazy** (via require()) to avoid
+ * TurboModule registration at JS module-evaluation time.  On certain
+ * iPad / iPadOS combinations the synchronous native module setup that
+ * occurs on import throws an ObjC exception before the bridge is ready,
+ * crashing the app on launch (Apple Review Guideline 2.1a).
  */
-import PostHog from "posthog-react-native";
+
+type PostHogClient = {
+  ready: () => Promise<void>;
+  capture: (event: string, properties?: Record<string, any>) => void;
+  screen: (name: string, properties?: Record<string, any>) => void;
+  identify: (userId: string, traits?: Record<string, any>) => void;
+  reset: () => void;
+  optOut: () => void;
+  optIn: () => void;
+  flush: () => Promise<void>;
+};
 
 const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? "";
 const POSTHOG_HOST =
   process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
-let _client: PostHog | null = null;
+let _client: PostHogClient | null = null;
 
 /**
  * Initialise PostHog. Safe to call multiple times.
@@ -26,14 +42,20 @@ export async function initPostHog(): Promise<void> {
     return;
   }
 
-  _client = new PostHog(POSTHOG_API_KEY, {
-    host: POSTHOG_HOST,
-    // Flush events every 30 s or when 20 events are queued
-    flushInterval: 30_000,
-    flushAt: 20,
-  });
+  try {
+    const PostHog = require("posthog-react-native").default;
+    _client = new PostHog(POSTHOG_API_KEY, {
+      host: POSTHOG_HOST,
+      // Flush events every 30 s or when 20 events are queued
+      flushInterval: 30_000,
+      flushAt: 20,
+    });
 
-  await _client.ready();
+    await (_client as any).ready();
+  } catch (e) {
+    console.warn("[PostHog] initPostHog failed:", e);
+    _client = null;
+  }
 }
 
 /**

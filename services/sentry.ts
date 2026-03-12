@@ -4,8 +4,28 @@
  * Provides a thin abstraction so the rest of the app never imports
  * @sentry/react-native directly. Set your DSN via the env var
  * EXPO_PUBLIC_SENTRY_DSN.
+ *
+ * ⚠️  The `@sentry/react-native` import is **lazy** (via require()) so that
+ * its TurboModule registration does not execute at JS module-evaluation time.
+ * On certain iPad / iPadOS combinations the synchronous TurboModule setup
+ * triggered by the import throws an ObjC exception before the bridge is
+ * fully ready, crashing the app on launch (Apple Review Guideline 2.1a).
  */
-import * as Sentry from "@sentry/react-native";
+
+type SentryModule = typeof import("@sentry/react-native");
+
+let _sentry: SentryModule | null = null;
+
+function getSentry(): SentryModule | null {
+  if (!_sentry) {
+    try {
+      _sentry = require("@sentry/react-native") as SentryModule;
+    } catch (e) {
+      console.warn("[Sentry] Failed to load @sentry/react-native:", e);
+    }
+  }
+  return _sentry;
+}
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
 
@@ -26,6 +46,9 @@ export function initSentry(): void {
   }
 
   try {
+    const Sentry = getSentry();
+    if (!Sentry) return;
+
     Sentry.init({
       dsn: SENTRY_DSN,
       // Lower sample rate keeps dev fast; production cuts noise
@@ -45,7 +68,7 @@ export function initSentry(): void {
  */
 export function captureException(error: unknown): void {
   if (_initialized) {
-    Sentry.captureException(error);
+    getSentry()?.captureException(error);
   } else {
     console.error("[Sentry] Not initialised. Error:", error);
   }
@@ -57,10 +80,10 @@ export function captureException(error: unknown): void {
 export function addBreadcrumb(
   category: string,
   message: string,
-  level: Sentry.SeverityLevel = "info",
+  level: "fatal" | "error" | "warning" | "log" | "info" | "debug" = "info",
 ): void {
   if (_initialized) {
-    Sentry.addBreadcrumb({ category, message, level });
+    getSentry()?.addBreadcrumb({ category, message, level });
   }
 }
 
@@ -69,7 +92,7 @@ export function addBreadcrumb(
  */
 export function identifyUser(userId: string, email?: string): void {
   if (_initialized) {
-    Sentry.setUser({ id: userId, email });
+    getSentry()?.setUser({ id: userId, email });
   }
 }
 
@@ -78,11 +101,13 @@ export function identifyUser(userId: string, email?: string): void {
  */
 export function clearUser(): void {
   if (_initialized) {
-    Sentry.setUser(null);
+    getSentry()?.setUser(null);
   }
 }
 
 /**
  * Wrap the root component with Sentry's error boundary HOC.
+ * Falls back to a passthrough if Sentry couldn't load.
  */
-export const SentryErrorBoundary = Sentry.wrap;
+export const SentryErrorBoundary: (component: any) => any =
+  getSentry()?.wrap ?? ((c: any) => c);
