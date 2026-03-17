@@ -85,20 +85,13 @@ describe("Root layout startup safety", () => {
     "utf-8",
   );
 
-  it("does NOT have a bare side-effect import of react-native-reanimated", () => {
-    // A bare `import "react-native-reanimated"` triggers TurboModule setup
-    // at module-evaluation time.  It should be a guarded require() instead.
-    expect(src).not.toMatch(
-      /^import\s+["']react-native-reanimated["']\s*;/m,
-    );
-  });
-
-  it("uses a guarded require() for react-native-reanimated", () => {
-    expect(src).toMatch(/require\(["']react-native-reanimated["']\)/);
-    // The require must be inside a try block
-    const reqIdx = src.indexOf('require("react-native-reanimated")');
-    const precedingChunk = src.slice(Math.max(0, reqIdx - 200), reqIdx);
-    expect(precedingChunk).toMatch(/try\s*\{/);
+  it("does NOT reference react-native-reanimated at all", () => {
+    // react-native-reanimated v4.x crashes on iPad Air M3 + iOS 26.3 when its
+    // TurboModule is initialised at module-evaluation time.  The JS try/catch
+    // cannot catch a native ObjC exception thrown on a different thread, so the
+    // only safe fix is to not load reanimated in _layout.tsx at all — not even
+    // as a guarded require().  Navigation libraries load it lazily when needed.
+    expect(src).not.toMatch(/react-native-reanimated/);
   });
 
   it("wraps ErrorUtils.setGlobalHandler in a try-catch", () => {
@@ -143,6 +136,25 @@ describe("Root layout startup safety", () => {
 
   it("has a global error handler (ErrorUtils)", () => {
     expect(src).toContain("ErrorUtils.setGlobalHandler");
+  });
+});
+
+// ─── 3b. Component files: no reanimated imports ────────────────────────────
+describe("Component reanimated safety", () => {
+  it("hello-wave.tsx does NOT import from react-native-reanimated", () => {
+    const src = fs.readFileSync(
+      path.join(ROOT, "components", "hello-wave.tsx"),
+      "utf-8",
+    );
+    expect(src).not.toMatch(/react-native-reanimated/);
+  });
+
+  it("parallax-scroll-view.tsx does NOT import from react-native-reanimated", () => {
+    const src = fs.readFileSync(
+      path.join(ROOT, "components", "parallax-scroll-view.tsx"),
+      "utf-8",
+    );
+    expect(src).not.toMatch(/react-native-reanimated/);
   });
 });
 

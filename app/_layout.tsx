@@ -7,17 +7,6 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
-// NOTE: react-native-reanimated is loaded via a guarded require() below
-// instead of a top-level side-effect import.  On certain iPad / iPadOS
-// combinations the Reanimated TurboModule throws an ObjC exception during
-// its synchronous install phase that React Native cannot convert to a JS
-// error — resulting in an unrecoverable SIGSEGV / SIGABRT on launch.
-try {
-  require("react-native-reanimated");
-} catch (e) {
-  console.warn("[Startup] react-native-reanimated setup failed:", e);
-}
-
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginButton from "@/components/login-button";
