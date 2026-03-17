@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.app2026.fittrack",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "NSMotionUsageDescription": "This app uses your device's motion sensors to track your daily steps.",
         "NSCameraUsageDescription": "This app needs camera access to let you take photos of your meals for nutrition tracking.",
