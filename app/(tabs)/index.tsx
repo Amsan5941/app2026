@@ -240,7 +240,7 @@ export default function HomeScreen() {
   const { palette: Palette } = useTheme();
   const styles = useMemo(() => makeHomeStyles(Palette), [Palette]);
   const steps = useSteps();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { timedOut } = useLoadingGuard("HomeScreen", loading);
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
@@ -339,6 +339,9 @@ export default function HomeScreen() {
       // Fire Supabase requests in parallel (these are all local-cache or direct DB
       // calls — they resolve in ~200-500 ms even on a slow connection).
       // Login streak update runs concurrently — no reason to block data fetch.
+      const withTimeout = (p: Promise<any>, ms = 8000): Promise<any> =>
+        Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+
       const [
         nameResult,
         bioResult,
@@ -347,16 +350,16 @@ export default function HomeScreen() {
         workoutsResult,
         waterResult,
       ] = await Promise.allSettled([
-        supabase
+        withTimeout(Promise.resolve(supabase
           .from("users")
           .select("firstname")
           .eq("auth_id", user.id)
-          .single(),
-        getCurrentUserBioProfile(),
-        getWeeklyWorkoutStats(),
-        hasLoggedWeightToday(),
-        getTodayWorkouts(),
-        getTodayWaterIntake(),
+          .single())),
+        withTimeout(getCurrentUserBioProfile()),
+        withTimeout(getWeeklyWorkoutStats()),
+        withTimeout(hasLoggedWeightToday()),
+        withTimeout(getTodayWorkouts()),
+        withTimeout(getTodayWaterIntake()),
         // Login streak runs in parallel — non-blocking
         updateLoginStreak(currentEst).catch(() => {}),
       ]);

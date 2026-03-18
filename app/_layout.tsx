@@ -1,12 +1,3 @@
-import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
-} from "@react-navigation/native";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef, useState } from "react";
-import { AppState, AppStateStatus } from "react-native";
 import DailyWeightPrompt from "@/components/DailyWeightPrompt";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginButton from "@/components/login-button";
@@ -14,18 +5,27 @@ import WaterReminderBanner from "@/components/WaterReminderBanner";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppThemeProvider, useTheme } from "@/hooks/useTheme";
 import {
-    initPostHog,
-    identifyUser as posthogIdentify,
-    resetUser as posthogReset,
+  initPostHog,
+  identifyUser as posthogIdentify,
+  resetUser as posthogReset,
 } from "@/services/analytics";
 import { initNotifications } from "@/services/notifications";
 import {
-    initSentry,
-    clearUser as sentryClear,
-    identifyUser as sentryIdentify,
+  initSentry,
+  clearUser as sentryClear,
+  identifyUser as sentryIdentify,
 } from "@/services/sentry";
 import { shouldShowWaterReminder } from "@/services/waterTracking";
 import { hasCompletedWeightCheckToday } from "@/services/weightTracking";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -159,12 +159,11 @@ function NavigationContent() {
           name="(tabs)"
           options={{
             headerShown: true,
-            title: "ForgeFit",
-            headerTitleStyle: {
-              fontWeight: "800",
-              fontSize: 20,
-            },
+            headerStyle: { backgroundColor: Palette.bg },
+            headerTitle: () => null,
+            headerLeft: () => null,
             headerRight: () => <LoginButton />,
+
           }}
         />
         <Stack.Screen
