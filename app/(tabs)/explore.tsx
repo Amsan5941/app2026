@@ -2907,9 +2907,16 @@ export default function NutritionScreen() {
     const calories = logs.reduce((sum, l) => sum + (l.total_calories ?? 0), 0);
     const items: string[] = [];
     for (const log of logs) {
-      if (log.notes) items.push(log.notes.replace("Text entry: ", ""));
-      else if (log.total_calories)
+      if (log.food_items && log.food_items.length > 0) {
+        // Use individual food item names from AI analysis
+        for (const fi of log.food_items) {
+          items.push(fi.food_name);
+        }
+      } else if (log.notes) {
+        items.push(log.notes.replace("Text entry: ", ""));
+      } else if (log.total_calories) {
         items.push(`${Math.round(log.total_calories)} cal meal`);
+      }
     }
     return {
       type,
@@ -3072,18 +3079,16 @@ export default function NutritionScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.logEntryTitle} numberOfLines={2}>
-                      {log.meal_type
-                        ? log.meal_type.charAt(0).toUpperCase() +
-                          log.meal_type.slice(1)
-                        : "Meal"}
-                      {log.notes && (
-                        <Text style={styles.logEntrySubtitle}>
-                          {" - "}
-                          {log.notes.replace("Text entry: ", "")}
-                        </Text>
-                      )}
+                      {log.food_items && log.food_items.length > 0
+                        ? log.food_items.map((fi) => fi.food_name).join(", ")
+                        : log.notes
+                          ? log.notes.replace("Text entry: ", "")
+                          : `${Math.round(log.total_calories ?? 0)} cal meal`}
                     </Text>
                     <Text style={styles.logEntryTime}>
+                      {log.meal_type
+                        ? log.meal_type.charAt(0).toUpperCase() + log.meal_type.slice(1)
+                        : "Meal"}{" · "}
                       {new Date(log.created_at).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
