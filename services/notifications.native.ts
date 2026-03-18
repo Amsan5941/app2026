@@ -20,6 +20,7 @@ const PUSH_TOKEN_KEY = "expo_push_token";
 const NOTIFICATIONS_ENABLED_KEY = "notifications_enabled";
 const WATER_CHANNEL_ID = "water-reminders";
 const WORKOUT_CHANNEL_ID = "workout-reminders";
+const REST_TIMER_CHANNEL_ID = "rest-timer";
 
 // ── Setup ──────────────────────────────────────────────────
 
@@ -61,6 +62,14 @@ export function configureNotifications() {
       lightColor: "#A78BFA",
     }).catch((e) =>
       console.warn("[Notifications] Failed to create workout channel:", e),
+    );
+    Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
+      name: "Rest Timer",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 120, 250],
+      lightColor: "#22C55E",
+    }).catch((e) =>
+      console.warn("[Notifications] Failed to create rest timer channel:", e),
     );
   }
 }
@@ -128,10 +137,16 @@ export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
 // ── Water Reminders ────────────────────────────────────────
 
 const WATER_MESSAGES = [
-  { title: "💧 Hydration Check", body: "Time for a glass of water! Stay on track." },
+  {
+    title: "💧 Hydration Check",
+    body: "Time for a glass of water! Stay on track.",
+  },
   { title: "💧 Water Break", body: "Drink up! Hydration boosts your energy." },
   { title: "💧 Stay Hydrated", body: "Your muscles need water to perform." },
-  { title: "💧 Sip Some Water", body: "Even mild dehydration hurts performance." },
+  {
+    title: "💧 Sip Some Water",
+    body: "Even mild dehydration hurts performance.",
+  },
   { title: "💧 H₂O Time", body: "A glass of water keeps fatigue away." },
 ];
 
@@ -176,7 +191,9 @@ async function cancelWaterReminders(): Promise<void> {
 /**
  * Schedule a daily workout reminder at 6 PM (default).
  */
-export async function scheduleWorkoutReminder(hour: number = 18): Promise<void> {
+export async function scheduleWorkoutReminder(
+  hour: number = 18,
+): Promise<void> {
   await cancelWorkoutReminder();
 
   await Notifications.scheduleNotificationAsync({
@@ -192,6 +209,46 @@ export async function scheduleWorkoutReminder(hour: number = 18): Promise<void> 
       minute: 0,
     },
   });
+}
+
+export async function scheduleRestTimerDoneNotification(
+  secondsFromNow: number,
+): Promise<string | null> {
+  const enabled = await areNotificationsEnabled();
+  if (!enabled || secondsFromNow <= 0) {
+    return null;
+  }
+
+  const triggerSeconds = Math.max(1, Math.ceil(secondsFromNow));
+
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Rest Complete",
+      body: "Your rest is done. Time for your next set.",
+      data: { type: "rest_timer_done" },
+      ...(Platform.OS === "android" && { channelId: REST_TIMER_CHANNEL_ID }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: triggerSeconds,
+    },
+  });
+}
+
+export async function cancelRestTimerDoneNotification(
+  notificationId?: string | null,
+): Promise<void> {
+  if (notificationId) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    return;
+  }
+
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of all) {
+    if ((n.content.data as any)?.type === "rest_timer_done") {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
 }
 
 async function cancelWorkoutReminder(): Promise<void> {

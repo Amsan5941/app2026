@@ -19,11 +19,23 @@ export async function areNotificationsEnabled(): Promise<boolean> {
   return false;
 }
 
-export async function setNotificationsEnabled(_enabled: boolean): Promise<void> {}
+export async function setNotificationsEnabled(
+  _enabled: boolean,
+): Promise<void> {}
 
 export async function scheduleWaterReminders(): Promise<void> {}
 
 export async function scheduleWorkoutReminder(_hour?: number): Promise<void> {}
+
+export async function scheduleRestTimerDoneNotification(
+  _secondsFromNow: number,
+): Promise<string | null> {
+  return null;
+}
+
+export async function cancelRestTimerDoneNotification(
+  _notificationId?: string | null,
+): Promise<void> {}
 
 export async function scheduleAllReminders(): Promise<void> {}
 

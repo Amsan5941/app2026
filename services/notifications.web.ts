@@ -28,7 +28,22 @@ export async function scheduleWaterReminders(): Promise<void> {
   // No-op on web
 }
 
-export async function scheduleWorkoutReminder(hour: number = 18): Promise<void> {
+export async function scheduleWorkoutReminder(
+  hour: number = 18,
+): Promise<void> {
+  // No-op on web
+}
+
+export async function scheduleRestTimerDoneNotification(
+  _secondsFromNow: number,
+): Promise<string | null> {
+  // No-op on web
+  return null;
+}
+
+export async function cancelRestTimerDoneNotification(
+  _notificationId?: string | null,
+): Promise<void> {
   // No-op on web
 }
 

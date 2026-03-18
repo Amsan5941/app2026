@@ -5,6 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useTheme } from "@/hooks/useTheme";
 import {
+  cancelRestTimerDoneNotification,
+  scheduleRestTimerDoneNotification,
+} from "@/services/notifications";
+import {
   SessionExercise,
   WorkoutSession,
   addExerciseToSession,
@@ -19,9 +23,16 @@ import {
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import { log } from "@/utils/log";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -285,8 +296,9 @@ function DeleteExerciseModal({
 
           <Text style={modalStyles.title}>Delete Exercise</Text>
           <Text style={[modalStyles.subtitle, deleteModalStyles.message]}>
-            Remove "{exercise.name}" and all its sets? This action cannot be
-            undone.
+            Remove {'"'}
+            {exercise.name}
+            {'"'} and all its sets? This action cannot be undone.
           </Text>
 
           <Pressable style={deleteModalStyles.deleteBtn} onPress={onConfirm}>
@@ -1111,44 +1123,116 @@ const REST_PRESETS = [
   { label: "90s", seconds: 90 },
   { label: "2 min", seconds: 120 },
 ];
+const ACTIVE_WORKOUT_SESSION_KEY = "@active_workout_session_id_v1";
 
 function RestTimerOverlay({
   visible,
   initialSeconds,
   onDismiss,
   onChangeDefault,
+  pendingNotificationRef,
 }: {
   visible: boolean;
   initialSeconds: number;
   onDismiss: () => void;
   onChangeDefault: (s: number) => void;
+  pendingNotificationRef: React.MutableRefObject<string | null>;
 }) {
   const { palette: Palette } = useTheme();
   const restStyles = useMemo(() => makeRestTimerStyles(Palette), [Palette]);
   const [remaining, setRemaining] = React.useState(initialSeconds);
   const [total, setTotal] = React.useState(initialSeconds);
+  const endAtMsRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!visible) return;
-    setRemaining(initialSeconds);
-    setTotal(initialSeconds);
+
+    // Initialize timer
+    const safeSeconds = Math.max(1, Math.ceil(initialSeconds));
+    setTotal(safeSeconds);
+    setRemaining(safeSeconds);
+    endAtMsRef.current = Date.now() + safeSeconds * 1000;
+
+    // Schedule notification
+    scheduleRestTimerDoneNotification(safeSeconds)
+      .then((id) => {
+        pendingNotificationRef.current = id;
+      })
+      .catch(() => {});
+
+    // Countdown interval
     const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          onDismiss();
-          return 0;
+      const endAtMs = endAtMsRef.current;
+      if (!endAtMs) {
+        clearInterval(id);
+        return;
+      }
+
+      const nextRemaining = Math.max(
+        0,
+        Math.floor((endAtMs - Date.now()) / 1000),
+      );
+      setRemaining(nextRemaining);
+
+      if (nextRemaining <= 0) {
+        clearInterval(id);
+        endAtMsRef.current = null;
+        if (pendingNotificationRef.current) {
+          cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+            () => {},
+          );
+          pendingNotificationRef.current = null;
         }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [visible, initialSeconds]);
+        onDismiss();
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(id);
+      if (pendingNotificationRef.current) {
+        cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+          () => {},
+        );
+        pendingNotificationRef.current = null;
+      }
+    };
+  }, [visible, initialSeconds, onDismiss]);
 
   const handlePreset = (seconds: number) => {
     onChangeDefault(seconds);
-    setTotal(seconds);
-    setRemaining(seconds);
+    const safeSeconds = Math.max(1, Math.ceil(seconds));
+    endAtMsRef.current = Date.now() + safeSeconds * 1000;
+    setTotal(safeSeconds);
+    setRemaining(safeSeconds);
+    scheduleRestTimerDoneNotification(safeSeconds)
+      .then((id) => {
+        pendingNotificationRef.current = id;
+      })
+      .catch(() => {});
+  };
+
+  const handleSkip = () => {
+    endAtMsRef.current = null;
+    if (pendingNotificationRef.current) {
+      cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+        () => {},
+      );
+      pendingNotificationRef.current = null;
+    }
+    onDismiss();
+  };
+
+  const handleAdd30s = () => {
+    const nowMs = Date.now();
+    const baseEndAtMs = endAtMsRef.current ?? nowMs;
+    const nextEndAtMs = baseEndAtMs + 30 * 1000;
+    endAtMsRef.current = nextEndAtMs;
+
+    const nextRemaining = Math.max(0, Math.ceil((nextEndAtMs - nowMs) / 1000));
+
+    setRemaining(nextRemaining);
+    setTotal((prev) => prev + 30);
+    scheduleRestTimerDoneNotification(nextRemaining).catch(() => {});
   };
 
   const mins = Math.floor(remaining / 60);
@@ -1203,13 +1287,10 @@ function RestTimerOverlay({
           </View>
 
           <View style={restStyles.actionRow}>
-            <Pressable
-              style={restStyles.addBtn}
-              onPress={() => setRemaining((r) => r + 30)}
-            >
+            <Pressable style={restStyles.addBtn} onPress={handleAdd30s}>
               <Text style={restStyles.addBtnText}>+30s</Text>
             </Pressable>
-            <Pressable style={restStyles.skipBtn} onPress={onDismiss}>
+            <Pressable style={restStyles.skipBtn} onPress={handleSkip}>
               <Text style={restStyles.skipText}>Skip</Text>
             </Pressable>
           </View>
@@ -1358,6 +1439,56 @@ export default function WorkoutScreen() {
   );
   const [restTimerVisible, setRestTimerVisible] = useState(false);
   const [restDefaultDuration, setRestDefaultDuration] = useState(60);
+  const pendingRestNotificationRef = useRef<string | null>(null);
+
+  const handleDismissRestTimer = useCallback(async () => {
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+  }, []);
+
+  const handleChangeRestDefault = useCallback((seconds: number) => {
+    setRestDefaultDuration(seconds);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreActiveSession = async () => {
+      try {
+        const activeSessionId = await AsyncStorage.getItem(
+          ACTIVE_WORKOUT_SESSION_KEY,
+        );
+        if (isMounted && activeSessionId) {
+          setActiveTimerSessionId(activeSessionId);
+        }
+      } catch {
+        // Ignore restore failures; timer can still be used normally.
+      }
+    };
+
+    restoreActiveSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!timer.hydrated) return;
+
+    if (activeTimerSessionId) {
+      AsyncStorage.setItem(
+        ACTIVE_WORKOUT_SESSION_KEY,
+        activeTimerSessionId,
+      ).catch(() => {});
+      return;
+    }
+
+    AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_KEY).catch(() => {});
+  }, [activeTimerSessionId, timer.hydrated]);
 
   const loadSessions = useCallback(async () => {
     if (!user || !authReady) {
@@ -1394,6 +1525,16 @@ export default function WorkoutScreen() {
       loadSessions();
     }, [loadSessions]),
   );
+
+  useEffect(() => {
+    if (!timer.hydrated || !activeTimerSessionId) return;
+
+    const activeSession = sessions.find((s) => s.id === activeTimerSessionId);
+    if (!activeSession || activeSession.duration_seconds != null) {
+      timer.reset();
+      setActiveTimerSessionId(null);
+    }
+  }, [sessions, activeTimerSessionId, timer.hydrated, timer]);
 
   // ── Handlers ──────────────────────────────────────────────
   const handleWorkoutCreated = async (sessionId: string) => {
@@ -1511,6 +1652,12 @@ export default function WorkoutScreen() {
 
   const handleDeleteSession = async (sessionId: string) => {
     console.log("Deleting workout session:", sessionId);
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+
     if (activeTimerSessionId === sessionId) {
       timer.stop();
       timer.reset();
@@ -1536,9 +1683,10 @@ export default function WorkoutScreen() {
     }
     if (activeTimerSessionId && activeTimerSessionId !== sessionId) {
       // Stop previous timer and save duration
+      const elapsed = timer.getCurrentElapsedSeconds();
       timer.stop();
       updateWorkoutSession(activeTimerSessionId, {
-        duration_seconds: timer.elapsedSeconds,
+        duration_seconds: elapsed,
       });
     }
     setActiveTimerSessionId(sessionId);
@@ -1547,9 +1695,16 @@ export default function WorkoutScreen() {
   };
 
   const handleStopTimer = async (sessionId: string) => {
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+
+    const elapsed = timer.getCurrentElapsedSeconds();
     timer.stop();
     await updateWorkoutSession(sessionId, {
-      duration_seconds: timer.elapsedSeconds,
+      duration_seconds: elapsed,
     });
     timer.reset();
     setActiveTimerSessionId(null);
@@ -1706,8 +1861,9 @@ export default function WorkoutScreen() {
       <RestTimerOverlay
         visible={restTimerVisible}
         initialSeconds={restDefaultDuration}
-        onDismiss={() => setRestTimerVisible(false)}
-        onChangeDefault={(s) => setRestDefaultDuration(s)}
+        onDismiss={handleDismissRestTimer}
+        onChangeDefault={handleChangeRestDefault}
+        pendingNotificationRef={pendingRestNotificationRef}
       />
     </SafeAreaView>
   );
