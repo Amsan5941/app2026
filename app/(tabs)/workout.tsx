@@ -5,6 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLoadingGuard } from "@/hooks/useLoadingGuard";
 import { useTheme } from "@/hooks/useTheme";
 import {
+  cancelRestTimerDoneNotification,
+  scheduleRestTimerDoneNotification,
+} from "@/services/notifications";
+import {
   SessionExercise,
   WorkoutSession,
   addExerciseToSession,
@@ -19,13 +23,22 @@ import {
 } from "@/services/workoutTracking";
 import { formatTime } from "@/utils/formatTime";
 import { log } from "@/utils/log";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Modal,
   Platform,
   Pressable,
@@ -285,8 +298,9 @@ function DeleteExerciseModal({
 
           <Text style={modalStyles.title}>Delete Exercise</Text>
           <Text style={[modalStyles.subtitle, deleteModalStyles.message]}>
-            Remove "{exercise.name}" and all its sets? This action cannot be
-            undone.
+            Remove {'"'}
+            {exercise.name}
+            {'"'} and all its sets? This action cannot be undone.
           </Text>
 
           <Pressable style={deleteModalStyles.deleteBtn} onPress={onConfirm}>
@@ -446,8 +460,10 @@ function AddExerciseModal({
 // ── Add Set Row (inline) ────────────────────────────────────
 function AddSetRow({
   onAdd,
+  onInputFocus,
 }: {
   onAdd: (reps: number, weight: number | null) => void;
+  onInputFocus?: () => void;
 }) {
   const { palette: Palette } = useTheme();
   const setRowStyles = useMemo(() => makeSetRowStyles(Palette), [Palette]);
@@ -475,6 +491,7 @@ function AddSetRow({
         keyboardType="number-pad"
         value={reps}
         onChangeText={setReps}
+        onFocus={onInputFocus}
       />
       <TextInput
         style={setRowStyles.input}
@@ -483,6 +500,7 @@ function AddSetRow({
         keyboardType="decimal-pad"
         value={weight}
         onChangeText={setWeight}
+        onFocus={onInputFocus}
       />
       <Pressable style={setRowStyles.addBtn} onPress={handleAdd}>
         <Text style={setRowStyles.addBtnText}>+</Text>
@@ -534,12 +552,14 @@ function ExerciseCard({
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
+  onSetInputFocus,
   isLocked,
 }: {
   exercise: SessionExercise;
   onAddSet: (exerciseId: string, reps: number, weight: number | null) => void;
   onDeleteSet: (setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
+  onSetInputFocus?: () => void;
   isLocked?: boolean;
 }) {
   const { palette: Palette } = useTheme();
@@ -604,6 +624,7 @@ function ExerciseCard({
       {!isLocked && (
         <AddSetRow
           onAdd={(reps, weight) => onAddSet(exercise.id!, reps, weight)}
+          onInputFocus={onSetInputFocus}
         />
       )}
     </View>
@@ -701,6 +722,7 @@ function WorkoutSessionCard({
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
+  onSetInputFocus,
   onDelete,
   timer,
   isActive,
@@ -713,6 +735,7 @@ function WorkoutSessionCard({
   onAddSet: (exerciseId: string, reps: number, weight: number | null) => void;
   onDeleteSet: (setId: string) => void;
   onDeleteExercise: (exerciseId: string) => void;
+  onSetInputFocus?: () => void;
   onDelete: (sessionId: string) => void;
   timer: any;
   isActive: boolean;
@@ -816,6 +839,7 @@ function WorkoutSessionCard({
               onAddSet={onAddSet}
               onDeleteSet={onDeleteSet}
               onDeleteExercise={onDeleteExercise}
+              onSetInputFocus={onSetInputFocus}
               isLocked={isEnded}
             />
           ))}
@@ -1111,44 +1135,116 @@ const REST_PRESETS = [
   { label: "90s", seconds: 90 },
   { label: "2 min", seconds: 120 },
 ];
+const ACTIVE_WORKOUT_SESSION_KEY = "@active_workout_session_id_v1";
 
 function RestTimerOverlay({
   visible,
   initialSeconds,
   onDismiss,
   onChangeDefault,
+  pendingNotificationRef,
 }: {
   visible: boolean;
   initialSeconds: number;
   onDismiss: () => void;
   onChangeDefault: (s: number) => void;
+  pendingNotificationRef: React.MutableRefObject<string | null>;
 }) {
   const { palette: Palette } = useTheme();
   const restStyles = useMemo(() => makeRestTimerStyles(Palette), [Palette]);
   const [remaining, setRemaining] = React.useState(initialSeconds);
   const [total, setTotal] = React.useState(initialSeconds);
+  const endAtMsRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!visible) return;
-    setRemaining(initialSeconds);
-    setTotal(initialSeconds);
+
+    // Initialize timer
+    const safeSeconds = Math.max(1, Math.ceil(initialSeconds));
+    setTotal(safeSeconds);
+    setRemaining(safeSeconds);
+    endAtMsRef.current = Date.now() + safeSeconds * 1000;
+
+    // Schedule notification
+    scheduleRestTimerDoneNotification(safeSeconds)
+      .then((id) => {
+        pendingNotificationRef.current = id;
+      })
+      .catch(() => {});
+
+    // Countdown interval
     const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(id);
-          onDismiss();
-          return 0;
+      const endAtMs = endAtMsRef.current;
+      if (!endAtMs) {
+        clearInterval(id);
+        return;
+      }
+
+      const nextRemaining = Math.max(
+        0,
+        Math.floor((endAtMs - Date.now()) / 1000),
+      );
+      setRemaining(nextRemaining);
+
+      if (nextRemaining <= 0) {
+        clearInterval(id);
+        endAtMsRef.current = null;
+        if (pendingNotificationRef.current) {
+          cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+            () => {},
+          );
+          pendingNotificationRef.current = null;
         }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [visible, initialSeconds]);
+        onDismiss();
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(id);
+      if (pendingNotificationRef.current) {
+        cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+          () => {},
+        );
+        pendingNotificationRef.current = null;
+      }
+    };
+  }, [visible, initialSeconds, onDismiss, pendingNotificationRef]);
 
   const handlePreset = (seconds: number) => {
     onChangeDefault(seconds);
-    setTotal(seconds);
-    setRemaining(seconds);
+    const safeSeconds = Math.max(1, Math.ceil(seconds));
+    endAtMsRef.current = Date.now() + safeSeconds * 1000;
+    setTotal(safeSeconds);
+    setRemaining(safeSeconds);
+    scheduleRestTimerDoneNotification(safeSeconds)
+      .then((id) => {
+        pendingNotificationRef.current = id;
+      })
+      .catch(() => {});
+  };
+
+  const handleSkip = () => {
+    endAtMsRef.current = null;
+    if (pendingNotificationRef.current) {
+      cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+        () => {},
+      );
+      pendingNotificationRef.current = null;
+    }
+    onDismiss();
+  };
+
+  const handleAdd30s = () => {
+    const nowMs = Date.now();
+    const baseEndAtMs = endAtMsRef.current ?? nowMs;
+    const nextEndAtMs = baseEndAtMs + 30 * 1000;
+    endAtMsRef.current = nextEndAtMs;
+
+    const nextRemaining = Math.max(0, Math.ceil((nextEndAtMs - nowMs) / 1000));
+
+    setRemaining(nextRemaining);
+    setTotal((prev) => prev + 30);
+    scheduleRestTimerDoneNotification(nextRemaining).catch(() => {});
   };
 
   const mins = Math.floor(remaining / 60);
@@ -1203,13 +1299,10 @@ function RestTimerOverlay({
           </View>
 
           <View style={restStyles.actionRow}>
-            <Pressable
-              style={restStyles.addBtn}
-              onPress={() => setRemaining((r) => r + 30)}
-            >
+            <Pressable style={restStyles.addBtn} onPress={handleAdd30s}>
               <Text style={restStyles.addBtnText}>+30s</Text>
             </Pressable>
-            <Pressable style={restStyles.skipBtn} onPress={onDismiss}>
+            <Pressable style={restStyles.skipBtn} onPress={handleSkip}>
               <Text style={restStyles.skipText}>Skip</Text>
             </Pressable>
           </View>
@@ -1358,6 +1451,113 @@ export default function WorkoutScreen() {
   );
   const [restTimerVisible, setRestTimerVisible] = useState(false);
   const [restDefaultDuration, setRestDefaultDuration] = useState(60);
+  const pendingRestNotificationRef = useRef<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const sessionOffsetYRef = useRef<Record<string, number>>({});
+  const pendingScrollSessionIdRef = useRef<string | null>(null);
+
+  const scrollToSession = useCallback((sessionId: string) => {
+    const y = sessionOffsetYRef.current[sessionId];
+    if (typeof y === "number") {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, y - Spacing.lg),
+        animated: true,
+      });
+      return;
+    }
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
+  const handleSetInputFocus = useCallback(
+    (sessionId: string) => {
+      setTimeout(() => {
+        scrollToSession(sessionId);
+      }, 140);
+    },
+    [scrollToSession],
+  );
+
+  const handleSessionLayout = useCallback(
+    (sessionId: string, event: LayoutChangeEvent) => {
+      sessionOffsetYRef.current[sessionId] = event.nativeEvent.layout.y;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessions.length) return;
+    const pendingId = pendingScrollSessionIdRef.current;
+    if (!pendingId) return;
+
+    requestAnimationFrame(() => {
+      scrollToSession(pendingId);
+      pendingScrollSessionIdRef.current = null;
+    });
+  }, [sessions, scrollToSession]);
+
+  const handleDismissRestTimer = useCallback(async () => {
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+  }, []);
+
+  const handleChangeRestDefault = useCallback((seconds: number) => {
+    setRestDefaultDuration(seconds);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreActiveSession = async () => {
+      try {
+        const activeSessionId = await AsyncStorage.getItem(
+          ACTIVE_WORKOUT_SESSION_KEY,
+        );
+        if (isMounted && activeSessionId) {
+          setActiveTimerSessionId(activeSessionId);
+        }
+      } catch {
+        // Ignore restore failures; timer can still be used normally.
+      }
+    };
+
+    restoreActiveSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!timer.hydrated) return;
+
+    if (activeTimerSessionId) {
+      AsyncStorage.setItem(
+        ACTIVE_WORKOUT_SESSION_KEY,
+        activeTimerSessionId,
+      ).catch(() => {});
+      return;
+    }
+
+    AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_KEY).catch(() => {});
+  }, [activeTimerSessionId, timer.hydrated]);
 
   const loadSessions = useCallback(async () => {
     if (!user || !authReady) {
@@ -1395,10 +1595,21 @@ export default function WorkoutScreen() {
     }, [loadSessions]),
   );
 
+  useEffect(() => {
+    if (!timer.hydrated || !activeTimerSessionId) return;
+
+    const activeSession = sessions.find((s) => s.id === activeTimerSessionId);
+    if (!activeSession || activeSession.duration_seconds != null) {
+      timer.reset();
+      setActiveTimerSessionId(null);
+    }
+  }, [sessions, activeTimerSessionId, timer.hydrated, timer]);
+
   // ── Handlers ──────────────────────────────────────────────
   const handleWorkoutCreated = async (sessionId: string) => {
     setShowNewWorkout(false);
     await loadSessions();
+    pendingScrollSessionIdRef.current = sessionId;
     setActiveTimerSessionId(sessionId);
     timer.reset();
     timer.start();
@@ -1511,6 +1722,12 @@ export default function WorkoutScreen() {
 
   const handleDeleteSession = async (sessionId: string) => {
     console.log("Deleting workout session:", sessionId);
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+
     if (activeTimerSessionId === sessionId) {
       timer.stop();
       timer.reset();
@@ -1536,9 +1753,10 @@ export default function WorkoutScreen() {
     }
     if (activeTimerSessionId && activeTimerSessionId !== sessionId) {
       // Stop previous timer and save duration
+      const elapsed = timer.getCurrentElapsedSeconds();
       timer.stop();
       updateWorkoutSession(activeTimerSessionId, {
-        duration_seconds: timer.elapsedSeconds,
+        duration_seconds: elapsed,
       });
     }
     setActiveTimerSessionId(sessionId);
@@ -1547,9 +1765,16 @@ export default function WorkoutScreen() {
   };
 
   const handleStopTimer = async (sessionId: string) => {
+    if (pendingRestNotificationRef.current) {
+      await cancelRestTimerDoneNotification(pendingRestNotificationRef.current);
+      pendingRestNotificationRef.current = null;
+    }
+    setRestTimerVisible(false);
+
+    const elapsed = timer.getCurrentElapsedSeconds();
     timer.stop();
     await updateWorkoutSession(sessionId, {
-      duration_seconds: timer.elapsedSeconds,
+      duration_seconds: elapsed,
     });
     timer.reset();
     setActiveTimerSessionId(null);
@@ -1567,119 +1792,139 @@ export default function WorkoutScreen() {
   // ── Render ────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.pageTitle}>Workout</Text>
-            <Text style={styles.pageSub}>{todayFormatted}</Text>
-          </View>
-          {sessions.length > 0 && (
-            <Pressable
-              style={styles.newBtn}
-              onPress={() => setShowNewWorkout(true)}
-            >
-              <LinearGradient
-                colors={[Palette.gradientStart, Palette.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.newBtnGradient}
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 30 + Math.max(0, keyboardHeight - Spacing.lg) },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+        >
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.pageTitle}>Workout</Text>
+              <Text style={styles.pageSub}>{todayFormatted}</Text>
+            </View>
+            {sessions.length > 0 && (
+              <Pressable
+                style={styles.newBtn}
+                onPress={() => setShowNewWorkout(true)}
               >
-                <Text style={styles.newBtnText}>+ New</Text>
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={[Palette.gradientStart, Palette.gradientEnd]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.newBtnGradient}
+                >
+                  <Text style={styles.newBtnText}>+ New</Text>
+                </LinearGradient>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Today's summary */}
+          {sessions.length > 0 && (
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{sessions.length}</Text>
+                <Text style={styles.summaryLabel}>Workouts</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>
+                  {sessions.reduce(
+                    (sum, s) => sum + (s.exercises?.length || 0),
+                    0,
+                  )}
+                </Text>
+                <Text style={styles.summaryLabel}>Exercises</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>
+                  {sessions.reduce(
+                    (sum, s) =>
+                      sum +
+                      (s.exercises || []).reduce(
+                        (eSum, ex) => eSum + ex.sets.length,
+                        0,
+                      ),
+                    0,
+                  )}
+                </Text>
+                <Text style={styles.summaryLabel}>Total Sets</Text>
+              </View>
+            </View>
           )}
-        </View>
 
-        {/* Today's summary */}
-        {sessions.length > 0 && (
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{sessions.length}</Text>
-              <Text style={styles.summaryLabel}>Workouts</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>
-                {sessions.reduce(
-                  (sum, s) => sum + (s.exercises?.length || 0),
-                  0,
-                )}
+          {/* Content */}
+          {loading && !timedOut ? (
+            <WorkoutSkeleton />
+          ) : loadError || timedOut ? (
+            <View style={{ alignItems: "center", paddingVertical: 40 }}>
+              <Text
+                style={{
+                  color: Palette.textSecondary,
+                  fontSize: 15,
+                  marginBottom: 12,
+                  textAlign: "center",
+                }}
+              >
+                {loadError || "Loading is taking too long."}
               </Text>
-              <Text style={styles.summaryLabel}>Exercises</Text>
+              <Pressable
+                onPress={loadSessions}
+                style={{
+                  backgroundColor: Palette.accent,
+                  paddingHorizontal: 24,
+                  paddingVertical: 10,
+                  borderRadius: Radii.md,
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
+              </Pressable>
             </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>
-                {sessions.reduce(
-                  (sum, s) =>
-                    sum +
-                    (s.exercises || []).reduce(
-                      (eSum, ex) => eSum + ex.sets.length,
-                      0,
-                    ),
-                  0,
-                )}
-              </Text>
-              <Text style={styles.summaryLabel}>Total Sets</Text>
-            </View>
-          </View>
-        )}
+          ) : sessions.length === 0 ? (
+            <EmptyState onStart={() => setShowNewWorkout(true)} />
+          ) : (
+            sessions.map((session) => (
+              <View
+                key={session.id}
+                onLayout={(event) => handleSessionLayout(session.id!, event)}
+              >
+                <WorkoutSessionCard
+                  session={session}
+                  onAddExercise={setAddExerciseSessionId}
+                  onAddSet={handleAddSet}
+                  onDeleteSet={handleDeleteSet}
+                  onDeleteExercise={handleRequestDeleteExercise}
+                  onSetInputFocus={() => handleSetInputFocus(session.id!)}
+                  onDelete={handleDeleteSession}
+                  timer={timer}
+                  isActive={activeTimerSessionId === session.id}
+                  isEnded={
+                    endedSessionIds.has(session.id!) ||
+                    session.duration_seconds != null
+                  }
+                  onStartTimer={() => handleStartTimer(session.id!)}
+                  onStopTimer={() => handleStopTimer(session.id!)}
+                />
+              </View>
+            ))
+          )}
 
-        {/* Content */}
-        {loading && !timedOut ? (
-          <WorkoutSkeleton />
-        ) : loadError || timedOut ? (
-          <View style={{ alignItems: "center", paddingVertical: 40 }}>
-            <Text
-              style={{
-                color: Palette.textSecondary,
-                fontSize: 15,
-                marginBottom: 12,
-                textAlign: "center",
-              }}
-            >
-              {loadError || "Loading is taking too long."}
-            </Text>
-            <Pressable
-              onPress={loadSessions}
-              style={{
-                backgroundColor: Palette.accent,
-                paddingHorizontal: 24,
-                paddingVertical: 10,
-                borderRadius: Radii.md,
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : sessions.length === 0 ? (
-          <EmptyState onStart={() => setShowNewWorkout(true)} />
-        ) : (
-          sessions.map((session) => (
-            <WorkoutSessionCard
-              key={session.id}
-              session={session}
-              onAddExercise={setAddExerciseSessionId}
-              onAddSet={handleAddSet}
-              onDeleteSet={handleDeleteSet}
-              onDeleteExercise={handleRequestDeleteExercise}
-              onDelete={handleDeleteSession}
-              timer={timer}
-              isActive={activeTimerSessionId === session.id}
-              isEnded={
-                endedSessionIds.has(session.id!) ||
-                session.duration_seconds != null
-              }
-              onStartTimer={() => handleStartTimer(session.id!)}
-              onStopTimer={() => handleStopTimer(session.id!)}
-            />
-          ))
-        )}
-
-        <View style={{ height: 30 }} />
-      </ScrollView>
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Modals */}
       <NewWorkoutModal
@@ -1706,8 +1951,9 @@ export default function WorkoutScreen() {
       <RestTimerOverlay
         visible={restTimerVisible}
         initialSeconds={restDefaultDuration}
-        onDismiss={() => setRestTimerVisible(false)}
-        onChangeDefault={(s) => setRestDefaultDuration(s)}
+        onDismiss={handleDismissRestTimer}
+        onChangeDefault={handleChangeRestDefault}
+        pendingNotificationRef={pendingRestNotificationRef}
       />
     </SafeAreaView>
   );
@@ -1719,6 +1965,9 @@ function makeWorkoutStyles(P: typeof DarkPalette) {
     safe: {
       flex: 1,
       backgroundColor: P.bg,
+    },
+    keyboardContainer: {
+      flex: 1,
     },
     scrollContent: {
       paddingHorizontal: Spacing.lg,
