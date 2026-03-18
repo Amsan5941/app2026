@@ -1,4 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 
 // expo-constants is a TurboModule.  On certain iPad / iPadOS combinations
 // accessing it at module-load time can throw before the bridge is ready.
@@ -18,7 +20,8 @@ function getConstantsExtra(key: string): string | undefined {
   try {
     const Constants = getConstants();
     const expoExtra =
-      (Constants as any)?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra;
+      (Constants as any)?.expoConfig?.extra ??
+      (Constants as any)?.manifest?.extra;
     if (expoExtra && expoExtra[key]) return expoExtra[key];
   } catch {
     // Native module access failed — fall through to undefined.
@@ -47,15 +50,26 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 let _supabase: SupabaseClient;
 try {
-  _supabase = createClient(supabaseUrl, supabaseAnonKey);
+  _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: Platform.OS === "web",
+    },
+  });
 } catch (e) {
   console.error("[Supabase] createClient failed:", e);
   // Create a dummy client so imports don't explode. Every call will fail
   // gracefully later — the user simply won't see data until config is fixed.
-  _supabase = createClient(
-    "https://placeholder.supabase.co",
-    "placeholder",
-  );
+  _supabase = createClient("https://placeholder.supabase.co", "placeholder", {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: Platform.OS === "web",
+    },
+  });
 }
 
 export const supabase = _supabase;

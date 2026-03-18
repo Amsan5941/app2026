@@ -2,8 +2,14 @@ import { supabase } from "@/constants/supabase";
 import { clearQueryCache } from "@/services/db";
 import { clearCachedUserId, resolveAndCacheUserId } from "@/services/userCache";
 import { log } from "@/utils/log";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { AuthError, AuthSession, AuthUser } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { AppState } from "react-native";
+
+const LAST_ACTIVE_AT_KEY = "@auth_last_active_at";
+// 30 days is a common inactivity timeout for consumer mobile apps.
+const INACTIVITY_TIMEOUT_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Result returned by signUp / signIn. */
 type AuthResult = {
@@ -38,6 +44,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [authReady, setAuthReady] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
+  async function markActiveNow() {
+    try {
+      await AsyncStorage.setItem(LAST_ACTIVE_AT_KEY, String(Date.now()));
+    } catch {
+      // Best-effort only; auth still functions if this write fails.
+    }
+  }
+
+  async function clearInactivityMarker() {
+    try {
+      await AsyncStorage.removeItem(LAST_ACTIVE_AT_KEY);
+    } catch {
+      // Best-effort cleanup.
+    }
+  }
+
+  async function enforceInactivityTimeoutIfNeeded(
+    currentSession: AuthSession | null,
+  ): Promise<boolean> {
+    if (!currentSession?.user) return false;
+
+    try {
+      const now = Date.now();
+      const lastActiveRaw = await AsyncStorage.getItem(LAST_ACTIVE_AT_KEY);
+      const lastActive = Number(lastActiveRaw);
+
+      if (!lastActiveRaw || Number.isNaN(lastActive)) {
+        await markActiveNow();
+        return false;
+      }
+
+      if (now - lastActive > INACTIVITY_TIMEOUT_MS) {
+        clearCachedUserId();
+        clearQueryCache();
+        setInternalUserId(null);
+        await supabase.auth.signOut();
+        await clearInactivityMarker();
+        return true;
+      }
+
+      await markActiveNow();
+      return false;
+    } catch (e) {
+      log.warn("Auth", "Inactivity timeout check failed: " + String(e));
+      return false;
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
     log.time("auth:hydration");
@@ -48,6 +102,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           data: { session: currentSession },
         } = await supabase.auth.getSession();
         if (!mounted) return;
+
+        const expiredForInactivity =
+          await enforceInactivityTimeoutIfNeeded(currentSession);
+        if (expiredForInactivity) {
+          setSession(null);
+          setUser(null);
+          return;
+        }
+
         setSession(currentSession);
         const authUser = currentSession?.user ?? null;
         setUser(authUser);
@@ -55,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           try {
             const id = await resolveAndCacheUserId(authUser.id);
             if (mounted) setInternalUserId(id);
+            await markActiveNow();
           } catch (e) {
             log.warn(
               "Auth",
@@ -84,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           try {
             const id = await resolveAndCacheUserId(authUser.id);
             setInternalUserId(id);
+            await markActiveNow();
           } catch (e) {
             log.warn(
               "Auth",
@@ -93,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } else {
           clearCachedUserId();
           setInternalUserId(null);
+          await clearInactivityMarker();
         }
       },
     );
@@ -102,6 +168,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       listener?.subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && user) {
+        void markActiveNow();
+      }
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [user]);
 
   async function signUp(
     email: string,
@@ -166,6 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearQueryCache();
     setInternalUserId(null);
     await supabase.auth.signOut();
+    await clearInactivityMarker();
   }
 
   return (

@@ -10,7 +10,7 @@ import {
   getProgressPhotos,
   uploadProgressPhoto,
 } from "@/services/progressPhotos";
-import { getCachedUserId } from "@/services/userCache";
+import { getCachedUserId, getUserId } from "@/services/userCache";
 import { getWeightHistory } from "@/services/weightTracking";
 import {
   WorkoutHistoryItem,
@@ -34,7 +34,6 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
   Modal,
   Platform,
@@ -45,7 +44,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import Svg, {
   Defs,
   Line,
@@ -868,6 +870,7 @@ function makeTabStyles(P: typeof DarkPalette) {
 // ── Main Screen ─────────────────────────────────────────────
 export default function ProgressScreen() {
   const { user, authReady } = useAuth();
+  const insets = useSafeAreaInsets();
   const { palette: Palette } = useTheme();
   const bodyStyles = useMemo(() => makeBodyStyles(Palette), [Palette]);
   const styles = useMemo(() => makeProgressStyles(Palette), [Palette]);
@@ -1108,7 +1111,10 @@ export default function ProgressScreen() {
   useFocusEffect(
     useCallback(() => {
       loadWorkouts(true);
-    }, [loadWorkouts]),
+      if (activeTab === "Body" && authReady && user) {
+        void loadPhotosForUser();
+      }
+    }, [loadWorkouts, activeTab, authReady, user?.id]),
   );
 
   const handleOpenDetail = (sessionId: string) => {
@@ -1120,16 +1126,25 @@ export default function ProgressScreen() {
   async function loadPhotosForUser() {
     try {
       setLoadingPhotos(true);
-      const userId = getCachedUserId();
+      const userId = await getUserId();
       if (!userId) return;
       const res = await getProgressPhotos(userId);
       if (res.success) setPhotos(res.data || []);
+      else {
+        console.error("getProgressPhotos failed", res.error);
+      }
     } catch (e) {
       console.error("loadPhotosForUser", e);
     } finally {
       setLoadingPhotos(false);
     }
   }
+
+  // Load photos when the user opens the Body tab.
+  useEffect(() => {
+    if (!authReady || !user || activeTab !== "Body") return;
+    loadPhotosForUser();
+  }, [authReady, user?.id, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function pickAndUploadPhoto() {
     try {
@@ -1155,28 +1170,28 @@ export default function ProgressScreen() {
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
       );
       const resp = await fetch(manip.uri);
-      const blob = await resp.blob();
+      const bytes = new Uint8Array(await resp.arrayBuffer());
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("Not authenticated");
 
-      const userId = getCachedUserId();
-      if (!userId) throw new Error("User ID not cached");
+      const userId = await getUserId();
+      if (!userId) throw new Error("Could not resolve user ID");
 
       const fileName = `${Date.now()}.jpg`;
       const up = await uploadProgressPhoto({
         authUid: session.user.id,
         userId: userId,
         fileName,
-        blob,
+        blob: bytes,
       });
       if (!up.success) throw up.error;
       await loadPhotosForUser();
     } catch (e) {
       console.error("pickAndUploadPhoto", e);
-      Alert.alert("Upload failed");
+      Alert.alert("Upload failed", String((e as any)?.message || e));
     }
   }
 
@@ -1420,16 +1435,16 @@ export default function ProgressScreen() {
                   </Text>
                 </View>
               ) : (
-                <FlatList
-                  data={photos}
-                  keyExtractor={(i) => i.id}
-                  numColumns={3}
-                  columnWrapperStyle={{
-                    justifyContent: "space-between",
-                    marginBottom: 10,
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 10,
                   }}
-                  renderItem={({ item, index }) => (
+                >
+                  {photos.map((item, index) => (
                     <TouchableOpacity
+                      key={item.id}
                       onPress={() => {
                         setViewerIndex(index);
                         setViewerVisible(true);
@@ -1448,8 +1463,8 @@ export default function ProgressScreen() {
                         resizeMode="cover"
                       />
                     </TouchableOpacity>
-                  )}
-                />
+                  ))}
+                </View>
               )}
             </View>
 
@@ -1462,7 +1477,15 @@ export default function ProgressScreen() {
               <View style={{ flex: 1, backgroundColor: Palette.bgElevated }}>
                 <Pressable
                   onPress={() => setViewerVisible(false)}
-                  style={{ padding: 16 }}
+                  hitSlop={12}
+                  style={{
+                    position: "absolute",
+                    top: insets.top + 8,
+                    left: 12,
+                    zIndex: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                  }}
                 >
                   <Text style={{ color: Palette.textSecondary }}>Close ✕</Text>
                 </Pressable>
