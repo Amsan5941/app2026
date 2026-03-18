@@ -590,13 +590,7 @@ export default function HomeScreen() {
 
   const displayName = firstname || "Athlete";
 
-  // Compute workouts this week same as History SummaryStats
-  const workoutsDone = bioProfile?.workout_counter ?? weeklyStats.workoutCount;
-  const workoutsGoal = bioProfile?.workouts_per_week ?? null;
-  const workoutsValue =
-    workoutsGoal != null
-      ? `${workoutsDone ?? 0}/${workoutsGoal}`
-      : String(workoutsDone ?? 0);
+  const workoutsValue = String(weeklyStats.workoutCount ?? 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right"]}>
