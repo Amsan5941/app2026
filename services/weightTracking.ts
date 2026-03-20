@@ -2,7 +2,7 @@ import { supabase } from "@/constants/supabase";
 import { getUserId } from "@/services/userCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const SKIP_STORAGE_KEY = "@weight_skip_date";
+const SKIP_STORAGE_KEY_PREFIX = "@weight_skip_date";
 
 /**
  * Get today's date in YYYY-MM-DD format using local timezone
@@ -16,12 +16,25 @@ function getTodayLocal(): string {
 }
 
 /**
- * Clear the skip date (for testing/debugging)
+ * Returns a per-user skip key so one user's skip state never bleeds into another.
+ * Falls back to the legacy global key if the user is not authenticated yet.
+ */
+async function getSkipKey(): Promise<string> {
+  try {
+    const userId = await getUserId();
+    return `${SKIP_STORAGE_KEY_PREFIX}:${userId}`;
+  } catch {
+    return SKIP_STORAGE_KEY_PREFIX;
+  }
+}
+
+/**
+ * Clear the skip date (called after logging weight, or on sign-out)
  */
 export async function clearSkipDate(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(SKIP_STORAGE_KEY);
-    console.log("Skip date cleared");
+    const key = await getSkipKey();
+    await AsyncStorage.removeItem(key);
   } catch (error) {
     console.error("Error clearing skip date:", error);
   }
@@ -42,10 +55,8 @@ export type WeightEntry = {
  */
 export async function skipWeightForToday(): Promise<void> {
   try {
-    const today = getTodayLocal();
-    console.log("Skipping weight for:", today);
-    await AsyncStorage.setItem(SKIP_STORAGE_KEY, today);
-    console.log("Skip date stored successfully");
+    const [key, today] = await Promise.all([getSkipKey(), Promise.resolve(getTodayLocal())]);
+    await AsyncStorage.setItem(key, today);
   } catch (error) {
     console.error("Error storing skip date:", error);
     throw error;
@@ -57,9 +68,8 @@ export async function skipWeightForToday(): Promise<void> {
  */
 export async function hasSkippedToday(): Promise<boolean> {
   try {
-    const skippedDate = await AsyncStorage.getItem(SKIP_STORAGE_KEY);
-    const today = getTodayLocal();
-    console.log("Checking skip - stored date:", skippedDate, "today:", today);
+    const [key, today] = await Promise.all([getSkipKey(), Promise.resolve(getTodayLocal())]);
+    const skippedDate = await AsyncStorage.getItem(key);
     return skippedDate === today;
   } catch (error) {
     console.error("Error checking skip date:", error);

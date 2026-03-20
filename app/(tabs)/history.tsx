@@ -909,7 +909,7 @@ export default function ProgressScreen() {
   const [viewerVisible, setViewerVisible] = useState(false);
 
   useEffect(() => {
-    if (!authReady) return;
+    if (!authReady || !user) return;
     let mounted = true;
     async function loadWeights() {
       setLoadingWeights(true);

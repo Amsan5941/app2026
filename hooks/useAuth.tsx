@@ -17,6 +17,18 @@ type AuthResult = {
   error: AuthError | { message: string } | null;
 };
 
+export type SignUpBioData = {
+  age: number;
+  weight: number;
+  height: number; // total inches
+  sex: string;
+  goal: string;
+  activity_level?: string;
+  workout_style?: string;
+  workouts_per_week?: number | null;
+  calorie_goal?: number | null;
+};
+
 type AuthContextValue = {
   user: AuthUser | null;
   session: AuthSession | null;
@@ -29,6 +41,7 @@ type AuthContextValue = {
     password: string,
     firstname: string,
     lastname: string,
+    bioData?: SignUpBioData,
   ) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
@@ -186,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     firstname: string,
     lastname: string,
+    bioData?: SignUpBioData,
   ): Promise<AuthResult> {
     try {
       // Step 1: Create auth user
@@ -209,17 +223,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // This is safe regardless of whether a DB trigger has already created the
       // row — upsert will update if the row exists or insert if it doesn't,
       // eliminating the old 1-second setTimeout race condition.
-      const { error: upsertError } = await supabase
+      const { data: userData, error: upsertError } = await supabase
         .from("users")
         .upsert(
           { auth_id: authUserId, firstname, lastname },
           { onConflict: "auth_id" },
-        );
+        )
+        .select("id")
+        .single();
 
       if (upsertError) {
         // Non-fatal: the auth user was created. They can still log in and
         // their name can be set later via the profile screen.
         console.warn("Could not upsert user profile row:", upsertError.message);
+      }
+
+      // Step 3: Save bio + questionnaire data if provided and we have the internal user ID.
+      if (bioData && userData?.id) {
+        const { error: bioError } = await supabase
+          .from("bio_profile")
+          .upsert(
+            {
+              user_id: userData.id,
+              age: bioData.age,
+              weight: bioData.weight,
+              weight_unit: "lbs",
+              height: bioData.height,
+              height_unit: "inches",
+              sex: bioData.sex,
+              goal: bioData.goal,
+              activity_level: bioData.activity_level ?? null,
+              workout_style: bioData.workout_style ?? null,
+              workouts_per_week: bioData.workouts_per_week ?? null,
+              calorie_goal: bioData.calorie_goal ?? null,
+            },
+            { onConflict: "user_id" },
+          );
+
+        if (bioError) {
+          console.warn("Could not save bio profile:", bioError.message);
+          // Non-fatal — user can fill profile in later.
+        }
       }
 
       return { data: authData, error: null };

@@ -15,8 +15,11 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableOpacity,
     View,
 } from "react-native";
+
+type SignupStep = "account" | "bio" | "questions";
 
 export default function AuthModal({
   visible,
@@ -27,66 +30,133 @@ export default function AuthModal({
 }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [signupStep, setSignupStep] = useState<SignupStep>("account");
 
-  // Form fields
+  // Account info
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
 
+  // Bio info
+  const [age, setAge] = useState("");
+  const [weight, setWeight] = useState("");
+  const [heightFeet, setHeightFeet] = useState("");
+  const [heightInches, setHeightInches] = useState("");
+  const [sex, setSex] = useState("");
+  const [goal, setGoal] = useState("");
+
+  // Questionnaire (step 3)
+  const [activityLevel, setActivityLevel] = useState<
+    "sedentary" | "light" | "moderate" | "active" | ""
+  >("");
+  const [workoutStyle, setWorkoutStyle] = useState<
+    "strength" | "cardio" | "mix" | ""
+  >("");
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState("");
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-
-  // Validation helpers (imported from @/utils/signupValidation)
 
   async function handleSubmit() {
     setErrorText(null);
     setLoading(true);
     try {
       if (mode === "signup") {
-        if (!firstname.trim() || !lastname.trim()) {
-          setErrorText("Please enter your first and last name");
-          return;
-        }
-        if (!email.trim() || !password.trim()) {
-          setErrorText("Please enter email and password");
-          return;
-        }
-        if (!isValidEmail(email)) {
-          setErrorText("Please enter a valid email address (must include @)");
-          return;
-        }
-        if (!isValidPassword(password)) {
-          setErrorText(
-            "Password must be at least 8 characters and include at least one special character",
-          );
+        if (signupStep === "account") {
+          if (!firstname.trim() || !lastname.trim()) {
+            setErrorText("Please enter your first and last name");
+            setLoading(false);
+            return;
+          }
+          if (!email.trim() || !password.trim()) {
+            setErrorText("Please enter email and password");
+            setLoading(false);
+            return;
+          }
+          if (!isValidEmail(email)) {
+            setErrorText("Please enter a valid email address (must include @)");
+            setLoading(false);
+            return;
+          }
+          if (!isValidPassword(password)) {
+            setErrorText(
+              "Password must be at least 8 characters and include at least one special character",
+            );
+            setLoading(false);
+            return;
+          }
+          setSignupStep("bio");
+          setLoading(false);
           return;
         }
 
-        const { error } = await signUp(email, password, firstname, lastname);
-        if (error) {
-          setErrorText(error.message || JSON.stringify(error));
-        } else {
-          Alert.alert(
-            "Welcome aboard! 💪",
-            "Please check your email to verify your account, then sign in to start crushing your fitness goals!",
-          );
-          resetForm();
-          onClose();
+        if (signupStep === "bio") {
+          if (!age || !weight || !heightFeet || !sex || !goal) {
+            setErrorText("Please fill in all bio information");
+            setLoading(false);
+            return;
+          }
+          setSignupStep("questions");
+          setLoading(false);
+          return;
+        }
+
+        // Final step: questions
+        if (signupStep === "questions") {
+          if (!activityLevel || !workoutStyle || !workoutsPerWeek) {
+            setErrorText("Please complete the questionnaire to continue");
+            setLoading(false);
+            return;
+          }
+
+          const totalInches =
+            parseInt(heightFeet) * 12 +
+            (heightInches ? parseInt(heightInches) : 0);
+
+          const bioData = {
+            age: parseInt(age),
+            weight: parseFloat(weight),
+            height: totalInches,
+            sex,
+            goal,
+            activity_level: activityLevel,
+            workout_style: workoutStyle,
+            workouts_per_week: parseInt(workoutsPerWeek) || null,
+            calorie_goal: dailyCalorieGoal ? parseInt(dailyCalorieGoal) : null,
+          };
+
+          const { error } = await signUp(email, password, firstname, lastname, bioData);
+
+          if (error) {
+            setErrorText(error.message || JSON.stringify(error));
+          } else {
+            Alert.alert(
+              "Welcome aboard! 💪",
+              "Your account has been created. Let's start crushing your goals!",
+            );
+            resetForm();
+            onClose();
+          }
         }
       } else {
+        // Login
         if (!email.trim() || !password.trim()) {
           setErrorText("Please enter email and password");
+          setLoading(false);
           return;
         }
         if (!isValidEmail(email)) {
           setErrorText("Please enter a valid email address (must include @)");
+          setLoading(false);
           return;
         }
         if (!isValidPassword(password)) {
           setErrorText(
             "Password must be at least 8 characters and include at least one special character",
           );
+          setLoading(false);
           return;
         }
 
@@ -110,8 +180,28 @@ export default function AuthModal({
     setPassword("");
     setFirstname("");
     setLastname("");
+    setAge("");
+    setWeight("");
+    setHeightFeet("");
+    setHeightInches("");
+    setSex("");
+    setGoal("");
+    setActivityLevel("");
+    setWorkoutStyle("");
+    setWorkoutsPerWeek("");
+    setDailyCalorieGoal("");
+    setSignupStep("account");
     setErrorText(null);
   }
+
+  const stepNumber =
+    mode === "signup"
+      ? signupStep === "account"
+        ? 1
+        : signupStep === "bio"
+          ? 2
+          : 3
+      : 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -140,16 +230,41 @@ export default function AuthModal({
               {/* Header */}
               <View style={styles.header}>
                 <Text style={styles.headerEmoji}>
-                  {mode === "login" ? "👋" : "🚀"}
+                  {mode === "login"
+                    ? "👋"
+                    : signupStep === "account"
+                      ? "🚀"
+                      : signupStep === "bio"
+                        ? "📊"
+                        : "📝"}
                 </Text>
                 <Text style={styles.title}>
-                  {mode === "login" ? "Welcome Back" : "Join the Grind"}
+                  {mode === "login"
+                    ? "Welcome Back"
+                    : signupStep === "account"
+                      ? "Join the Grind"
+                      : signupStep === "bio"
+                        ? "Your Fitness Profile"
+                        : "Quick Questionnaire"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {mode === "login"
                     ? "Sign in to continue your journey"
-                    : "Create your account to get started"}
+                    : signupStep === "account"
+                      ? "Create your account to get started"
+                      : signupStep === "bio"
+                        ? "Help us personalize your experience"
+                        : "Tell us a bit more so we can tailor your plan"}
                 </Text>
+                {mode === "signup" && (
+                  <View style={styles.stepIndicator}>
+                    <View style={[styles.stepDot, stepNumber >= 1 && styles.stepDotActive]} />
+                    <View style={[styles.stepLine, stepNumber >= 2 && styles.stepLineActive]} />
+                    <View style={[styles.stepDot, stepNumber >= 2 && styles.stepDotActive]} />
+                    <View style={[styles.stepLine, stepNumber >= 3 && styles.stepLineActive]} />
+                    <View style={[styles.stepDot, stepNumber >= 3 && styles.stepDotActive]} />
+                  </View>
+                )}
               </View>
 
               {errorText ? (
@@ -158,8 +273,9 @@ export default function AuthModal({
                 </View>
               ) : null}
 
-              {/* Account Form (login + signup) */}
-              <View style={styles.formSection}>
+              {/* Step 1: Account */}
+              {(mode === "login" || signupStep === "account") ? (
+                <View style={styles.formSection}>
                   {mode === "signup" && (
                     <View style={styles.nameRow}>
                       <View style={{ flex: 1 }}>
@@ -205,14 +321,187 @@ export default function AuthModal({
                     style={styles.input}
                     secureTextEntry
                   />
-                  {/* Password requirement hint shown when user has typed something invalid */}
                   {password.length > 0 && !isValidPassword(password) ? (
                     <Text style={styles.passwordReq}>
                       Password must be at least 8 characters and include at
                       least one special character.
                     </Text>
                   ) : null}
-              </View>
+                </View>
+              ) : null}
+
+              {/* Step 2: Bio */}
+              {mode === "signup" && signupStep === "bio" ? (
+                <View style={styles.formSection}>
+                  <Text style={styles.inputLabel}>Age</Text>
+                  <TextInput
+                    placeholder="25"
+                    placeholderTextColor={Palette.textMuted}
+                    value={age}
+                    onChangeText={setAge}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={styles.inputLabel}>Weight (lbs)</Text>
+                  <TextInput
+                    placeholder="160"
+                    placeholderTextColor={Palette.textMuted}
+                    value={weight}
+                    onChangeText={setWeight}
+                    style={styles.input}
+                    keyboardType="decimal-pad"
+                  />
+
+                  <Text style={styles.inputLabel}>Height</Text>
+                  <View style={styles.heightRow}>
+                    <TextInput
+                      placeholder="5"
+                      placeholderTextColor={Palette.textMuted}
+                      value={heightFeet}
+                      onChangeText={setHeightFeet}
+                      style={[styles.input, styles.heightInput]}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.heightUnit}>ft</Text>
+                    <TextInput
+                      placeholder="10"
+                      placeholderTextColor={Palette.textMuted}
+                      value={heightInches}
+                      onChangeText={setHeightInches}
+                      style={[styles.input, styles.heightInput]}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.heightUnit}>in</Text>
+                  </View>
+
+                  <Text style={styles.inputLabel}>Sex</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          sex === opt.value && styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setSex(opt.value)}
+                      >
+                        <Text style={[
+                          styles.optionText,
+                          sex === opt.value && styles.optionTextSelected,
+                        ]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Goal</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "lose_weight", label: "Lose Weight" },
+                      { value: "gain_muscle", label: "Gain Muscle" },
+                      { value: "maintain", label: "Maintain" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          goal === opt.value && styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setGoal(opt.value)}
+                      >
+                        <Text style={[
+                          styles.optionText,
+                          goal === opt.value && styles.optionTextSelected,
+                        ]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Step 3: Questionnaire */}
+              {mode === "signup" && signupStep === "questions" ? (
+                <View style={styles.formSection}>
+                  <Text style={styles.inputLabel}>Activity Level</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "sedentary", label: "Sedentary" },
+                      { value: "light", label: "Light" },
+                      { value: "moderate", label: "Moderate" },
+                      { value: "active", label: "Active" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          activityLevel === opt.value && styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setActivityLevel(opt.value as any)}
+                      >
+                        <Text style={[
+                          styles.optionText,
+                          activityLevel === opt.value && styles.optionTextSelected,
+                        ]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Workout Style</Text>
+                  <View style={styles.optionRow}>
+                    {[
+                      { value: "strength", label: "Strength" },
+                      { value: "cardio", label: "Cardio" },
+                      { value: "mix", label: "Mix" },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.optionButton,
+                          workoutStyle === opt.value && styles.optionButtonSelected,
+                        ]}
+                        onPress={() => setWorkoutStyle(opt.value as any)}
+                      >
+                        <Text style={[
+                          styles.optionText,
+                          workoutStyle === opt.value && styles.optionTextSelected,
+                        ]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Workouts per Week</Text>
+                  <TextInput
+                    placeholder="3"
+                    placeholderTextColor={Palette.textMuted}
+                    value={workoutsPerWeek}
+                    onChangeText={setWorkoutsPerWeek}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={styles.inputLabel}>Daily Calorie Goal (optional)</Text>
+                  <TextInput
+                    placeholder="e.g. 2200"
+                    placeholderTextColor={Palette.textMuted}
+                    value={dailyCalorieGoal}
+                    onChangeText={setDailyCalorieGoal}
+                    style={styles.input}
+                    keyboardType="numeric"
+                  />
+                </View>
+              ) : null}
 
               {/* Primary action button */}
               <Pressable
@@ -229,12 +518,27 @@ export default function AuthModal({
                     ? "Please wait..."
                     : mode === "login"
                       ? "Sign In"
-                      : "Create Account 🎉"}
+                      : signupStep === "account"
+                        ? "Continue →"
+                        : signupStep === "bio"
+                          ? "Continue →"
+                          : "Create Account 🎉"}
                 </Text>
               </Pressable>
 
               {/* Secondary actions */}
               <View style={styles.footerActions}>
+                {mode === "signup" && signupStep !== "account" && (
+                  <Pressable
+                    style={styles.backBtn}
+                    onPress={() => {
+                      setErrorText(null);
+                      setSignupStep(signupStep === "bio" ? "account" : "bio");
+                    }}
+                  >
+                    <Text style={styles.backBtnText}>← Back</Text>
+                  </Pressable>
+                )}
                 <Pressable
                   style={styles.switchBtn}
                   onPress={() => {
@@ -395,23 +699,21 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: "row",
     gap: Spacing.sm,
+    flexWrap: "wrap",
   },
   optionButton: {
     flex: 1,
+    minWidth: 70,
     paddingVertical: 12,
     borderRadius: Radii.md,
     borderWidth: 1,
     borderColor: Palette.border,
     backgroundColor: Palette.bgInput,
     alignItems: "center",
-    gap: 4,
   },
   optionButtonSelected: {
     backgroundColor: Palette.accentMuted,
     borderColor: Palette.accent,
-  },
-  optionIcon: {
-    fontSize: 18,
   },
   optionText: {
     color: Palette.textSecondary,
@@ -420,57 +722,6 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: Palette.accent,
-    fontWeight: "700",
-  },
-  infoBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Palette.bgCard,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    marginLeft: Spacing.sm,
-  },
-  infoBtnText: {
-    fontSize: 16,
-  },
-  infoOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  infoCard: {
-    width: "86%",
-    maxWidth: 440,
-    backgroundColor: Palette.bgElevated,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Palette.border,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: Palette.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  infoText: {
-    color: Palette.textSecondary,
-    fontSize: 14,
-  },
-  infoClose: {
-    marginTop: Spacing.md,
-    alignSelf: "flex-end",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: Radii.md,
-    backgroundColor: Palette.accent,
-  },
-  infoCloseText: {
-    color: Palette.white,
     fontWeight: "700",
   },
   primaryBtn: {
