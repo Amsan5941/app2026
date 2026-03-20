@@ -209,7 +209,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         options: { emailRedirectTo: undefined },
       });
 
-      if (authError) return { data: authData, error: authError };
+      if (authError) {
+        const errorMessage = authError.message?.toLowerCase() ?? "";
+        const looksLikeDuplicateEmail =
+          errorMessage.includes("already") ||
+          errorMessage.includes("registered") ||
+          errorMessage.includes("exists") ||
+          authError.status === 422;
+
+        if (looksLikeDuplicateEmail) {
+          return {
+            data: authData,
+            error: {
+              message:
+                "This email is already associated with an account. Please sign in instead.",
+            },
+          };
+        }
+
+        return { data: authData, error: authError };
+      }
+
+      // Supabase can return a user with empty identities for existing emails
+      // when email confirmation is enabled (anti-enumeration behavior).
+      const signupIdentities = (authData.user as any)?.identities;
+      const looksLikeExistingEmailResponse =
+        Array.isArray(signupIdentities) && signupIdentities.length === 0;
+
+      if (looksLikeExistingEmailResponse) {
+        return {
+          data: authData,
+          error: {
+            message:
+              "This email is already associated with an account. Please sign in instead.",
+          },
+        };
+      }
 
       const authUserId = authData.user?.id;
       if (!authUserId) {
@@ -233,36 +268,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         .single();
 
       if (upsertError) {
-        // Non-fatal: the auth user was created. They can still log in and
-        // their name can be set later via the profile screen.
-        console.warn("Could not upsert user profile row:", upsertError.message);
+        const upsertMessage = upsertError.message?.toLowerCase() ?? "";
+        const isDuplicateLike =
+          upsertMessage.includes("users_auth_id_fkey") ||
+          upsertMessage.includes("foreign key constraint");
+
+        return {
+          data: authData,
+          error: {
+            message: isDuplicateLike
+              ? "This email is already associated with an account. Please sign in instead."
+              : "Could not complete signup. Please try again.",
+          },
+        };
       }
 
       // Step 3: Save bio + questionnaire data if provided and we have the internal user ID.
       if (bioData && userData?.id) {
-        const { error: bioError } = await supabase
-          .from("bio_profile")
-          .upsert(
-            {
-              user_id: userData.id,
-              age: bioData.age,
-              weight: bioData.weight,
-              weight_unit: "lbs",
-              height: bioData.height,
-              height_unit: "inches",
-              sex: bioData.sex,
-              goal: bioData.goal,
-              activity_level: bioData.activity_level ?? null,
-              workout_style: bioData.workout_style ?? null,
-              workouts_per_week: bioData.workouts_per_week ?? null,
-              calorie_goal: bioData.calorie_goal ?? null,
-            },
-            { onConflict: "user_id" },
-          );
+        const { error: bioError } = await supabase.from("bio_profile").upsert(
+          {
+            user_id: userData.id,
+            age: bioData.age,
+            weight: bioData.weight,
+            weight_unit: "lbs",
+            height: bioData.height,
+            height_unit: "inches",
+            sex: bioData.sex,
+            goal: bioData.goal,
+            activity_level: bioData.activity_level ?? null,
+            workout_style: bioData.workout_style ?? null,
+            workouts_per_week: bioData.workouts_per_week ?? null,
+            calorie_goal: bioData.calorie_goal ?? null,
+          },
+          { onConflict: "user_id" },
+        );
 
         if (bioError) {
-          console.warn("Could not save bio profile:", bioError.message);
-          // Non-fatal — user can fill profile in later.
+          return {
+            data: authData,
+            error: {
+              message:
+                "Account was created, but we could not save your questionnaire and profile data. Please sign in and complete your profile.",
+            },
+          };
         }
       }
 
