@@ -1260,10 +1260,8 @@ export default function ProgressScreen() {
         {activeTab === "Overview" && (
           <>
             <SummaryStats
-              workoutsDone={
-                bioProfile?.workout_counter ?? weeklyStats.workoutCount
-              }
-              workoutsGoal={bioProfile?.workouts_per_week ?? null}
+              workoutsDone={weeklyStats.workoutCount}
+              workoutsGoal={null}
               totalSets={weeklyStats.totalSets}
               totalDuration={weeklyStats.totalDuration}
             />

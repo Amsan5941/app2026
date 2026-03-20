@@ -170,7 +170,9 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      const today = new Date().toISOString().split("T")[0];
+      // Use the client-supplied date (EST) so saves are consistent with queries.
+      // Fall back to UTC only if the client is on an older version.
+      const today = body.loggedDate ?? new Date().toISOString().split("T")[0];
 
       const { data: logData, error: logError } = await supabase
         .from("food_logs")

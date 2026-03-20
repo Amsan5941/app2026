@@ -544,6 +544,8 @@ export async function getExerciseNames(): Promise<{
 
 /**
  * Get weekly workout stats
+ * Optimized: uses simpler flat queries instead of deeply nested selects
+ * for better performance on slow connections (TestFlight, slower devices)
  */
 export async function getWeeklyWorkoutStats(): Promise<{
   success: boolean;
@@ -562,38 +564,52 @@ export async function getWeeklyWorkoutStats(): Promise<{
     monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     const weekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
 
-    // Single query: sessions with nested exercise → set IDs
-    const { data: sessions, error } = await supabase
+    // Step 1: Get sessions with durations (simple flat query, fast)
+    const { data: sessions, error: sessionsError } = await supabase
       .from("workout_sessions")
-      .select(
-        `
-        id,
-        duration_seconds,
-        session_exercises (
-          id,
-          exercise_sets ( id )
-        )
-      `,
-      )
+      .select("id, duration_seconds")
       .eq("user_id", userId)
       .gte("workout_date", weekStart);
 
-    if (error) throw error;
+    if (sessionsError) throw sessionsError;
 
-    const workoutCount = (sessions || []).length;
-    const totalDuration = (sessions || []).reduce(
-      (sum: number, s: any) => sum + (s.duration_seconds || 0),
-      0,
-    );
-    const totalSets = (sessions || []).reduce(
-      (sum: number, s: any) =>
-        sum +
-        (s.session_exercises || []).reduce(
-          (eSum: number, ex: any) => eSum + (ex.exercise_sets?.length || 0),
-          0,
-        ),
-      0,
-    );
+    const sessionIds = sessions?.map((s) => s.id) || [];
+    const workoutCount = sessionIds.length;
+    const totalDuration =
+      sessions?.reduce(
+        (sum: number, s: any) => sum + (s.duration_seconds || 0),
+        0,
+      ) || 0;
+
+    // Early return if no sessions to avoid unnecessary queries
+    if (sessionIds.length === 0) {
+      return { success: true, workoutCount: 0, totalSets: 0, totalDuration: 0 };
+    }
+
+    // Step 2: Get all exercises for those sessions (simple flat query)
+    const { data: exercises, error: exercisesError } = await supabase
+      .from("session_exercises")
+      .select("id")
+      .in("session_id", sessionIds);
+
+    if (exercisesError) throw exercisesError;
+
+    const exerciseIds = exercises?.map((e) => e.id) || [];
+
+    // If no exercises, return early
+    if (exerciseIds.length === 0) {
+      return { success: true, workoutCount, totalSets: 0, totalDuration };
+    }
+
+    // Step 3: Count all sets for those exercises (simple flat query)
+    const { data: sets, error: setsError } = await supabase
+      .from("exercise_sets")
+      .select("id")
+      .in("exercise_id", exerciseIds);
+
+    if (setsError) throw setsError;
+
+    const totalSets = sets?.length || 0;
 
     return { success: true, workoutCount, totalSets, totalDuration };
   } catch (error) {
