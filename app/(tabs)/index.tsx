@@ -242,7 +242,9 @@ export default function HomeScreen() {
   const steps = useSteps();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { timedOut } = useLoadingGuard("HomeScreen", loading);
+  const { timedOut } = useLoadingGuard("HomeScreen", loading, {
+    timeoutMs: 20_000,
+  });
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [hasLoggedWeight, setHasLoggedWeight] = useState(false);
   const [bioProfile, setBioProfile] = useState<any | null>(null);
