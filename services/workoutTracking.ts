@@ -575,10 +575,11 @@ export async function getWeeklyWorkoutStats(): Promise<{
 
     const sessionIds = sessions?.map((s) => s.id) || [];
     const workoutCount = sessionIds.length;
-    const totalDuration = sessions?.reduce(
-      (sum: number, s: any) => sum + (s.duration_seconds || 0),
-      0,
-    ) || 0;
+    const totalDuration =
+      sessions?.reduce(
+        (sum: number, s: any) => sum + (s.duration_seconds || 0),
+        0,
+      ) || 0;
 
     // Early return if no sessions to avoid unnecessary queries
     if (sessionIds.length === 0) {
