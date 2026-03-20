@@ -306,7 +306,7 @@ export default function HomeScreen() {
   async function loadCalorieData() {
     try {
       const summary = await getDailySummary(
-        new Date().toISOString().slice(0, 10),
+        new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
       );
       setConsumedCalories(summary?.total_calories ?? 0);
       setConsumedProtein(summary?.total_protein ?? 0);
@@ -420,7 +420,7 @@ export default function HomeScreen() {
       // calorie data from the backend in the background without blocking.
       if (isInitial) setLoading(false);
       log.timeEnd("home:loadAllData");
-      loadCalorieData();
+      if (isInitial) loadCalorieData(); // on focus, useFocusEffect calls it directly
     }
   }
 
@@ -507,7 +507,10 @@ export default function HomeScreen() {
   // ── Refresh on screen focus ───────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      if (user) loadAllData(false);
+      if (user) {
+        loadAllData(false);
+        loadCalorieData(); // fire immediately — don't wait for loadAllData to finish
+      }
     }, [user]),
   );
 
@@ -533,9 +536,14 @@ export default function HomeScreen() {
         timeZone: "America/New_York",
       });
       if (todayEst !== estDate) {
-        // new EST day: reset local water counter and refresh remote data
+        // new EST day: reset water, calories, meals and refresh remote data
         setEstDate(todayEst);
         setWaterIntake(0);
+        setConsumedCalories(0);
+        setConsumedProtein(0);
+        setConsumedCarbs(0);
+        setConsumedFat(0);
+        setMealsLogged({ breakfast: false, lunch: false, dinner: false });
         // allow the congrats popup to show again on the new day
         setCongratsShownDate(null);
         if (user)

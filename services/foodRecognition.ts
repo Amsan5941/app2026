@@ -154,6 +154,11 @@ async function imageUriToBase64(
   return { base64: compressed.base64!, mimeType };
 }
 
+/** Returns today's date in EST timezone (YYYY-MM-DD). */
+function getTodayEST(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+
 /**
  * Send a food photo to the AI for analysis.
  */
@@ -170,6 +175,7 @@ export async function recognizeFoodImage(
       mimeType,
       mealType,
       saveLog,
+      loggedDate: getTodayEST(),
     });
   } catch (error: any) {
     throw new Error(error?.message ?? "Food analysis failed. Please try again.");
@@ -190,6 +196,7 @@ export async function recognizeFoodText(
       description,
       mealType,
       saveLog,
+      loggedDate: getTodayEST(),
     });
   } catch (error: any) {
     throw new Error(error?.message ?? "Food analysis failed");
@@ -314,6 +321,7 @@ export async function logBarcodeFood(params: {
       fat: params.fat,
       servingSize: params.serving_size,
       mealType: params.meal_type,
+      loggedDate: getTodayEST(),
     });
     return true;
   } catch {

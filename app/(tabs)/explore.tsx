@@ -58,12 +58,9 @@ import Svg, {
 } from "react-native-svg";
 
 // ── Helpers ─────────────────────────────────────────────────
+// Use EST timezone consistently so food logs reset at midnight EST (same as water)
 function todayISO(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
 function round1(n: number): number {
@@ -2789,6 +2786,7 @@ export default function NutritionScreen() {
   const [proteinGoal, setProteinGoal] = useState(180);
   const [carbsGoal, setCarbsGoal] = useState(250);
   const [fatGoal, setFatGoal] = useState(70);
+  const [estDate, setEstDate] = useState(todayISO);
 
   // Load macro targets live from bio_profile (Supabase direct – no backend needed)
   const loadGoals = useCallback(async () => {
@@ -2862,6 +2860,21 @@ export default function NutritionScreen() {
     );
     return () => subscription.remove();
   }, [user, loadData]);
+
+  // ── Detect EST day rollover and reload food logs at midnight EST ──────────
+  useEffect(() => {
+    const check = () => {
+      const todayEst = new Date().toLocaleDateString("en-CA", {
+        timeZone: "America/New_York",
+      });
+      if (todayEst !== estDate) {
+        setEstDate(todayEst);
+        if (user) loadData();
+      }
+    };
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, [estDate, user, loadData]);
 
   const handleAddMeal = (type: MealType) => {
     setAddMealType(type);
