@@ -3,20 +3,33 @@ import { useAuth } from "@/hooks/useAuth";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import AuthModal from "./AuthModal";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginButton() {
   const { user, signOut } = useAuth();
-  const [visible, setVisible] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   return (
     <View style={styles.container}>
-      <AuthModal visible={visible} onClose={() => setVisible(false)} />
+      <AuthModal
+        visible={showAuth}
+        onClose={() => setShowAuth(false)}
+        onForgotPassword={() => {
+          setShowAuth(false);
+          setShowForgotPassword(true);
+        }}
+      />
+      <ForgotPasswordModal
+        visible={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
       <Pressable
         style={({ pressed }) => [
           user ? styles.signOutBtn : styles.loginBtn,
           pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
         ]}
-        onPress={() => (user ? signOut() : setVisible(true))}
+        onPress={() => (user ? signOut() : setShowAuth(true))}
       >
         <Text style={user ? styles.signOutText : styles.loginText}>
           {user ? "Sign Out" : "Sign In"}

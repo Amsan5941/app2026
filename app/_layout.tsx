@@ -22,7 +22,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
@@ -62,7 +62,7 @@ try {
 // on certain devices (iPad + iPadOS 26.x) before the bridge is ready.
 
 function NavigationContent() {
-  const { session, authReady } = useAuth();
+  const { session, authReady, isPasswordRecovery } = useAuth();
   const { palette: Palette } = useTheme();
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
   const [showWaterReminder, setShowWaterReminder] = useState(false);
@@ -83,6 +83,14 @@ function NavigationContent() {
 
     initPostHog().catch((e) => console.warn("PostHog init failed:", e));
   }, []);
+
+  // Navigate to reset-password screen when a PASSWORD_RECOVERY event is received.
+  // Runs inside NavigationContent so the router is guaranteed to be ready.
+  useEffect(() => {
+    if (isPasswordRecovery) {
+      router.replace("/reset-password" as any);
+    }
+  }, [isPasswordRecovery]);
 
   // Identify / clear user in analytics + crash reporting on auth changes
   useEffect(() => {
@@ -173,6 +181,10 @@ function NavigationContent() {
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
+        />
+        <Stack.Screen
+          name="reset-password"
+          options={{ headerShown: false }}
         />
       </Stack>
       <DailyWeightPrompt

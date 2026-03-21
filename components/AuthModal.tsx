@@ -22,9 +22,11 @@ type SignupStep = "account" | "bio" | "questions";
 export default function AuthModal({
   visible,
   onClose,
+  onForgotPassword,
 }: {
   visible: boolean;
   onClose: () => void;
+  onForgotPassword?: () => void;
 }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -637,6 +639,14 @@ export default function AuthModal({
                     <Text style={styles.backBtnText}>← Back</Text>
                   </Pressable>
                 )}
+
+                {/* Forgot password — login mode only, only when handler provided */}
+                {mode === "login" && onForgotPassword ? (
+                  <Pressable style={styles.switchBtn} onPress={onForgotPassword}>
+                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                  </Pressable>
+                ) : null}
+
                 <Pressable
                   style={styles.switchBtn}
                   onPress={() => {
@@ -852,6 +862,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   switchBtnText: {
+    color: Palette.accent,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  forgotPasswordText: {
     color: Palette.accent,
     fontSize: 14,
     fontWeight: "600",
