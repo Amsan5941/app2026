@@ -1,5 +1,6 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { supabase } from "@/constants/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { isValidPassword } from "@/utils/signupValidation";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
@@ -18,7 +19,12 @@ import {
 type ScreenState = "waiting" | "form" | "loading" | "success" | "error" | "invalid";
 
 export default function ResetPasswordScreen() {
-  const [screenState, setScreenState] = useState<ScreenState>("waiting");
+  const { isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  // If _layout navigated here because of a PASSWORD_RECOVERY event, the session
+  // is already set — skip the waiting/token-exchange step and show the form directly.
+  const [screenState, setScreenState] = useState<ScreenState>(
+    isPasswordRecovery ? "form" : "waiting"
+  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -129,6 +135,7 @@ export default function ResetPasswordScreen() {
     }
 
     setScreenState("success");
+    clearPasswordRecovery();
     successTimeoutRef.current = setTimeout(() => router.replace("/(tabs)"), 1500);
   }
 

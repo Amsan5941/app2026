@@ -36,6 +36,11 @@ type AuthContextValue = {
   authReady: boolean;
   /** Cached internal user ID from the `users` table (null until resolved) */
   internalUserId: string | null;
+  /** True when a PASSWORD_RECOVERY event has been received — signals that the
+   *  user tapped a password-reset link and must be routed to the reset screen. */
+  isPasswordRecovery: boolean;
+  /** Called by reset-password screen after password is successfully updated. */
+  clearPasswordRecovery: () => void;
   signUp: (
     email: string,
     password: string,
@@ -56,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
 
   async function markActiveNow() {
@@ -155,14 +161,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         log.info("Auth", `onAuthStateChange: ${_event}`);
-        // PASSWORD_RECOVERY: set session so updateUser works, but navigate to
-        // the reset screen and skip the normal session side-effects (weight/water prompts).
+        // PASSWORD_RECOVERY: set session so updateUser works, flag recovery state
+        // so _layout.tsx can navigate to the reset screen. Skip normal session
+        // side-effects (weight/water prompts, internalUserId resolution).
         if (_event === "PASSWORD_RECOVERY") {
           setSession(newSession);
           setUser(newSession?.user ?? null);
-          // Dynamically import to avoid circular deps at module load time
-          const { router } = await import("expo-router");
-          router.replace("/reset-password" as any);
+          setIsPasswordRecovery(true);
           return;
         }
         setSession(newSession);
@@ -301,10 +306,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return { error };
   }
 
+  function clearPasswordRecovery() {
+    setIsPasswordRecovery(false);
+  }
+
   async function signOut() {
     clearCachedUserId();
     clearQueryCache();
     setInternalUserId(null);
+    setIsPasswordRecovery(false);
     await supabase.auth.signOut();
     await clearInactivityMarker();
   }
@@ -316,6 +326,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         session,
         authReady,
         internalUserId,
+        isPasswordRecovery,
+        clearPasswordRecovery,
         signUp,
         signIn,
         signOut,
