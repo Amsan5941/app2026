@@ -155,6 +155,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         log.info("Auth", `onAuthStateChange: ${_event}`);
+        // PASSWORD_RECOVERY is handled exclusively by the reset-password screen.
+        // Do not propagate it as a full auth session — it would trigger weight/water
+        // prompts and mark the user as fully active before they've reset their password.
+        if (_event === "PASSWORD_RECOVERY") return;
         setSession(newSession);
         const authUser = newSession?.user ?? null;
         setUser(authUser);

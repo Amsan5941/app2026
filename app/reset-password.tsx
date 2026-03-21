@@ -1,6 +1,7 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { supabase } from "@/constants/supabase";
 import { isValidPassword } from "@/utils/signupValidation";
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -21,23 +22,66 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Wait for Supabase to exchange the recovery token from the deep link URL.
-    // The client fires PASSWORD_RECOVERY when the token is valid.
+    let subscriptionCleanup: (() => void) | null = null;
+
+    // Listen for PASSWORD_RECOVERY event — fired after we call setSession below.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (recoveryTimeoutRef.current) clearTimeout(recoveryTimeoutRef.current);
         setScreenState("form");
       }
     });
+    subscriptionCleanup = () => subscription.unsubscribe();
 
-    // If PASSWORD_RECOVERY hasn't fired in 10 seconds, the screen was opened
-    // without a valid token — redirect home.
-    timeoutRef.current = setTimeout(() => {
-      // Use functional update to only redirect if still waiting — prevents
-      // race condition where timeout fires just as a valid token arrives.
+    // On native, Supabase does not auto-parse URL tokens (detectSessionInUrl: false).
+    // We must manually extract the token from the deep link and call setSession,
+    // which will fire the PASSWORD_RECOVERY event in the listener above.
+    async function processDeepLink(url: string | null) {
+      if (!url) return;
+
+      // The token is in the URL fragment (after #), e.g.:
+      // app2026://reset-password#access_token=xxx&refresh_token=yyy&type=recovery
+      const hashIndex = url.indexOf("#");
+      if (hashIndex === -1) return;
+
+      const fragment = url.slice(hashIndex + 1);
+      const params = new URLSearchParams(fragment);
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      const type = params.get("type");
+
+      if (type !== "recovery" || !accessToken || !refreshToken) return;
+
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) {
+        // Token was invalid or expired
+        setScreenState((prev) => {
+          if (prev === "waiting") {
+            successTimeoutRef.current = setTimeout(() => router.replace("/(tabs)"), 500);
+            return "invalid";
+          }
+          return prev;
+        });
+      }
+      // On success, the onAuthStateChange listener above will fire PASSWORD_RECOVERY
+    }
+
+    // Get the URL that opened the app (cold launch)
+    Linking.getInitialURL().then(processDeepLink);
+
+    // Also listen for URL events while app is already open (warm launch)
+    const linkingSub = Linking.addEventListener("url", ({ url }) => processDeepLink(url));
+
+    // Fallback timeout — if after 10 seconds we still haven't got a valid token
+    recoveryTimeoutRef.current = setTimeout(() => {
       setScreenState((prev) => {
         if (prev === "waiting") {
           router.replace("/(tabs)");
@@ -48,8 +92,10 @@ export default function ResetPasswordScreen() {
     }, 10_000);
 
     return () => {
-      subscription.unsubscribe();
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      subscriptionCleanup?.();
+      linkingSub.remove();
+      if (recoveryTimeoutRef.current) clearTimeout(recoveryTimeoutRef.current);
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
     };
   }, []);
 
@@ -83,13 +129,21 @@ export default function ResetPasswordScreen() {
     }
 
     setScreenState("success");
-    timeoutRef.current = setTimeout(() => router.replace("/(tabs)"), 1500);
+    successTimeoutRef.current = setTimeout(() => router.replace("/(tabs)"), 1500);
   }
 
-  if (screenState === "waiting" || screenState === "invalid") {
+  if (screenState === "waiting") {
     return (
       <View style={styles.centered}>
         <Text style={styles.waitingText}>Verifying reset link…</Text>
+      </View>
+    );
+  }
+
+  if (screenState === "invalid") {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.waitingText}>Invalid or expired reset link. Redirecting…</Text>
       </View>
     );
   }
