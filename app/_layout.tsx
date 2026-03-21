@@ -170,6 +170,10 @@ function NavigationContent() {
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
         />
+        <Stack.Screen
+          name="reset-password"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <DailyWeightPrompt
         visible={showWeightPrompt && !!session}
