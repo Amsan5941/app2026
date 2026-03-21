@@ -33,12 +33,19 @@ export default function ResetPasswordScreen() {
       }
     });
 
-    // If PASSWORD_RECOVERY hasn't fired in 3 seconds, the screen was opened
+    // If PASSWORD_RECOVERY hasn't fired in 10 seconds, the screen was opened
     // without a valid token — redirect home.
     timeoutRef.current = setTimeout(() => {
-      setScreenState("invalid");
-      router.replace("/(tabs)");
-    }, 3000);
+      // Use functional update to only redirect if still waiting — prevents
+      // race condition where timeout fires just as a valid token arrives.
+      setScreenState((prev) => {
+        if (prev === "waiting") {
+          router.replace("/(tabs)");
+          return "invalid";
+        }
+        return prev;
+      });
+    }, 10_000);
 
     return () => {
       subscription.unsubscribe();
@@ -76,7 +83,7 @@ export default function ResetPasswordScreen() {
     }
 
     setScreenState("success");
-    setTimeout(() => router.replace("/(tabs)"), 1500);
+    timeoutRef.current = setTimeout(() => router.replace("/(tabs)"), 1500);
   }
 
   if (screenState === "waiting" || screenState === "invalid") {
