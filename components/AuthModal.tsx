@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   forgotPasswordText: {
-    color: Palette.textSecondary,
+    color: Palette.accent,
     fontSize: 14,
     fontWeight: "600",
   },
