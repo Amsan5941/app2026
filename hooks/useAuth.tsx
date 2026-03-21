@@ -45,7 +45,7 @@ type AuthContextValue = {
   ) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error: import("@supabase/supabase-js").AuthError | null }>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -284,7 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return await supabase.auth.signInWithPassword({ email, password });
   }
 
-  async function resetPassword(email: string): Promise<{ error: import("@supabase/supabase-js").AuthError | null }> {
+  async function resetPassword(email: string): Promise<{ error: AuthError | null }> {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: "app2026://reset-password",
     });
