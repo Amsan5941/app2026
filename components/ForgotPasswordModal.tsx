@@ -1,7 +1,7 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { isValidEmail } from "@/utils/signupValidation";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -27,8 +27,16 @@ export default function ForgotPasswordModal({
   const [state, setState] = useState<ModalState>("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
 
   function handleClose() {
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
     setEmail("");
     setState("idle");
     setErrorText(null);
@@ -56,7 +64,7 @@ export default function ForgotPasswordModal({
     setState("success");
     setCooldown(true);
     // Re-enable after 60s to match Supabase rate limit
-    setTimeout(() => setCooldown(false), 60_000);
+    cooldownTimerRef.current = setTimeout(() => setCooldown(false), 60_000);
   }
 
   return (
