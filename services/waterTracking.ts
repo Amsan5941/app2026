@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "@/constants/supabase";
+import { syncWaterReminderSchedule } from "@/services/notifications";
 import { getUserId } from "@/services/userCache";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -16,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const WATER_CACHE_PREFIX = "water_intake_";
 const REMINDER_COOLDOWN_KEY = "water_reminder_last_shown";
+const WATER_REMINDER_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 
 /** Daily water goal in glasses (8 oz each) */
 export const DAILY_WATER_GOAL = 8;
@@ -118,6 +120,12 @@ async function upsertWater(glasses: number): Promise<number> {
     console.warn("upsertWater remote failed (local cache still updated):", e);
   }
 
+  try {
+    await syncWaterReminderSchedule();
+  } catch (e) {
+    console.warn("syncWaterReminderSchedule failed:", e);
+  }
+
   return clamped;
 }
 
@@ -181,16 +189,21 @@ export async function getWaterHistory(
 
 /**
  * Check if we should show the water reminder.
- * Returns true if at least 30 minutes have passed since the last reminder.
+ * Returns true when today's hydration goal is incomplete and the cooldown
+ * window has passed since the last banner display.
  */
 export async function shouldShowWaterReminder(): Promise<boolean> {
   try {
+    const intake = await getTodayWaterIntake();
+    if (intake >= DAILY_WATER_GOAL) {
+      return false;
+    }
+
     const lastShown = await AsyncStorage.getItem(REMINDER_COOLDOWN_KEY);
     if (!lastShown) return true;
 
     const elapsed = Date.now() - parseInt(lastShown, 10);
-    const THIRTY_MINUTES = 30 * 60 * 1000;
-    return elapsed >= THIRTY_MINUTES;
+    return elapsed >= WATER_REMINDER_COOLDOWN_MS;
   } catch {
     return true;
   }

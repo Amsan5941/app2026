@@ -39,7 +39,11 @@ try {
   if (typeof ErrorUtils !== "undefined") {
     const originalHandler = ErrorUtils.getGlobalHandler();
     ErrorUtils.setGlobalHandler((error, isFatal) => {
-      console.error("[GlobalErrorHandler]", isFatal ? "FATAL:" : "ERROR:", error);
+      console.error(
+        "[GlobalErrorHandler]",
+        isFatal ? "FATAL:" : "ERROR:",
+        error,
+      );
       // Delegate to the original handler but guard against re‑throw
       try {
         originalHandler?.(error, isFatal);
@@ -168,10 +172,10 @@ function NavigationContent() {
           options={{
             headerShown: true,
             headerStyle: { backgroundColor: Palette.bg },
-            headerTitle: () => null,
+            title: "ForgeFit",
+            headerTitleAlign: "center",
             headerLeft: () => null,
             headerRight: () => <LoginButton />,
-
           }}
         />
         <Stack.Screen

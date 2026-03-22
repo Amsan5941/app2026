@@ -25,6 +25,8 @@ export async function setNotificationsEnabled(
 
 export async function scheduleWaterReminders(): Promise<void> {}
 
+export async function syncWaterReminderSchedule(): Promise<void> {}
+
 export async function scheduleWorkoutReminder(_hour?: number): Promise<void> {}
 
 export async function scheduleRestTimerDoneNotification(

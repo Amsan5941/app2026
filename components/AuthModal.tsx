@@ -1,22 +1,20 @@
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
+import { estimateCalories } from "@/utils/calorieEstimation";
+import { isValidEmail, isValidPassword } from "@/utils/signupValidation";
+import React, { useEffect, useState } from "react";
 import {
-    isValidEmail,
-    isValidPassword
-} from "@/utils/signupValidation";
-import React, { useState } from "react";
-import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type SignupStep = "account" | "bio" | "questions";
@@ -60,6 +58,56 @@ export default function AuthModal({
 
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (mode !== "signup" || signupStep !== "questions") return;
+
+    const ageNum = parseInt(age, 10);
+    const weightNum = parseFloat(weight);
+    const feet = parseInt(heightFeet, 10);
+    const inches = heightInches ? parseInt(heightInches, 10) : 0;
+    const totalInches = feet * 12 + (Number.isNaN(inches) ? 0 : inches);
+
+    const goalMap: Record<string, "Cutting" | "Bulking" | "Maintaining"> = {
+      lose_weight: "Cutting",
+      gain_muscle: "Bulking",
+      maintain: "Maintaining",
+    };
+
+    if (
+      Number.isNaN(ageNum) ||
+      Number.isNaN(weightNum) ||
+      Number.isNaN(feet) ||
+      totalInches <= 0 ||
+      !sex ||
+      !goal ||
+      !activityLevel
+    ) {
+      setDailyCalorieGoal("");
+      return;
+    }
+
+    const calculated = estimateCalories({
+      age: ageNum,
+      weight: weightNum,
+      heightInInches: totalInches,
+      sex: sex as "male" | "female" | "other",
+      goal: goalMap[goal],
+      activityLevel,
+    });
+
+    setDailyCalorieGoal(calculated ? String(calculated) : "");
+  }, [
+    mode,
+    signupStep,
+    age,
+    weight,
+    heightFeet,
+    heightInches,
+    sex,
+    goal,
+    activityLevel,
+  ]);
 
   async function handleSubmit() {
     setErrorText(null);
@@ -107,7 +155,12 @@ export default function AuthModal({
 
         // Final step: questions
         if (signupStep === "questions") {
-          if (!activityLevel || !workoutStyle || !workoutsPerWeek) {
+          if (
+            !activityLevel ||
+            !workoutStyle ||
+            !workoutsPerWeek ||
+            !dailyCalorieGoal
+          ) {
             setErrorText("Please complete the questionnaire to continue");
             setLoading(false);
             return;
@@ -129,7 +182,13 @@ export default function AuthModal({
             calorie_goal: dailyCalorieGoal ? parseInt(dailyCalorieGoal) : null,
           };
 
-          const { error } = await signUp(email, password, firstname, lastname, bioData);
+          const { error } = await signUp(
+            email,
+            password,
+            firstname,
+            lastname,
+            bioData,
+          );
 
           if (error) {
             setErrorText(error.message || JSON.stringify(error));
@@ -256,11 +315,36 @@ export default function AuthModal({
                 </Text>
                 {mode === "signup" && (
                   <View style={styles.stepIndicator}>
-                    <View style={[styles.stepDot, stepNumber >= 1 && styles.stepDotActive]} />
-                    <View style={[styles.stepLine, stepNumber >= 2 && styles.stepLineActive]} />
-                    <View style={[styles.stepDot, stepNumber >= 2 && styles.stepDotActive]} />
-                    <View style={[styles.stepLine, stepNumber >= 3 && styles.stepLineActive]} />
-                    <View style={[styles.stepDot, stepNumber >= 3 && styles.stepDotActive]} />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 1 && styles.stepDotActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepLine,
+                        stepNumber >= 2 && styles.stepLineActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 2 && styles.stepDotActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepLine,
+                        stepNumber >= 3 && styles.stepLineActive,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.stepDot,
+                        stepNumber >= 3 && styles.stepDotActive,
+                      ]}
+                    />
                   </View>
                 )}
               </View>
@@ -272,7 +356,7 @@ export default function AuthModal({
               ) : null}
 
               {/* Step 1: Account */}
-              {(mode === "login" || signupStep === "account") ? (
+              {mode === "login" || signupStep === "account" ? (
                 <View style={styles.formSection}>
                   {mode === "signup" && (
                     <View style={styles.nameRow}>
@@ -388,10 +472,12 @@ export default function AuthModal({
                         ]}
                         onPress={() => setSex(opt.value)}
                       >
-                        <Text style={[
-                          styles.optionText,
-                          sex === opt.value && styles.optionTextSelected,
-                        ]}>
+                        <Text
+                          style={[
+                            styles.optionText,
+                            sex === opt.value && styles.optionTextSelected,
+                          ]}
+                        >
                           {opt.label}
                         </Text>
                       </TouchableOpacity>
@@ -413,10 +499,12 @@ export default function AuthModal({
                         ]}
                         onPress={() => setGoal(opt.value)}
                       >
-                        <Text style={[
-                          styles.optionText,
-                          goal === opt.value && styles.optionTextSelected,
-                        ]}>
+                        <Text
+                          style={[
+                            styles.optionText,
+                            goal === opt.value && styles.optionTextSelected,
+                          ]}
+                        >
                           {opt.label}
                         </Text>
                       </TouchableOpacity>
@@ -440,14 +528,18 @@ export default function AuthModal({
                         key={opt.value}
                         style={[
                           styles.optionButton,
-                          activityLevel === opt.value && styles.optionButtonSelected,
+                          activityLevel === opt.value &&
+                            styles.optionButtonSelected,
                         ]}
                         onPress={() => setActivityLevel(opt.value as any)}
                       >
-                        <Text style={[
-                          styles.optionText,
-                          activityLevel === opt.value && styles.optionTextSelected,
-                        ]}>
+                        <Text
+                          style={[
+                            styles.optionText,
+                            activityLevel === opt.value &&
+                              styles.optionTextSelected,
+                          ]}
+                        >
                           {opt.label}
                         </Text>
                       </TouchableOpacity>
@@ -465,14 +557,18 @@ export default function AuthModal({
                         key={opt.value}
                         style={[
                           styles.optionButton,
-                          workoutStyle === opt.value && styles.optionButtonSelected,
+                          workoutStyle === opt.value &&
+                            styles.optionButtonSelected,
                         ]}
                         onPress={() => setWorkoutStyle(opt.value as any)}
                       >
-                        <Text style={[
-                          styles.optionText,
-                          workoutStyle === opt.value && styles.optionTextSelected,
-                        ]}>
+                        <Text
+                          style={[
+                            styles.optionText,
+                            workoutStyle === opt.value &&
+                              styles.optionTextSelected,
+                          ]}
+                        >
                           {opt.label}
                         </Text>
                       </TouchableOpacity>
@@ -489,12 +585,14 @@ export default function AuthModal({
                     keyboardType="numeric"
                   />
 
-                  <Text style={styles.inputLabel}>Daily Calorie Goal (optional)</Text>
+                  <Text style={styles.inputLabel}>
+                    Daily Calorie Goal (optional)
+                  </Text>
                   <TextInput
-                    placeholder="e.g. 2200"
+                    placeholder="Auto-calculated"
                     placeholderTextColor={Palette.textMuted}
                     value={dailyCalorieGoal}
-                    onChangeText={setDailyCalorieGoal}
+                    editable={false}
                     style={styles.input}
                     keyboardType="numeric"
                   />
