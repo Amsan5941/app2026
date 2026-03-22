@@ -2,7 +2,7 @@
  * Push Notifications Service (Native Platforms)
  *
  * Uses expo-notifications to schedule local notifications for:
- *  - Water reminders (every 2 hours during the day, 8 AM – 9 PM)
+ *  - Water reminders (every 4 hours during the day, 10 AM – 8 PM)
  *  - Workout reminders (daily at user-preferred time, default 6 PM)
  *
  * On physical devices with Expo push tokens this also registers for
@@ -13,6 +13,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import {
+  DAILY_WATER_GOAL,
+  getTodayWaterIntake,
+} from "@/services/waterTracking";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -21,6 +25,7 @@ const NOTIFICATIONS_ENABLED_KEY = "notifications_enabled";
 const WATER_CHANNEL_ID = "water-reminders";
 const WORKOUT_CHANNEL_ID = "workout-reminders";
 const REST_TIMER_CHANNEL_ID = "rest-timer";
+const WATER_REMINDER_INTERVAL_HOURS = 4;
 
 // ── Setup ──────────────────────────────────────────────────
 
@@ -151,13 +156,29 @@ const WATER_MESSAGES = [
 ];
 
 /**
- * Schedule repeating water reminders every 2 hours from 8 AM to 9 PM.
+ * Schedule repeating water reminders every 4 hours from 10 AM to 8 PM.
+ * Reminders are only scheduled while today's hydration goal is incomplete.
  */
 export async function scheduleWaterReminders(): Promise<void> {
   // Cancel existing water reminders first
   await cancelWaterReminders();
 
-  const hours = [8, 10, 12, 14, 16, 18, 20]; // 8AM, 10AM, 12PM, 2PM, 4PM, 6PM, 8PM
+  const intake = await getTodayWaterIntake();
+  if (intake >= DAILY_WATER_GOAL) {
+    return;
+  }
+
+  const startHour = 10;
+  const endHour = 20;
+  const hours: number[] = [];
+
+  for (
+    let hour = startHour;
+    hour <= endHour;
+    hour += WATER_REMINDER_INTERVAL_HOURS
+  ) {
+    hours.push(hour);
+  }
 
   for (let i = 0; i < hours.length; i++) {
     const msg = WATER_MESSAGES[i % WATER_MESSAGES.length];
@@ -184,6 +205,25 @@ async function cancelWaterReminders(): Promise<void> {
       await Notifications.cancelScheduledNotificationAsync(n.identifier);
     }
   }
+}
+
+/**
+ * Keep water reminder schedules in sync with today's hydration completion.
+ */
+export async function syncWaterReminderSchedule(): Promise<void> {
+  const enabled = await areNotificationsEnabled();
+  if (!enabled) {
+    await cancelWaterReminders();
+    return;
+  }
+
+  const intake = await getTodayWaterIntake();
+  if (intake >= DAILY_WATER_GOAL) {
+    await cancelWaterReminders();
+    return;
+  }
+
+  await scheduleWaterReminders();
 }
 
 // ── Workout Reminder ───────────────────────────────────────
@@ -267,7 +307,7 @@ export async function scheduleAllReminders(): Promise<void> {
   const enabled = await areNotificationsEnabled();
   if (!enabled) return;
 
-  await Promise.all([scheduleWaterReminders(), scheduleWorkoutReminder()]);
+  await Promise.all([syncWaterReminderSchedule(), scheduleWorkoutReminder()]);
 }
 
 /** Cancel all scheduled reminders. */

@@ -28,6 +28,10 @@ export async function scheduleWaterReminders(): Promise<void> {
   // No-op on web
 }
 
+export async function syncWaterReminderSchedule(): Promise<void> {
+  // No-op on web
+}
+
 export async function scheduleWorkoutReminder(
   hour: number = 18,
 ): Promise<void> {

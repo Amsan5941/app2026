@@ -1166,6 +1166,12 @@ function RestTimerOverlay({
     endAtMsRef.current = Date.now() + safeSeconds * 1000;
 
     // Schedule notification
+    if (pendingNotificationRef.current) {
+      cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+        () => {},
+      );
+      pendingNotificationRef.current = null;
+    }
     scheduleRestTimerDoneNotification(safeSeconds)
       .then((id) => {
         pendingNotificationRef.current = id;
@@ -1216,6 +1222,12 @@ function RestTimerOverlay({
     endAtMsRef.current = Date.now() + safeSeconds * 1000;
     setTotal(safeSeconds);
     setRemaining(safeSeconds);
+    if (pendingNotificationRef.current) {
+      cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+        () => {},
+      );
+      pendingNotificationRef.current = null;
+    }
     scheduleRestTimerDoneNotification(safeSeconds)
       .then((id) => {
         pendingNotificationRef.current = id;
@@ -1244,7 +1256,17 @@ function RestTimerOverlay({
 
     setRemaining(nextRemaining);
     setTotal((prev) => prev + 30);
-    scheduleRestTimerDoneNotification(nextRemaining).catch(() => {});
+    if (pendingNotificationRef.current) {
+      cancelRestTimerDoneNotification(pendingNotificationRef.current).catch(
+        () => {},
+      );
+      pendingNotificationRef.current = null;
+    }
+    scheduleRestTimerDoneNotification(nextRemaining)
+      .then((id) => {
+        pendingNotificationRef.current = id;
+      })
+      .catch(() => {});
   };
 
   const mins = Math.floor(remaining / 60);
