@@ -154,13 +154,9 @@ export default function AuthModal({
           setLoading(false);
           return;
         }
-        if (!isValidPassword(password)) {
-          setErrorText(
-            "Password must be at least 8 characters and include at least one special character",
-          );
-          setLoading(false);
-          return;
-        }
+        // No client-side password format check for login — let Supabase
+        // validate the credentials. Users with older passwords that don't
+        // meet the current policy would otherwise be permanently locked out.
 
         const { error } = await signIn(email, password);
         if (error) {
@@ -323,7 +319,7 @@ export default function AuthModal({
                     style={styles.input}
                     secureTextEntry
                   />
-                  {password.length > 0 && !isValidPassword(password) ? (
+                  {mode === "signup" && password.length > 0 && !isValidPassword(password) ? (
                     <Text style={styles.passwordReq}>
                       Password must be at least 8 characters and include at
                       least one special character.

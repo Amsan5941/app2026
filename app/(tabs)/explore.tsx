@@ -1372,7 +1372,7 @@ function BarcodeScannerModal({
       });
       if (success) {
         onClose();
-        await new Promise((r) => setTimeout(r, 500));
+        // The barcode log was saved before logBarcodeFood returned — no delay needed.
         await onSuccess();
       } else {
         Alert.alert("Error", "Failed to save food log.");
@@ -2200,8 +2200,8 @@ function AddFoodModal({
 
   const handleDone = async () => {
     onClose();
-    // Give backend time to commit the write, then refresh
-    await new Promise((r) => setTimeout(r, 800));
+    // The food log was saved by the Edge Function before this callback fires,
+    // so no delay is needed — refresh immediately.
     await onSuccess();
   };
 

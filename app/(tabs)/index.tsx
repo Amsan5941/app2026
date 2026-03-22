@@ -433,13 +433,12 @@ export default function HomeScreen() {
   }
 
   function getYesterdayEst(dateStr?: string) {
-    const today = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    // compute yesterday in America/New_York by shifting one day back
-    const d = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
-    );
-    d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    // Compute yesterday relative to the provided date (or today) in ET.
+    const base = dateStr
+      ? new Date(dateStr + "T12:00:00") // noon avoids DST edge cases
+      : new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    base.setDate(base.getDate() - 1);
+    return base.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   }
 
   async function updateLoginStreak(currentEstDate?: string) {
