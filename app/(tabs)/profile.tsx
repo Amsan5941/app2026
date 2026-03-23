@@ -47,8 +47,11 @@ export default function ProfileScreen() {
   const [lastname, setLastname] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [promptShown, setPromptShown] = useState(false);
   const [bioEditing, setBioEditing] = useState(false);
@@ -527,11 +530,21 @@ export default function ProfileScreen() {
                   placeholderTextColor={Palette.textMuted}
                   secureTextEntry
                 />
+                <Text style={[styles.inputLabel, { marginTop: Spacing.sm }]}>
+                  Confirm New Password
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={Palette.textMuted}
+                  secureTextEntry
+                />
                 <View style={{ marginTop: 12 }}>
                   <Pressable
                     style={[styles.btn, { backgroundColor: Palette.accent }]}
                     onPress={async () => {
-                      // Require current password and validate new password rules
                       if (!currentPassword) {
                         Alert.alert(
                           "Please enter your current password to verify your identity.",
@@ -542,8 +555,11 @@ export default function ProfileScreen() {
                         Alert.alert("Please enter a new password.");
                         return;
                       }
+                      if (newPassword !== confirmPassword) {
+                        Alert.alert("New passwords do not match. Please try again.");
+                        return;
+                      }
 
-                      // validate new password (same rules as signup)
                       const isValidPassword = (value: string) =>
                         value.length >= 8 && /[^A-Za-z0-9]/.test(value);
 
@@ -556,14 +572,12 @@ export default function ProfileScreen() {
 
                       setChangingPassword(true);
                       try {
-                        // Re-authenticate the user by signing in with current credentials
                         const email = user?.email ?? "";
                         const { error: signInError } = (await signIn(
                           email,
                           currentPassword,
                         )) as any;
                         if (signInError) {
-                          // signIn in this hook returns { data, error }
                           Alert.alert(
                             "Current password is incorrect. Please try again.",
                           );
@@ -572,12 +586,19 @@ export default function ProfileScreen() {
                         }
 
                         const res = await changeUserPassword(newPassword);
-                        setChangingPassword(false);
                         if (res.success) {
                           setNewPassword("");
                           setCurrentPassword("");
-                          Alert.alert("Password changed successfully.");
+                          setConfirmPassword("");
+                          // Sign out immediately so the stale session is invalidated.
+                          // The user must sign in again with the new password.
+                          await signOut();
+                          Alert.alert(
+                            "Password Updated",
+                            "Your password has been updated. Please sign in again.",
+                          );
                         } else {
+                          setChangingPassword(false);
                           Alert.alert(
                             "Failed to change password. Please try again.",
                           );
@@ -630,7 +651,138 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Delete Account Card */}
+          <View style={[styles.card, { borderColor: "#7f1d1d" }]}>
+            <Text style={[styles.label, { color: "#ef4444" }]}>
+              Delete Account
+            </Text>
+            <Text
+              style={[
+                styles.value,
+                { fontSize: 14, color: Palette.textSecondary, marginBottom: Spacing.md },
+              ]}
+            >
+              Permanently delete your account and all associated data. This
+              action cannot be undone.
+            </Text>
+            <Pressable
+              style={[
+                styles.btn,
+                { backgroundColor: "#dc2626", alignSelf: "flex-start" },
+              ]}
+              onPress={() => setShowDeleteModal(true)}
+            >
+              <Text style={styles.btnText}>Delete Account</Text>
+            </Pressable>
+          </View>
+
           <View style={{ height: 36 }} />
+
+          {/* Delete Account Confirmation Modal */}
+          <Modal
+            visible={showDeleteModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDeleteModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    { color: "#ef4444", marginBottom: Spacing.md },
+                  ]}
+                >
+                  Delete Account Permanently
+                </Text>
+                <Text
+                  style={[
+                    styles.value,
+                    {
+                      fontSize: 15,
+                      color: Palette.textSecondary,
+                      marginBottom: Spacing.lg,
+                      lineHeight: 22,
+                    },
+                  ]}
+                >
+                  This will permanently delete your account and all of your
+                  data, including your profile, nutrition logs, workouts, and
+                  progress photos. This action{" "}
+                  <Text style={{ color: Palette.textPrimary, fontWeight: "700" }}>
+                    cannot be undone
+                  </Text>
+                  .
+                </Text>
+                <View style={styles.rowRight}>
+                  <Pressable
+                    style={[
+                      styles.btn,
+                      { backgroundColor: Palette.bgElevated, flex: 1 },
+                    ]}
+                    onPress={() => setShowDeleteModal(false)}
+                    disabled={deletingAccount}
+                  >
+                    <Text style={styles.btnTextSecondary}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.btn,
+                      { backgroundColor: "#dc2626", flex: 1 },
+                    ]}
+                    disabled={deletingAccount}
+                    onPress={async () => {
+                      setDeletingAccount(true);
+                      try {
+                        const { data: sessionData } =
+                          await (await import("@/constants/supabase")).supabase.auth.getSession();
+                        const accessToken = sessionData?.session?.access_token;
+                        if (!accessToken) {
+                          Alert.alert("Error", "You must be signed in to delete your account.");
+                          setDeletingAccount(false);
+                          return;
+                        }
+
+                        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+                        const res = await fetch(
+                          `${supabaseUrl}/functions/v1/delete-account`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${accessToken}`,
+                            },
+                          },
+                        );
+                        const json = await res.json();
+                        if (!res.ok || !json.success) {
+                          Alert.alert(
+                            "Error",
+                            json.error ?? "Failed to delete account. Please try again.",
+                          );
+                          setDeletingAccount(false);
+                          return;
+                        }
+
+                        setShowDeleteModal(false);
+                        // Sign out to clear local session state
+                        await signOut();
+                      } catch (e: any) {
+                        console.error("Delete account error:", e);
+                        setDeletingAccount(false);
+                        Alert.alert("Error", e?.message ?? "An unexpected error occurred.");
+                      }
+                    }}
+                  >
+                    <Text style={styles.btnText}>
+                      {deletingAccount ? "Deleting..." : "Delete My Account"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
           {/* Fitness Edit Modal */}
           <Modal visible={showFitnessModal} transparent animationType="slide">
             <KeyboardAvoidingView
