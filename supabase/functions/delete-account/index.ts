@@ -43,9 +43,19 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      return new Response(
+        JSON.stringify({ error: "Server misconfiguration: missing Supabase environment variables" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Verify the user's JWT and get their auth ID
     const userClient = createClient(supabaseUrl, anonKey, {
@@ -110,7 +120,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Delete the Supabase Auth user (permanent, irreversible)
-    const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(user.id);
+    // Explicitly request hard-delete (not soft-delete) to permanently remove
+    // the auth account so it can no longer sign in.
+    const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(
+      user.id,
+      false,
+    );
 
     if (deleteAuthError) {
       console.error("[delete-account] auth.admin.deleteUser failed:", deleteAuthError.message);

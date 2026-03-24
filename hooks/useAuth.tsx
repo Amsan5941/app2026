@@ -373,7 +373,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearQueryCache();
     setInternalUserId(null);
     setIsPasswordRecovery(false);
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "global" });
     await clearInactivityMarker();
   }
 

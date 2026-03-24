@@ -21,6 +21,7 @@ import {
 } from "react-native-safe-area-context";
 
 import AuthModal from "@/components/AuthModal";
+import { supabase } from "@/constants/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeMode, useTheme } from "@/hooks/useTheme";
 import {
@@ -34,7 +35,7 @@ import { log } from "@/utils/log";
 import { Alert } from "react-native";
 
 export default function ProfileScreen() {
-  const { user, authReady, signOut, signIn } = useAuth();
+  const { user, authReady, signOut } = useAuth();
   const { palette: P, themeMode, setThemeMode } = useTheme();
   // Shadow the static import so every inline Palette.xxx in JSX becomes reactive
   const Palette = P;
@@ -572,19 +573,6 @@ export default function ProfileScreen() {
 
                       setChangingPassword(true);
                       try {
-                        const email = user?.email ?? "";
-                        const { error: signInError } = (await signIn(
-                          email,
-                          currentPassword,
-                        )) as any;
-                        if (signInError) {
-                          Alert.alert(
-                            "Current password is incorrect. Please try again.",
-                          );
-                          setChangingPassword(false);
-                          return;
-                        }
-
                         const res = await changeUserPassword(newPassword);
                         if (res.success) {
                           setNewPassword("");
@@ -593,20 +581,21 @@ export default function ProfileScreen() {
                           // Sign out immediately so the stale session is invalidated.
                           // The user must sign in again with the new password.
                           await signOut();
+                          setAuthModalVisible(true);
                           Alert.alert(
                             "Password Updated",
                             "Your password has been updated. Please sign in again.",
                           );
                         } else {
-                          setChangingPassword(false);
                           Alert.alert(
                             "Failed to change password. Please try again.",
                           );
                         }
                       } catch (e: any) {
                         console.error("Change password error:", e);
-                        setChangingPassword(false);
                         Alert.alert(e?.message || String(e));
+                      } finally {
+                        setChangingPassword(false);
                       }
                     }}
                   >
@@ -734,43 +723,33 @@ export default function ProfileScreen() {
                     onPress={async () => {
                       setDeletingAccount(true);
                       try {
-                        const { data: sessionData } =
-                          await (await import("@/constants/supabase")).supabase.auth.getSession();
-                        const accessToken = sessionData?.session?.access_token;
-                        if (!accessToken) {
-                          Alert.alert("Error", "You must be signed in to delete your account.");
-                          setDeletingAccount(false);
-                          return;
-                        }
-
-                        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-                        const res = await fetch(
-                          `${supabaseUrl}/functions/v1/delete-account`,
-                          {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization: `Bearer ${accessToken}`,
-                            },
-                          },
+                        const { data, error } = await supabase.functions.invoke(
+                          "delete-account",
+                          { method: "POST" },
                         );
-                        const json = await res.json();
-                        if (!res.ok || !json.success) {
+                        if (error || !data?.success) {
                           Alert.alert(
                             "Error",
-                            json.error ?? "Failed to delete account. Please try again.",
+                            data?.error ??
+                              error?.message ??
+                              "Failed to delete account. Please try again.",
                           );
-                          setDeletingAccount(false);
                           return;
                         }
 
                         setShowDeleteModal(false);
-                        // Sign out to clear local session state
+                        // Clear local session state and send user back to sign-in flow.
                         await signOut();
+                        setAuthModalVisible(true);
+                        Alert.alert(
+                          "Account Deleted",
+                          "Your account has been permanently deleted.",
+                        );
                       } catch (e: any) {
                         console.error("Delete account error:", e);
-                        setDeletingAccount(false);
                         Alert.alert("Error", e?.message ?? "An unexpected error occurred.");
+                      } finally {
+                        setDeletingAccount(false);
                       }
                     }}
                   >
